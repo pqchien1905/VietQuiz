@@ -48,6 +48,7 @@ class GradingController extends Controller
                 'submitted_at' => $sub->submitted_at,
                 'is_graded'    => $sub->is_graded,
                 'type'         => 'quiz',
+                'gradable_id'  => $sub->quiz_id,
             ];
         }
 
@@ -77,6 +78,7 @@ class GradingController extends Controller
                 'submitted_at' => $sub->submitted_at,
                 'is_graded'    => false,
                 'type'         => 'assignment',
+                'gradable_id'  => $sub->id, // submission id for assignment
             ];
         }
 
@@ -98,10 +100,23 @@ class GradingController extends Controller
             'feedback'     => 'nullable|string|max:2000',
         ]);
 
+        // Map form type to polymorphic class
+        $gradableClass = match ($validated['gradable_type']) {
+            'quiz' => \App\Models\Quiz::class,
+            'assignment' => \App\Models\Submission::class,
+        };
+
+        // Validate gradable exists
+        if ($validated['gradable_type'] === 'quiz') {
+            abort_unless(\App\Models\Quiz::where('id', $validated['gradable_id'])->exists(), 422);
+        } else {
+            abort_unless(\App\Models\Submission::where('id', $validated['gradable_id'])->exists(), 422);
+        }
+
         Grade::updateOrCreate(
             [
                 'student_id'    => $validated['student_id'],
-                'gradable_type' => $validated['gradable_type'],
+                'gradable_type' => $gradableClass,
                 'gradable_id'   => $validated['gradable_id'],
             ],
             [
@@ -117,6 +132,10 @@ class GradingController extends Controller
                 ->where('quiz_id', $validated['gradable_id'])
                 ->where('user_id', $validated['student_id'])
                 ->update(['is_graded' => true, 'score' => $validated['score']]);
+        }
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Đã lưu điểm thành công!']);
         }
 
         return back()->with('success', 'Đã lưu điểm thành công!');
