@@ -1,0 +1,48 @@
+# Composer
+/vendor/
+composer.phar
+
+# Environment & secrets
+.env
+.env.backup
+.env.production
+*.env
+
+# Laravel
+/node_modules/
+/public/hot
+/public/storage
+/storage/*.key
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+/bootstrap/cache/
+/vendor/
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+/public/build/
+/dist/
+
+# Debug logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+.phpunit.result.cache
+/coverage/
+
+# Misc
+*.bak
+*.tmp

@@ -1,0 +1,11 @@
+/* VietQuiz — Main Stylesheet */
+
+@import './design-system.css';
+@import './layout.css';
+@import './components.css';
+@import './animations.css';
+
+/* Dark mode */
+.dark {
+    color-scheme: dark;
+}

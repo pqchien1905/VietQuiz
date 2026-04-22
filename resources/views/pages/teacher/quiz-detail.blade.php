@@ -1,0 +1,198 @@
+﻿{{-- Teacher: quiz-detail --}}
+@extends('layouts.dashboard', ['role' => 'teacher'])
+
+@section('content')
+  <div class="breadcrumb stagger-children">
+        <a href="{{ route('teacher.quizzes') }}">Bài kiểm tra</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="active">Kiểm tra Giữa kỳ Toán 10A</span>
+      </div>
+
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;" class="stagger-children">
+        <div>
+          <h1 style="font-size:var(--text-2xl);">Kiểm tra Giữa kỳ Toán 10A</h1>
+          <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;">
+            <span class="badge badge-success">Đã xuất bản</span>
+            <span class="badge badge-outline">30 câu hỏi</span>
+            <span class="badge badge-outline">45 phút</span>
+            <span class="badge badge-outline">Lớp 10A</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button class="btn btn-outline gap-2" onclick="previewQuiz()">👁 Xem trước</button>
+          <a href="{{ route('teacher.quiz-create') }}" class="btn btn-outline gap-2">Chỉnh sửa</a>
+          <button class="btn btn-destructive btn-sm gap-2" onclick="deleteQuiz()">Xóa</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid stats-grid-4 stagger-children" style="margin-bottom:1.5rem;">
+        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Tổng lượt làm</div><div class="stat-card__value">30</div><div class="stat-card__label">/ 32 học sinh</div></div>
+        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Điểm TB</div><div class="stat-card__value" style="color:var(--success);">78.6%</div></div>
+        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Điểm cao nhất</div><div class="stat-card__value" style="color:var(--success);">98%</div></div>
+        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Thời gian TB</div><div class="stat-card__value">38 phút</div></div>
+      </div>
+
+      <!-- Charts + submission list -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;" class="stagger-children">
+        <div class="card"><div class="card-header"><h3 class="card-title">Phân phối điểm số</h3></div><div class="card-content"><canvas id="distChart" height="200"></canvas></div></div>
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">Câu hỏi khó nhất</h3><p class="card-description">Tỷ lệ trả lời đúng thấp nhất</p></div>
+          <div class="card-content" style="padding-top:0;">
+            <!-- Question 1 -->
+            <div style="margin-bottom:.75rem;">
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:.25rem;">
+                <span>Câu 7: Tìm nghiệm pt bậc 2 phức</span>
+                <span style="font-weight:600;color:var(--destructive);">38%</span>
+              </div>
+              <div class="progress progress-sm"><div class="progress-bar danger" style="width:38%;"></div></div>
+            </div>
+            <!-- Question 2 -->
+            <div style="margin-bottom:.75rem;">
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:.25rem;">
+                <span>Câu 12: Bất đẳng thức AM-GM</span>
+                <span style="font-weight:600;color:var(--destructive);">44%</span>
+              </div>
+              <div class="progress progress-sm"><div class="progress-bar danger" style="width:44%;"></div></div>
+            </div>
+            <!-- Question 3 -->
+            <div style="margin-bottom:.75rem;">
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:.25rem;">
+                <span>Câu 19: Đồ thị hàm bậc 3</span>
+                <span style="font-weight:600;color:var(--warning);">51%</span>
+              </div>
+              <div class="progress progress-sm"><div class="progress-bar warning" style="width:51%;"></div></div>
+            </div>
+            <!-- Question 4 -->
+            <div style="margin-bottom:.75rem;">
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:.25rem;">
+                <span>Câu 24: Tích phân đặc biệt</span>
+                <span style="font-weight:600;color:var(--warning);">55%</span>
+              </div>
+              <div class="progress progress-sm"><div class="progress-bar warning" style="width:55%;"></div></div>
+            </div>
+            <!-- Question 5 -->
+            <div style="margin-bottom:.75rem;">
+              <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);margin-bottom:.25rem;">
+                <span>Câu 3: Phân tích nhân tử pt</span>
+                <span style="font-weight:600;color:var(--warning);">62%</span>
+              </div>
+              <div class="progress progress-sm"><div class="progress-bar warning" style="width:62%;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submissions -->
+      <div class="card stagger-children">
+        <div class="card-header">
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <div><h3 class="card-title">Kết quả Học sinh</h3><p class="card-description">30 học sinh đã hoàn thành</p></div>
+            <button class="btn btn-outline btn-sm" onclick="exportResults()">Xuất CSV</button>
+          </div>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0;">
+          <table>
+            <thead><tr><th>Học sinh</th><th>Điểm</th><th>Đúng</th><th>Thời gian</th><th>Nộp lúc</th><th>Xếp loại</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">A</div><span style="font-weight:500;">Nguyễn Minh Anh</span></div></td>
+                <td><span style="font-weight:700;color:var(--success);">98%</span></td>
+                <td style="font-size:var(--text-sm);">29/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">28 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:12</td>
+                <td><div class="grade-circle grade-a" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">A</div></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">U</div><span style="font-weight:500;">Lưu Thị Uyên</span></div></td>
+                <td><span style="font-weight:700;color:var(--success);">95%</span></td>
+                <td style="font-size:var(--text-sm);">28/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">35 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:40</td>
+                <td><div class="grade-circle grade-a" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">A</div></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">S</div><span style="font-weight:500;">Tô Minh Sơn</span></div></td>
+                <td><span style="font-weight:700;color:var(--success);">91%</span></td>
+                <td style="font-size:var(--text-sm);">27/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">40 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:45</td>
+                <td><div class="grade-circle grade-a" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">A</div></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">B</div><span style="font-weight:500;">Trần Thị Bích</span></div></td>
+                <td><span style="font-weight:700;color:var(--success);">88%</span></td>
+                <td style="font-size:var(--text-sm);">26/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">38 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:38</td>
+                <td><div class="grade-circle grade-b" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">B</div></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">C</div><span style="font-weight:500;">Lê Văn Chiến</span></div></td>
+                <td><span style="font-weight:700;color:var(--info);">84%</span></td>
+                <td style="font-size:var(--text-sm);">25/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">42 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:42</td>
+                <td><div class="grade-circle grade-b" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">B</div></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">Q</div><span style="font-weight:500;">Hà Thị Quỳnh</span></div></td>
+                <td><span style="font-weight:700;color:var(--info);">80%</span></td>
+                <td style="font-size:var(--text-sm);">24/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">44 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:44</td>
+                <td><div class="grade-circle grade-b" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">B</div></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">L</div><span style="font-weight:500;">Mai Thị Lan</span></div></td>
+                <td><span style="font-weight:700;color:var(--info);">72%</span></td>
+                <td style="font-size:var(--text-sm);">21/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">45 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:45</td>
+                <td><div class="grade-circle grade-c" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">C</div></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:.5rem;"><div class="avatar avatar-sm">N</div><span style="font-weight:500;">Đỗ Thị Nga</span></div></td>
+                <td><span style="font-weight:700;color:var(--destructive);">44%</span></td>
+                <td style="font-size:var(--text-sm);">13/30</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">45 phút</td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">15/03 09:45</td>
+                <td><div class="grade-circle grade-f" style="width:1.75rem;height:1.75rem;font-size:var(--text-xs);">F</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+  <div id="toast-container"></div>
+@endsection
+
+@push('scripts')
+<script>
+// Inline sidebar + header — works on file:// without CORS issues
+(function(){
+var role='teacher';
+var page=location.pathname.split('/').pop().replace(/^.*\//,'').split('?')[0]||'dashboard.html';
+var I={dash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',book:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',fq:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 10.3c.2-.4.5-.8.9-1a2.1 2.1 0 0 1 2.6.4c.3.4.5.8.5 1.3 0 1.3-2 2-2 2"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',lib:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>',clip:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/><line x1="9" y1="8" x2="11" y2="8"/></svg>',grad:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',users:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',bar:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',layers:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',bell:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',trash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',out:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'};
+var NAV=[{k:'Bảng điều khiển',h:'dashboard.html',i:'dash'},{k:'Lớp của Tôi',h:'classes.html',i:'book'},{k:'Khóa học',h:'courses.html',i:'layers'},{k:'Bài kiểm tra',h:'quizzes.html',i:'fq'},{k:'Ngân hàng câu hỏi',h:'questions.html',i:'lib'},{k:'Bài tập',h:'assignments.html',i:'clip'},{k:'Chấm điểm',h:'grading.html',i:'grad'},{k:'Học sinh',h:'students.html',i:'users'},{k:'Phân tích',h:'analytics.html',i:'bar'}];
+var cn=document.cookie.match(/auth_name=([^;]+)/);
+var un=cn?decodeURIComponent(cn[1]):'Giáo viên Demo';
+var initials=un.split(' ').filter(Boolean).map(function(w){return w[0];}).slice(-2).join('').toUpperCase();
+var saved=localStorage.getItem('vietquiz-theme')||'system';
+var dark=saved==='dark'||(saved==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+if(dark)document.documentElement.classList.add('dark');
+var navHTML=NAV.map(function(n){var a=page===n.h||page.startsWith(n.h.replace('.html',''));return'<a href="'+n.h+'" class="nav-item'+(a?' active':'')+'">'+I[n.i]+'<span>'+n.k+'</span></a>';}).join('');
+var ss=document.getElementById('sidebar-slot');
+if(ss){ss.outerHTML='<aside class="sidebar" id="main-sidebar"><a href="{{ route('home') }}" class="sidebar-logo"><div class="sidebar-logo-icon">'+I.grad+'</div><div class="sidebar-logo-text"><h1>VietQuiz</h1><p>Cổng Giáo viên</p></div></a><nav class="sidebar-nav">'+navHTML+'</nav><div class="sidebar-bottom"><a href="{{ route('teacher.trash') }}" class="nav-item'+(page==='trash.html'?' active':'')+'">'+I.trash+'<span>Thùng rác</span></a></div></aside><div class="mobile-overlay" id="mobile-overlay"></div>';var ov=document.getElementById('mobile-overlay');if(ov)ov.onclick=function(){document.getElementById('main-sidebar').classList.remove('mobile-open');ov.classList.remove('open');};}
+var sunSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+var moonSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+var crownSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>';
+var userSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+var settingsSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+var logoutSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
+var isDark=document.documentElement.classList.contains('dark');
+var hs=document.getElementById('header-slot');
+if(hs){hs.outerHTML='<header class="header" id="main-header"><button class="mobile-menu-btn" id="mobmenubtn" aria-label="Open menu"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="header-search"><div style="position:relative"><svg style="position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted-foreground);pointer-events:none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="search" class="input" placeholder="Tìm kiếm bài kiểm tra, bài tập..." style="padding-left:2.5rem" /></div></div><div class="header-actions"><button class="icon-btn" id="ttbtn" title="'+(isDark?'Light mode':'Dark mode')+'">'+(isDark?sunSvg:moonSvg)+'</button><a href="{{ route('teacher.notifications') }}" class="icon-btn notification-btn" style="position:relative;text-decoration:none;color:inherit">'+I.bell+'<span style="position:absolute;top:-2px;right:-2px;width:1.25rem;height:1.25rem;background:var(--destructive);color:#fff;border-radius:50%;font-size:.625rem;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">3</span></a><div class="dropdown"><button class="user-menu-btn" id="umtrigger"><div class="avatar avatar-md" style="background:var(--primary);color:var(--primary-foreground);font-size:var(--text-sm);font-weight:600">'+initials+'</div><div style="display:flex;flex-direction:column;align-items:flex-start"><span class="user-menu-name">'+un+'</span><span class="user-menu-role">Giáo viên</span></div><svg style="color:var(--muted-foreground);margin-left:.25rem" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="dropdown-menu" id="umenu"><div class="dropdown-label">Tài khoản của tôi</div><a href="{{ route('teacher.vip') }}" class="dropdown-item" style="color:#eab308">'+crownSvg+' Nâng VIP</a><div class="dropdown-separator"></div><a href="{{ route('teacher.profile') }}" class="dropdown-item">'+userSvg+' Hồ sơ</a><a href="{{ route('teacher.settings') }}" class="dropdown-item">'+settingsSvg+' Cài đặt</a><a href="{{ route('teacher.help') }}" class="dropdown-item"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/></svg> Hỗ trợ</a><div class="dropdown-separator"></div><button class="dropdown-item danger" id="hlbtn">'+logoutSvg+' Đăng xuất</button></div></div></div></header>';document.getElementById('mobmenubtn').onclick=function(){document.getElementById('main-sidebar').classList.toggle('mobile-open');document.getElementById('mobile-overlay').classList.toggle('open');};document.getElementById('hlbtn').onclick=function(){document.cookie='auth_role=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';document.cookie='auth_name=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';location.href='{{ route('login') }}';};document.getElementById('ttbtn').onclick=function(){var d=document.documentElement.classList.toggle('dark');localStorage.setItem('vietquiz-theme',d?'dark':'light');};var ut=document.getElementById('umtrigger'),um=document.getElementById('umenu');if(ut&&um){ut.onclick=function(e){e.stopPropagation();um.classList.toggle('open');};document.onclick=function(){um.classList.remove('open');};}}
+document.body.classList.add('page-enter');
+})();
+</script>
+@endpush

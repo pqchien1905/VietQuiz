@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="VietQuiz — Nền tảng Kiểm tra Đánh giá Toàn diện hàng đầu Việt Nam. Tạo đề thi, chấm điểm tự động, phân tích học sinh." />
+  <title>VietQuiz — Nền tảng Học tập & Kiểm tra Thông minh</title>
+  <link rel="stylesheet" href="css/design-system.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    /* Landing-specific styles */
+    .hero { background: linear-gradient(160deg, #eff6ff 0%, #fff 45%, #fff7ed 100%); padding: 6rem 1.5rem 4rem; overflow: hidden; position: relative; }
+    .dark .hero { background: linear-gradient(160deg, #1e2235 0%, #1a1d2e 50%, #1a1e2e 100%); }
+    .hero::before { content:''; position:absolute; top:-20%; right:-10%; width:600px; height:600px; background: radial-gradient(ellipse, color-mix(in srgb, var(--primary) 8%, transparent) 0%, transparent 70%); pointer-events:none; }
+    .badge-pill { display:inline-flex; align-items:center; gap:0.5rem; padding:0.375rem 1rem; border-radius:9999px; background: color-mix(in srgb, var(--primary) 10%, transparent); border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent); font-size:var(--text-sm); font-weight:500; color:var(--primary); margin-bottom:1.5rem; }
+    .hero-title { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; line-height: 1.1; margin-bottom: 1.5rem; }
+    .stat-counter { display: flex; flex-direction: column; align-items: center; }
+    .stat-counter-val { font-size: var(--text-4xl); font-weight:800; color: var(--primary); }
+    .stat-counter-label { font-size: var(--text-sm); color: var(--muted-foreground); }
+    .feature-card { padding: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); transition: all var(--transition-fast); }
+    .feature-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); border-color: var(--primary); }
+    .feature-icon { width: 3rem; height: 3rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--primary) 12%, transparent); display: flex; align-items: center; justify-content: center; color: var(--primary); margin-bottom: 1rem; }
+    .testimonial-card { padding: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); }
+    .pricing-card { padding: 2rem; border: 2px solid var(--border); border-radius: var(--radius-xl); background: var(--card); text-align: center; transition: all var(--transition-fast); }
+    .pricing-card.popular { border-color: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent); transform: scale(1.02); }
+    .pricing-price { font-size: 2.5rem; font-weight: 800; }
+    .pricing-feature { display: flex; align-items: center; gap: 0.5rem; font-size: var(--text-sm); padding: 0.375rem 0; }
+    .pricing-feature svg { color: var(--success); flex-shrink:0; }
+    footer { background: var(--foreground); color: var(--background); }
+    .dark footer { background: #0f1120; color: var(--muted-foreground); }
+    footer a { color: inherit; opacity: 0.7; text-decoration:none; transition: opacity var(--transition-fast); }
+    footer a:hover { opacity: 1; }
+    @media (max-width: 768px) { .hero { padding: 4rem 1rem 3rem; } }
+  </style>
+</head>
+<body>
+  <!-- Theme toggle (fixed) -->
+  <button class="icon-btn" data-theme-toggle style="position:fixed;top:1.25rem;right:1.25rem;z-index:1000;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-md);" aria-label="Chuyển chủ đề">
+    <span data-theme-icon></span>
+  </button>
+
+  <!-- Navbar -->
+  <nav class="landing-nav" id="navbar">
+    <div class="landing-nav-inner">
+      <!-- Logo -->
+      <a href="index.html" style="display:flex;align-items:center;gap:0.625rem;text-decoration:none;">
+        <div style="width:2rem;height:2rem;border-radius:0.5rem;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <span style="font-size:var(--text-xl);font-weight:800;color:var(--foreground);">VietQuiz</span>
+      </a>
+
+      <!-- Links -->
+      <div class="landing-nav-links" style="display:flex;align-items:center;gap:0.25rem;">
+        <a href="#features" class="landing-nav-link">Tính năng</a>
+        <a href="#pricing"  class="landing-nav-link">Bảng giá</a>
+        <a href="#testimonials" class="landing-nav-link">Đánh giá</a>
+        <div style="width:1px;height:1.25rem;background:var(--border);margin:0 0.5rem;"></div>
+        <a href="login.html" class="btn btn-outline btn-sm">Đăng nhập</a>
+        <a href="register.html" class="btn btn-primary btn-sm">Đăng ký miễn phí</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="home">
+    <div style="max-width:900px;margin:0 auto;text-align:center;position:relative;">
+      <div class="badge-pill animate-fade-in">
+        🎉 Hơn 400,000+ Giáo viên & Học sinh tin dùng
+      </div>
+      <h1 class="hero-title animate-fade-in-up">
+        Nâng cao chất lượng
+        <span class="gradient-text"> Kiểm tra & Đánh giá</span>
+        <br/>cùng công nghệ AI
+      </h1>
+      <p style="font-size:var(--text-xl);color:var(--muted-foreground);max-width:640px;margin:0 auto 2.5rem;line-height:1.7;" class="animate-fade-in-up delay-100">
+        Tạo đề kiểm tra nhanh chóng, quản lý ngân hàng câu hỏi thông minh, chấm điểm tự động và theo dõi tiến độ học sinh với nền tảng giáo dục toàn diện hàng đầu Việt Nam.
+      </p>
+      <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:0.875rem;margin-bottom:3rem;" class="animate-fade-in-up delay-200">
+        <a href="register.html" class="btn btn-primary btn-lg gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Dùng thử miễn phí
+        </a>
+        <a href="login.html?role=student" class="btn btn-outline btn-lg gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Đăng nhập Học sinh
+        </a>
+      </div>
+
+      <!-- Stats -->
+      <div style="display:flex;justify-content:center;gap:3rem;flex-wrap:wrap;" class="animate-fade-in-up delay-300">
+        <div class="stat-counter"><div class="stat-counter-val">400K+</div><div class="stat-counter-label">Người dùng</div></div>
+        <div class="stat-counter"><div class="stat-counter-val">50K+</div><div class="stat-counter-label">Giáo viên</div></div>
+        <div class="stat-counter"><div class="stat-counter-val">2M+</div><div class="stat-counter-label">Bài kiểm tra</div></div>
+        <div class="stat-counter"><div class="stat-counter-val">98%</div><div class="stat-counter-label">Hài lòng</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" id="features" style="background:var(--background);">
+    <div class="container">
+      <div style="text-align:center;margin-bottom:3rem;">
+        <div class="badge-pill" style="margin:0 auto 1rem;">✨ Tính năng</div>
+        <h2 style="font-size:var(--text-4xl);font-weight:800;margin-bottom:1rem;">Mọi thứ bạn cần để dạy và học hiệu quả</h2>
+        <p style="color:var(--muted-foreground);font-size:var(--text-lg);max-width:600px;margin:0 auto;">Nền tảng toàn diện từ tạo đề, chấm điểm đến phân tích — tiết kiệm thời gian và nâng cao kết quả.</p>
+      </div>
+
+      <div class="stagger-children" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;">
+        <!-- Feature 1 -->
+        <div class="feature-card hover-lift">
+          <div class="feature-icon"><span style="font-size:1.5rem;">🎯</span></div>
+          <h3 style="font-size:var(--text-xl);font-weight:700;margin-bottom:0.5rem;">Tạo đề thi nhanh chóng</h3>
+          <p style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.7;">Soạn đề với đa dạng loại câu hỏi: trắc nghiệm, đúng/sai, tự luận, điền khuyết. Hỗ trợ import từ Word/Excel.</p>
+        </div>
+        <!-- Feature 2 -->
+        <div class="feature-card hover-lift">
+          <div class="feature-icon"><span style="font-size:1.5rem;">🤖</span></div>
+          <h3 style="font-size:var(--text-xl);font-weight:700;margin-bottom:0.5rem;">Chấm điểm tự động</h3>
+          <p style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.7;">Trắc nghiệm được chấm ngay sau khi nộp. Tự luận hỗ trợ AI gợi ý điểm số để giảm tải cho giáo viên.</p>
+        </div>
+        <!-- Feature 3 -->
+        <div class="feature-card hover-lift">
+          <div class="feature-icon"><span style="font-size:1.5rem;">📊</span></div>
+          <h3 style="font-size:var(--text-xl);font-weight:700;margin-bottom:0.5rem;">Phân tích chi tiết</h3>
+          <p style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.7;">Dashboard trực quan với biểu đồ điểm, tỷ lệ hoàn thành, học sinh xuất sắc và cảnh báo học sinh yếu kém.</p>
+        </div>
+        <!-- Feature 4 -->
+        <div class="feature-card hover-lift">
+          <div class="feature-icon"><span style="font-size:1.5rem;">🏦</span></div>
+          <h3 style="font-size:var(--text-xl);font-weight:700;margin-bottom:0.5rem;">Ngân hàng câu hỏi</h3>
+          <p style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.7;">Lưu trữ và tái sử dụng câu hỏi thông minh. Phân loại theo môn, chủ đề, độ khó. Tìm kiếm tức thời.</p>
+        </div>
+        <!-- Feature 5 -->
+        <div class="feature-card hover-lift">
+          <div class="feature-icon"><span style="font-size:1.5rem;">👥</span></div>
+          <h3 style="font-size:var(--text-xl);font-weight:700;margin-bottom:0.5rem;">Quản lý lớp học</h3>
+          <p style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.7;">Tạo lớp, mời học sinh bằng mã QR, theo dõi điểm danh và quản lý toàn bộ hoạt động học tập.</p>
+        </div>
+        <!-- Feature 6 -->
+        <div class="feature-card hover-lift">
+          <div class="feature-icon"><span style="font-size:1.5rem;">📱</span></div>
+          <h3 style="font-size:var(--text-xl);font-weight:700;margin-bottom:0.5rem;">Học mọi nơi</h3>
+          <p style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.7;">Tối ưu cho mobile và tablet. Học sinh làm bài trên điện thoại, giáo viên chấm bài mọi lúc mọi nơi.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="section" id="testimonials" style="background:var(--muted);">
+    <div class="container">
+      <div style="text-align:center;margin-bottom:3rem;">
+        <div class="badge-pill" style="margin:0 auto 1rem;">💬 Đánh giá</div>
+        <h2 style="font-size:var(--text-4xl);font-weight:800;">Được tin dùng bởi hàng ngàn giáo viên</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;">
+        <!-- Testimonial 1 -->
+        <div class="testimonial-card">
+          <div style="display:flex;gap:0.25rem;margin-bottom:0.75rem;">★★★★★</div>
+          <p style="font-size:var(--text-sm);line-height:1.7;margin-bottom:1rem;color:var(--foreground);">"VietQuiz giúp tôi tiết kiệm 5 tiếng mỗi tuần. Việc chấm trắc nghiệm tự động là tuyệt vời nhất!"</p>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div class="avatar avatar-md">NL</div>
+            <div><div style="font-weight:600;font-size:var(--text-sm);">Nguyễn Thị Lan</div><div style="font-size:var(--text-xs);color:var(--muted-foreground);">Giáo viên Toán — THPT Chu Văn An, HN</div></div>
+          </div>
+        </div>
+        <!-- Testimonial 2 -->
+        <div class="testimonial-card">
+          <div style="display:flex;gap:0.25rem;margin-bottom:0.75rem;">★★★★★</div>
+          <p style="font-size:var(--text-sm);line-height:1.7;margin-bottom:1rem;color:var(--foreground);">"Tính năng phân tích học sinh giúp tôi nhanh chóng xác định những em cần hỗ trợ thêm. Rất hữu ích!"</p>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div class="avatar avatar-md">TT</div>
+            <div><div style="font-weight:600;font-size:var(--text-sm);">Trần Minh Tuấn</div><div style="font-size:var(--text-xs);color:var(--muted-foreground);">Giảng viên CNTT — ĐH Bách Khoa HCM</div></div>
+          </div>
+        </div>
+        <!-- Testimonial 3 -->
+        <div class="testimonial-card">
+          <div style="display:flex;gap:0.25rem;margin-bottom:0.75rem;">★★★★★</div>
+          <p style="font-size:var(--text-sm);line-height:1.7;margin-bottom:1rem;color:var(--foreground);">"Học sinh tôi chủ động học hơn khi dùng nền tảng này. Các em thích tính năng xem kết quả ngay lập tức."</p>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div class="avatar avatar-md">LH</div>
+            <div><div style="font-weight:600;font-size:var(--text-sm);">Lê Thu Hà</div><div style="font-size:var(--text-xs);color:var(--muted-foreground);">Giáo viên Anh văn — THCS Nguyễn Du, ĐN</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section" id="pricing" style="background:var(--background);">
+    <div class="container">
+      <div style="text-align:center;margin-bottom:3rem;">
+        <div class="badge-pill" style="margin:0 auto 1rem;">💎 Bảng giá</div>
+        <h2 style="font-size:var(--text-4xl);font-weight:800;margin-bottom:1rem;">Minh bạch, không ẩn phí</h2>
+        <p style="color:var(--muted-foreground);">Bắt đầu miễn phí, nâng cấp khi cần</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;max-width:900px;margin:0 auto;">
+        <!-- Free -->
+        <div class="pricing-card">
+          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;">Miễn phí</div>
+          <div class="pricing-price" style="color:var(--foreground);margin:1rem 0;">0đ</div>
+          <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">/ mãi mãi</p>
+          <a href="register.html" class="btn btn-outline w-full" style="margin-bottom:1.5rem;">Bắt đầu ngay</a>
+          <div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Tối đa 3 lớp học</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>50 câu hỏi/đề</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Chấm điểm tự động</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Báo cáo cơ bản</div>
+          </div>
+        </div>
+        <!-- Pro -->
+        <div class="pricing-card popular" style="position:relative;">
+          <div style="position:absolute;top:-1rem;left:50%;transform:translateX(-50%);"><span class="badge badge-solid-primary">Phổ biến nhất</span></div>
+          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;color:var(--primary);">Giáo viên Pro</div>
+          <div class="pricing-price" style="color:var(--primary);margin:1rem 0;">199K</div>
+          <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">/ tháng</p>
+          <a href="register.html" class="btn btn-primary w-full" style="margin-bottom:1.5rem;">Dùng thử 7 ngày miễn phí</a>
+          <div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Không giới hạn lớp học</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Không giới hạn câu hỏi</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>AI gợi ý điểm tự luận</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Phân tích nâng cao</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Xuất báo cáo PDF</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Hỗ trợ ưu tiên 24/7</div>
+          </div>
+        </div>
+        <!-- Enterprise -->
+        <div class="pricing-card">
+          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;">Doanh nghiệp</div>
+          <div class="pricing-price" style="color:var(--foreground);margin:1rem 0;font-size:var(--text-3xl);">Liên hệ</div>
+          <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">Giá riêng cho trường/tổ chức</p>
+          <a href="login.html" class="btn btn-outline w-full" style="margin-bottom:1.5rem;">Liên hệ ngay</a>
+          <div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Tất cả tính năng Pro</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Quản lý toàn trường</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SSO / LDAP integration</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>API access</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Hỗ trợ onboarding riêng</div>
+            <div class="pricing-feature"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SLA 99.9% uptime</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section style="background:linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--info)));padding:5rem 1.5rem;text-align:center;color:#fff;">
+    <div style="max-width:700px;margin:0 auto;">
+      <h2 style="font-size:var(--text-4xl);font-weight:800;margin-bottom:1rem;color:#fff;">Sẵn sàng bắt đầu?</h2>
+      <p style="color:rgba(255,255,255,0.85);font-size:var(--text-lg);margin-bottom:2rem;">Tham gia cùng 400,000+ giáo viên đang sử dụng VietQuiz mỗi ngày. Miễn phí, không cần thẻ tín dụng.</p>
+      <a href="register.html" class="btn btn-lg gap-2" style="background:#fff;color:var(--primary);font-weight:700;">
+        Đăng ký miễn phí ngay →
+      </a>
+      <div style="margin-top:1rem;font-size:var(--text-sm);color:rgba(255,255,255,0.7);">Không cần thẻ tín dụng • Huỷ bất cứ lúc nào</div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="padding:3rem 1.5rem 2rem;">
+    <div class="container">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:2rem;margin-bottom:3rem;flex-wrap:wrap;">
+        <div>
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+            <div style="width:2rem;height:2rem;border-radius:0.5rem;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
+            <span style="font-size:var(--text-xl);font-weight:800;color:#fff;">VietQuiz</span>
+          </div>
+          <p style="font-size:var(--text-sm);max-width:240px;line-height:1.7;">Nền tảng kiểm tra đánh giá toàn diện hàng đầu Việt Nam.</p>
+        </div>
+        <div><div style="font-weight:600;color:#fff;margin-bottom:0.75rem;">Sản phẩm</div><div style="display:flex;flex-direction:column;gap:0.375rem;font-size:var(--text-sm);"><a href="#">Tính năng</a><a href="#">Bảng giá</a><a href="#">API</a></div></div>
+        <div><div style="font-weight:600;color:#fff;margin-bottom:0.75rem;">Hỗ trợ</div><div style="display:flex;flex-direction:column;gap:0.375rem;font-size:var(--text-sm);"><a href="#">Tài liệu</a><a href="#">FAQ</a><a href="#">Liên hệ</a></div></div>
+        <div><div style="font-weight:600;color:#fff;margin-bottom:0.75rem;">Pháp lý</div><div style="display:flex;flex-direction:column;gap:0.375rem;font-size:var(--text-sm);"><a href="#">Điều khoản</a><a href="#">Bảo mật</a></div></div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:1.5rem;text-align:center;font-size:var(--text-sm);">
+        © 2026 VietQuiz. Nền tảng Kiểm tra Đánh giá Toàn diện — Made in Vietnam 🇻🇳
+      </div>
+    </div>
+  </footer>
+
+  <div id="toast-container"></div>
+  <script type="module">
+    import { initTheme } from './js/core/theme.js';
+    import { redirectIfAuthenticated } from './js/core/auth.js';
+    initTheme();
+    // Don't redirect — user can always visit landing
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const id = a.getAttribute('href').slice(1);
+        const el = document.getElementById(id);
+        if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth' }); }
+      });
+    });
+  </script>
+</body>
+</html>

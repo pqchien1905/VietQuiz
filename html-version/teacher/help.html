@@ -1,0 +1,152 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trợ giúp & Hỗ trợ — VietQuiz</title>
+  <link rel="stylesheet" href="../css/design-system.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/layout.css" />
+  <link rel="stylesheet" href="../css/animations.css" />
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebar-slot"></div>
+  <div class="main-container">
+    <div id="header-slot"></div>
+    <main class="main-content">
+      <div class="page-header stagger-children">
+        <h1>Trợ giúp và Hỗ trợ</h1>
+        <p style="color:var(--muted-foreground);">Tìm câu trả lời cho các câu hỏi thường gặp hoặc liên hệ với đội ngũ hỗ trợ</p>
+      </div>
+
+      <!-- Quick links -->
+      <div class="stats-grid stats-grid-3 stagger-children" style="margin-bottom:1.5rem;">
+        <div class="stat-card" style="cursor:pointer;" onclick="">
+          <div style="width:3rem;height:3rem;border-radius:var(--radius-md);background:color-mix(in srgb,var(--primary) 12%,transparent);color:var(--primary);display:flex;align-items:center;justify-content:center;margin-bottom:0.75rem;font-size:1.5rem;">📖</div>
+          <div style="font-weight:600;">Sổ tay Hướng dẫn</div>
+          <div style="font-size:var(--text-sm);color:var(--muted-foreground);">Hướng dẫn đầy đủ cách sử dụng VietQuiz</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;">
+          <div style="width:3rem;height:3rem;border-radius:var(--radius-md);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:0.75rem;font-size:1.5rem;">🎬</div>
+          <div style="font-weight:600;">Video Hướng dẫn</div>
+          <div style="font-size:var(--text-sm);color:var(--muted-foreground);">Xem video hướng dẫn từng bước</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;">
+          <div style="width:3rem;height:3rem;border-radius:var(--radius-md);background:color-mix(in srgb,var(--success) 12%,transparent);color:var(--success);display:flex;align-items:center;justify-content:center;margin-bottom:0.75rem;font-size:1.5rem;">📚</div>
+          <div style="font-weight:600;">Tài liệu</div>
+          <div style="font-size:var(--text-sm);color:var(--muted-foreground);">Tài liệu kỹ thuật chi tiết</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" class="stagger-children">
+        <!-- FAQ -->
+        <div class="card">
+          <div class="card-header">
+            <div class="flex items-center justify-between">
+              <h3 class="card-title">Câu hỏi Thường gặp</h3>
+              <div class="search-input-wrapper" style="max-width:200px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="search" class="input" style="font-size:var(--text-sm);" placeholder="Tìm câu hỏi..." id="faq-search" />
+              </div>
+            </div>
+          </div>
+          <div class="card-content" id="faq-list" style="padding-top:0;"></div>
+        </div>
+
+        <!-- Contact & Ticket -->
+        <div style="display:flex;flex-direction:column;gap:1.5rem;">
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Liên hệ Hỗ trợ</h3></div>
+            <div class="card-content" style="display:flex;flex-direction:column;gap:0.75rem;">
+              <div class="flex items-center gap-3" style="gap:0.75rem;padding:0.875rem;background:var(--muted);border-radius:var(--radius-md);">
+                <div style="font-size:1.5rem;">📧</div>
+                <div>
+                  <div style="font-weight:600;">Hỗ trợ qua Email</div>
+                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Phản hồi trong vòng 24 giờ</div>
+                  <div style="font-size:var(--text-sm);color:var(--primary);margin-top:0.25rem;">support@vietquiz.edu.vn</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3" style="gap:0.75rem;padding:0.875rem;background:var(--muted);border-radius:var(--radius-md);">
+                <div style="font-size:1.5rem;">📞</div>
+                <div>
+                  <div style="font-weight:600;">Hỗ trợ qua Điện thoại</div>
+                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Thứ Hai - Thứ Sáu, 9:00 - 17:00</div>
+                  <div style="font-size:var(--text-sm);color:var(--primary);margin-top:0.25rem;">1900 1234</div>
+                </div>
+              </div>
+              <button class="btn btn-primary gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Bắt đầu Chat Trực tiếp
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Gửi Yêu cầu Hỗ trợ</h3><p class="card-description">Mô tả vấn đề và chúng tôi sẽ phản hồi sớm</p></div>
+            <div class="card-content" style="display:flex;flex-direction:column;gap:0.875rem;">
+              <div class="form-group"><label class="label">Danh mục</label><select class="input select"><option>Vấn đề Kỹ thuật</option><option>Tài khoản & Cài đặt</option><option>Bài kiểm tra</option><option>Điểm số</option><option>Khác</option></select></div>
+              <div class="form-group"><label class="label">Nội dung</label><textarea class="input" style="min-height:5rem;" placeholder="Mô tả chi tiết vấn đề của bạn..."></textarea></div>
+              <button class="btn btn-primary" onclick="submitTicket()">Gửi Yêu cầu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+(function(){
+var FAQS=[
+  {cat:'Bắt đầu',q:'Làm thế nào để tạo lớp học mới?',a:'Truy cập trang "Lớp học" và nhấp "Tạo Lớp". Điền tên, môn học và lịch học. Học sinh có thể tham gia bằng mã lớp.'},
+  {cat:'Bài kiểm tra',q:'Làm thế nào để tạo bài kiểm tra?',a:'Vào "Bài kiểm tra" → "Tạo Kỳ thi Mới". Điền thông tin, thêm câu hỏi (trắc nghiệm, đúng/sai, tự luận) và xuất bản.'},
+  {cat:'Bài kiểm tra',q:'Có thể xáo trộn câu hỏi không?',a:'Có, khi tạo bài thi, bật tùy chọn "Xáo trộn câu hỏi" để mỗi học sinh nhận đề theo thứ tự khác nhau.'},
+  {cat:'Chấm điểm',q:'Làm thế nào để chấm bài tự luận?',a:'Vào "Chấm điểm", chọn bài tập cần chấm, xem bài nộp của từng học sinh và nhập điểm kèm phản hồi.'},
+  {cat:'Phân tích',q:'Có thể xuất báo cáo không?',a:'Có, trang "Phân tích" có nút "Xuất Báo cáo". Báo cáo CSV bao gồm điểm, thống kê và tiến độ học sinh.'},
+  {cat:'Kỹ thuật',q:'Học sinh không vào được bài thi phải làm gì?',a:'Kiểm tra: (1) Bài thi đã xuất bản chưa, (2) Chưa hết hạn, (3) Học sinh đúng lớp. Liên hệ hỗ trợ nếu vẫn lỗi.'}
+];
+function renderFAQ(data){
+  document.getElementById('faq-list').innerHTML=data.map(function(f){
+    return '<div class="accordion-item" style="border-radius:var(--radius-md);"><button class="accordion-trigger" onclick="toggleFAQ(this)"><div><div style="font-weight:500;font-size:var(--text-sm);">'+f.q+'</div><div style="font-size:var(--text-xs);color:var(--primary);">'+f.cat+'</div></div><svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button><div class="accordion-content">'+f.a+'</div></div>';
+  }).join('');
+}
+window.toggleFAQ=function(btn){btn.closest('.accordion-item').classList.toggle('open');};
+document.getElementById('faq-search').addEventListener('input',function(e){
+  var q=e.target.value.toLowerCase();
+  renderFAQ(q?FAQS.filter(function(f){return f.q.toLowerCase().indexOf(q)!==-1||f.a.toLowerCase().indexOf(q)!==-1;}):FAQS);
+});
+window.submitTicket=function(){toast('Đã gửi yêu cầu hỗ trợ! Chúng tôi sẽ phản hồi trong 24 giờ.');};
+function toast(m){var tc=document.getElementById('toast-container');if(!tc)return;var e=document.createElement('div');e.className='toast toast-success';e.innerHTML='<span>✅</span><span>'+m+'</span>';tc.appendChild(e);setTimeout(function(){e.classList.add('show');},10);setTimeout(function(){e.classList.remove('show');setTimeout(function(){e.remove();},300);},3000);}
+renderFAQ(FAQS);
+})();
+</script>
+<script>
+// Inline sidebar + header — works on file:// without CORS issues
+(function(){
+var role='teacher';
+var page=location.pathname.split('/').pop().replace(/^.*\//,'').split('?')[0]||'dashboard.html';
+var I={dash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',book:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',fq:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 10.3c.2-.4.5-.8.9-1a2.1 2.1 0 0 1 2.6.4c.3.4.5.8.5 1.3 0 1.3-2 2-2 2"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',lib:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>',clip:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/><line x1="9" y1="8" x2="11" y2="8"/></svg>',grad:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',users:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',bar:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',layers:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',bell:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',trash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',out:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'};
+var NAV=[{k:'Bảng điều khiển',h:'dashboard.html',i:'dash'},{k:'Lớp của Tôi',h:'classes.html',i:'book'},{k:'Khóa học',h:'courses.html',i:'layers'},{k:'Bài kiểm tra',h:'quizzes.html',i:'fq'},{k:'Ngân hàng câu hỏi',h:'questions.html',i:'lib'},{k:'Bài tập',h:'assignments.html',i:'clip'},{k:'Chấm điểm',h:'grading.html',i:'grad'},{k:'Học sinh',h:'students.html',i:'users'},{k:'Phân tích',h:'analytics.html',i:'bar'}];
+var cn=document.cookie.match(/auth_name=([^;]+)/);
+var un=cn?decodeURIComponent(cn[1]):'Giáo viên Demo';
+var initials=un.split(' ').filter(Boolean).map(function(w){return w[0];}).slice(-2).join('').toUpperCase();
+var saved=localStorage.getItem('vietquiz-theme')||'system';
+var dark=saved==='dark'||(saved==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+if(dark)document.documentElement.classList.add('dark');
+var navHTML=NAV.map(function(n){var a=page===n.h||page.startsWith(n.h.replace('.html',''));return'<a href="'+n.h+'" class="nav-item'+(a?' active':'')+'">'+I[n.i]+'<span>'+n.k+'</span></a>';}).join('');
+var ss=document.getElementById('sidebar-slot');
+if(ss){ss.outerHTML='<aside class="sidebar" id="main-sidebar"><a href="../index.html" class="sidebar-logo"><div class="sidebar-logo-icon">'+I.grad+'</div><div class="sidebar-logo-text"><h1>VietQuiz</h1><p>Cổng Giáo viên</p></div></a><nav class="sidebar-nav">'+navHTML+'</nav><div class="sidebar-bottom"><a href="trash.html" class="nav-item'+(page==='trash.html'?' active':'')+'">'+I.trash+'<span>Thùng rác</span></a></div></aside><div class="mobile-overlay" id="mobile-overlay"></div>';var ov=document.getElementById('mobile-overlay');if(ov)ov.onclick=function(){document.getElementById('main-sidebar').classList.remove('mobile-open');ov.classList.remove('open');};}
+var sunSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+var moonSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+var crownSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>';
+var userSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+var settingsSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+var logoutSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
+var isDark=document.documentElement.classList.contains('dark');
+var hs=document.getElementById('header-slot');
+if(hs){hs.outerHTML='<header class="header" id="main-header"><button class="mobile-menu-btn" id="mobmenubtn" aria-label="Open menu"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="header-search"><div style="position:relative"><svg style="position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted-foreground);pointer-events:none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="search" class="input" placeholder="Tìm kiếm bài kiểm tra, bài tập..." style="padding-left:2.5rem" /></div></div><div class="header-actions"><button class="icon-btn" id="ttbtn" title="'+(isDark?'Light mode':'Dark mode')+'">'+(isDark?sunSvg:moonSvg)+'</button><a href="notifications.html" class="icon-btn notification-btn" style="position:relative;text-decoration:none;color:inherit">'+I.bell+'<span style="position:absolute;top:-2px;right:-2px;width:1.25rem;height:1.25rem;background:var(--destructive);color:#fff;border-radius:50%;font-size:.625rem;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">3</span></a><div class="dropdown"><button class="user-menu-btn" id="umtrigger"><div class="avatar avatar-md" style="background:var(--primary);color:var(--primary-foreground);font-size:var(--text-sm);font-weight:600">'+initials+'</div><div style="display:flex;flex-direction:column;align-items:flex-start"><span class="user-menu-name">'+un+'</span><span class="user-menu-role">Giáo viên</span></div><svg style="color:var(--muted-foreground);margin-left:.25rem" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="dropdown-menu" id="umenu"><div class="dropdown-label">Tài khoản của tôi</div><a href="vip.html" class="dropdown-item" style="color:#eab308">'+crownSvg+' Nâng VIP</a><div class="dropdown-separator"></div><a href="profile.html" class="dropdown-item">'+userSvg+' Hồ sơ</a><a href="settings.html" class="dropdown-item">'+settingsSvg+' Cài đặt</a><a href="help.html" class="dropdown-item"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/></svg> Hỗ trợ</a><div class="dropdown-separator"></div><button class="dropdown-item danger" id="hlbtn">'+logoutSvg+' Đăng xuất</button></div></div></div></header>';document.getElementById('mobmenubtn').onclick=function(){document.getElementById('main-sidebar').classList.toggle('mobile-open');document.getElementById('mobile-overlay').classList.toggle('open');};document.getElementById('hlbtn').onclick=function(){document.cookie='auth_role=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';document.cookie='auth_name=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';location.href='../login.html';};document.getElementById('ttbtn').onclick=function(){var d=document.documentElement.classList.toggle('dark');localStorage.setItem('vietquiz-theme',d?'dark':'light');};var ut=document.getElementById('umtrigger'),um=document.getElementById('umenu');if(ut&&um){ut.onclick=function(e){e.stopPropagation();um.classList.toggle('open');};document.onclick=function(){um.classList.remove('open');};}}
+document.body.classList.add('page-enter');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Đăng nhập VietQuiz — Nền tảng học tập thông minh cho giáo viên và học sinh." />
+  <title>Đăng nhập — VietQuiz</title>
+  <link rel="stylesheet" href="css/design-system.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <style>
+    .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #eff6ff 0%, #fff 50%, #fff7ed 100%); padding: 2rem 1rem; }
+    .dark .auth-page { background: linear-gradient(135deg, #1e2235 0%, #1a1d2e 50%, #1e2235 100%); }
+    .auth-box { width: 100%; max-width: 26rem; }
+    .auth-logo { text-align: center; margin-bottom: 2rem; }
+    .auth-logo-icon { width: 4rem; height: 4rem; background: color-mix(in srgb, var(--primary) 12%, transparent); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: var(--primary); }
+    .auth-logo h1 { font-size: var(--text-3xl); font-weight: 800; color: var(--foreground); margin-bottom: 0.25rem; }
+    .auth-logo p { font-size: var(--text-sm); color: var(--muted-foreground); }
+    .role-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; background-color: var(--muted); border-radius: var(--radius-md); padding: 3px; margin-bottom: 1.25rem; }
+    .role-tab { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.5rem; border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm); font-weight: 500; color: var(--muted-foreground); border: 1px solid transparent; background: transparent; transition: all var(--transition-fast); }
+    .role-tab.active { background-color: var(--background); color: var(--foreground); box-shadow: var(--shadow-sm); border-color: var(--border); }
+    .demo-card { margin-top: 1rem; }
+    .theme-btn-top { position: absolute; top: 1rem; right: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="auth-page" id="auth-page">
+    <!-- Theme toggle top right -->
+    <button class="icon-btn theme-btn-top" data-theme-toggle style="position:fixed; top:1rem; right:1rem;" aria-label="Chuyển chủ đề">
+      <span data-theme-icon></span>
+    </button>
+
+    <div class="auth-box animate-fade-in-up">
+      <!-- Logo -->
+      <div class="auth-logo">
+        <div class="auth-logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <h1>Chào mừng trở lại</h1>
+        <p>Đăng nhập vào tài khoản của bạn để tiếp tục</p>
+      </div>
+
+      <!-- Card -->
+      <div class="card shadow-xl" style="border-width: 2px;">
+        <div class="card-header">
+          <h2 class="card-title" style="font-size: var(--text-2xl);">Đăng nhập</h2>
+          <p class="card-description">Chọn vai trò và nhập thông tin đăng nhập</p>
+        </div>
+        <div class="card-content">
+          <!-- Role tabs -->
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label class="label" for="">Tôi là...</label>
+            <div class="role-tabs">
+              <button class="role-tab active" id="tab-teacher" onclick="selectRole('teacher')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                Giáo viên
+              </button>
+              <button class="role-tab" id="tab-student" onclick="selectRole('student')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Học sinh
+              </button>
+            </div>
+          </div>
+
+          <!-- Error message -->
+          <div class="alert alert-danger" id="general-error" style="display:none; margin-bottom: 1rem;">
+            <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="general-error-text"></span>
+          </div>
+
+          <form id="login-form" novalidate>
+            <!-- Email -->
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="label" for="email">Địa chỉ Email</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <input type="email" id="email" class="input" placeholder="ten.ban@example.com" autocomplete="email" />
+              </div>
+              <p class="form-error" id="email-error" style="display:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span id="email-error-text"></span>
+              </p>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <div class="flex items-center justify-between" style="margin-bottom: 0.375rem;">
+                <label class="label" for="password" style="margin: 0;">Mật khẩu</label>
+                <a href="forgot-password.html" style="font-size: var(--text-sm); color: var(--primary);">Quên mật khẩu?</a>
+              </div>
+              <div class="input-wrapper">
+                <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <input type="password" id="password" class="input" placeholder="Mật khẩu" autocomplete="current-password" />
+                <button type="button" class="input-icon-right" id="toggle-password" aria-label="Hiện/ẩn mật khẩu">
+                  <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <p class="form-error" id="password-error" style="display:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span id="password-error-text"></span>
+              </p>
+            </div>
+
+            <!-- Remember me -->
+            <div class="checkbox-wrapper" style="margin-bottom: 1.25rem;">
+              <input type="checkbox" id="remember" />
+              <label for="remember" style="font-size: var(--text-sm); font-weight: 400; cursor: pointer;">Ghi nhớ tôi trong 30 ngày</label>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn btn-primary w-full btn-lg" id="submit-btn">
+              Đăng nhập
+            </button>
+          </form>
+
+          <!-- Register link -->
+          <p style="text-align: center; margin-top: 1rem; font-size: var(--text-sm); color: var(--muted-foreground);">
+            Chưa có tài khoản?
+            <a href="register.html" style="font-weight: 600; color: var(--primary);">Tạo tài khoản</a>
+          </p>
+        </div>
+      </div>
+
+      <!-- Demo card -->
+      <div class="card demo-card" style="border-style: dashed; background: var(--muted);">
+        <div class="card-content" style="padding: 1rem;">
+          <p style="font-weight: 500; font-size: var(--text-sm); color: var(--muted-foreground); margin-bottom: 0.5rem;">Thông tin đăng nhập Demo:</p>
+          <div style="font-size: var(--text-sm); color: var(--muted-foreground); display: flex; flex-direction: column; gap: 0.25rem;">
+            <span>• Giáo viên: teacher@demo.com / password123</span>
+            <span>• Học sinh: student@demo.com / password123</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <script type="module">
+    import { initTheme } from './js/core/theme.js';
+    import { login, redirectIfAuthenticated, getBasePath } from './js/core/auth.js';
+    import { toastSuccess, toastError } from './js/components/toast.js';
+
+    // Init theme immediately
+    initTheme();
+
+    // Redirect if already logged in
+    redirectIfAuthenticated();
+
+    // State
+    let activeRole = 'teacher';
+
+    // Check URL param for pre-selecting role
+    const from = new URLSearchParams(window.location.search).get('from') || '';
+    if (from.includes('/student/')) {
+      selectRole('student');
+    }
+
+    window.selectRole = (role) => {
+      activeRole = role;
+      document.getElementById('tab-teacher').classList.toggle('active', role === 'teacher');
+      document.getElementById('tab-student').classList.toggle('active', role === 'student');
+    };
+
+    // Password toggle
+    const passwordInput = document.getElementById('password');
+    const eyeBtn = document.getElementById('toggle-password');
+    const eyeIcon = document.getElementById('eye-icon');
+
+    eyeBtn.addEventListener('click', () => {
+      const isHidden = passwordInput.type === 'password';
+      passwordInput.type = isHidden ? 'text' : 'password';
+      eyeIcon.innerHTML = isHidden
+        ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`
+        : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+    });
+
+    // Form validation
+    function validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+    function showError(id, msg) {
+      document.getElementById(id).style.display = 'flex';
+      document.getElementById(id + '-text').textContent = msg;
+      document.getElementById(id.replace('-error', '')).classList.add('input-error');
+    }
+    function clearError(id) {
+      document.getElementById(id).style.display = 'none';
+      const input = document.getElementById(id.replace('-error', ''));
+      if (input) input.classList.remove('input-error');
+    }
+
+    document.getElementById('email').addEventListener('input', () => clearError('email-error'));
+    document.getElementById('password').addEventListener('input', () => clearError('password-error'));
+
+    // Submit
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const remember = document.getElementById('remember').checked;
+      const submitBtn = document.getElementById('submit-btn');
+
+      clearError('email-error');
+      clearError('password-error');
+      document.getElementById('general-error').style.display = 'none';
+
+      // Validate
+      let valid = true;
+      if (!email) { showError('email-error', 'Email là bắt buộc'); valid = false; }
+      else if (!validateEmail(email)) { showError('email-error', 'Vui lòng nhập địa chỉ email hợp lệ'); valid = false; }
+      if (!password) { showError('password-error', 'Mật khẩu là bắt buộc'); valid = false; }
+      else if (password.length < 6) { showError('password-error', 'Mật khẩu phải có ít nhất 6 ký tự'); valid = false; }
+      if (!valid) return;
+
+      // Submit
+      submitBtn.disabled = true;
+      submitBtn.classList.add('loading');
+      submitBtn.textContent = 'Đang đăng nhập...';
+
+      const result = await login(activeRole, email, password, remember);
+
+      if (result.success) {
+        toastSuccess('Đăng nhập thành công! Đang chuyển hướng...');
+        setTimeout(() => {
+          const dest = from && from.startsWith('/' + activeRole + '/')
+            ? from.replace(/^\//, '') + '.html'
+            : `${activeRole}/dashboard.html`;
+          window.location.href = dest;
+        }, 800);
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.textContent = 'Đăng nhập';
+        document.getElementById('general-error').style.display = 'flex';
+        document.getElementById('general-error-text').textContent = result.error || 'Email hoặc mật khẩu không hợp lệ.';
+      }
+    });
+  </script>
+</body>
+</html>
