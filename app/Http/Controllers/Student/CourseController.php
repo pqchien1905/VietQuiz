@@ -37,20 +37,48 @@ class CourseController extends Controller
             403
         );
 
-        $course->load(['teacher', 'classModel', 'quizzes', 'assignments']);
+        $user = $request->user();
 
-        $completedQuizzes = $request->user()
-            ->quizAttempts()
-            ->where('quizzes.id', $course->id)
-            ->count();
+        $course->load(['teacher', 'classModel', 'quizzes' => fn($q) => $q->orderByDesc('created_at')], 'assignments');
 
-        $completedAssignments = $request->user()
-            ->submissions()
+        $completedQuizIds = $user->quizAttempts()
+            ->whereIn('quiz_id', $course->quizzes->pluck('id'))
+            ->whereNotNull('submitted_at')
+            ->pluck('quiz_id')
+            ->toArray();
+
+        $submittedAssignmentIds = $user->submissions()
             ->whereIn('assignment_id', $course->assignments->pluck('id'))
-            ->count();
+            ->pluck('assignment_id')
+            ->toArray();
+
+        $quizGrades = \DB::table('quiz_user')
+            ->whereIn('quiz_id', $course->quizzes->pluck('id'))
+            ->where('user_id', $user->id)
+            ->whereNotNull('submitted_at')
+            ->get();
+
+        $assignmentGrades = $user->submissions()
+            ->whereIn('assignment_id', $course->assignments->pluck('id'))
+            ->with('grades')
+            ->get();
+
+        $totalItems = $course->quizzes->count() + $course->assignments->count();
+        $completedItems = count($completedQuizIds) + count($submittedAssignmentIds);
+        $completionPct = $totalItems > 0 ? round($completedItems / $totalItems * 100) : 0;
+
+        $totalEarned = $quizGrades->sum('score');
+        $totalPossible = $quizGrades->sum('total_points');
+        foreach ($assignmentGrades as $sub) {
+            if ($sub->grades->first()) {
+                $totalEarned += $sub->grades->first()->score;
+                $totalPossible += $sub->grades->first()->score > 0 ? $totalPossible : 0;
+            }
+        }
+        $avgGrade = $totalPossible > 0 ? round($totalEarned / $totalPossible * 100, 1) : null;
 
         return view('pages.student.course-detail', compact(
-            'course', 'completedQuizzes', 'completedAssignments'
+            'course', 'completedQuizIds', 'submittedAssignmentIds', 'completionPct', 'avgGrade'
         ));
     }
 }

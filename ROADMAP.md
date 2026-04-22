@@ -12,7 +12,7 @@
 |---|---|---|
 | Authentication (Login/Register/Logout) | ✅ Hoàn chỉnh | Laravel Breeze |
 | Teacher Dashboard | ✅ Hoàn chỉnh | Stats + navigation |
-| Student Dashboard | ⚠️ Cần cập nhật dữ liệu thật | Controller đã có, view cần verify |
+| Student Dashboard | ✅ Hoàn chỉnh | Real data from controller (22/04/2026) |
 | Quiz tạo (Teacher) | ✅ Hoàn chỉnh | Quiz creation JS đã fix (22/04/2026) |
 | Quiz làm (Student) | ✅ Hoàn chỉnh | Quiz-take + result pages (22/04/2026) |
 | Assignment Teacher | ✅ Hoàn chỉnh | CRUD đầy đủ |
@@ -233,21 +233,21 @@ Controller trả đủ data thật:
 **File:** `resources/views/pages/student/course-detail.blade.php`
 
 **Cần thêm:**
-- [ ] Tabs: Bài giảng / Bài tập / Quiz / Điểm số
-- [ ] Danh sách bài học (có trạng thái completed)
-- [ ] Nút "Làm Quiz" / "Nộp bài" cho từng item
-- [ ] Progress bar (% hoàn thành)
-- [ ] Mô tả khóa học
+- [x] Tabs: Bài giảng / Bài tập / Quiz / Điểm số
+- [x] Danh sách bài học (có trạng thái completed)
+- [x] Nút "Làm Quiz" / "Nộp bài" cho từng item
+- [x] Progress bar (% hoàn thành)
+- [x] Mô tả khóa học
 
 ### 4.2 Class Detail Page (Teacher)
 
 **File:** `resources/views/pages/teacher/class-detail.blade.php`
 
 **Cần thêm:**
-- [ ] Tabs: Bài tập / Quiz / Học sinh / Analytics
-- [ ] Quản lý học sinh (thêm/xóa)
+- [x] Tabs: Bài tập / Quiz / Học sinh / Analytics
+- [x] Quản lý học sinh (thêm/xóa)
 - [ ] Import học sinh bằng CSV
-- [ ] Xem chi tiết học sinh (điểm, bài nộp)
+- [x] Xem chi tiết học sinh (điểm, bài nộp)
 - [ ] Gửi thông báo cho lớp
 
 ### 4.3 Student Dashboard
@@ -255,11 +255,11 @@ Controller trả đủ data thật:
 **File:** `resources/views/pages/student/dashboard.blade.php`
 
 **Cần thêm real data:**
-- [ ] Số quiz đã làm
-- [ ] Điểm trung bình
-- [ ] Bài tập pending (deadline sắp tới)
-- [ ] Khóa học đang học
-- [ ] Thống kê hoàn thành
+- [x] Số quiz đã làm
+- [x] Điểm trung bình
+- [x] Bài tập pending (deadline sắp tới)
+- [x] Khóa học đang học
+- [x] Thống kê hoàn thành
 
 ### 4.4 VIP & Help Pages
 
