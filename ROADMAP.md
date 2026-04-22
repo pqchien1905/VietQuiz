@@ -13,8 +13,8 @@
 | Authentication (Login/Register/Logout) | ✅ Hoàn chỉnh | Laravel Breeze |
 | Teacher Dashboard | ✅ Hoàn chỉnh | Stats + navigation |
 | Student Dashboard | ⚠️ Cần cập nhật dữ liệu thật | Controller đã có, view cần verify |
-| Quiz tạo (Teacher) | ❌ Schema lỗi + thiếu JS | Schema question không khớp |
-| Quiz làm (Student) | ❌ Gần như trống | View quiz-take trống |
+| Quiz tạo (Teacher) | ✅ Hoàn chỉnh | Quiz creation JS đã fix (22/04/2026) |
+| Quiz làm (Student) | ✅ Hoàn chỉnh | Quiz-take + result pages (22/04/2026) |
 | Assignment Teacher | ✅ Hoàn chỉnh | CRUD đầy đủ |
 | Assignment Student | ⚠️ Thiếu form nộp bài | Chưa có submit form |
 | Grading (Teacher) | ⚠️ View dùng data giả | Controller OK, view chưa dùng data thật |
@@ -112,30 +112,35 @@
 
 **Tính năng cần có:**
 
-- [ ] **Hiển thị câu hỏi** - từng lượt (1 câu/màn hình)
-- [ ] **Navigation** - prev/next + jump to question number
-- [ ] **Timer** - đếm ngược thời gian (hiển thị đẹp)
-- [ ] **Đánh dấu đã trả lời** - highlight số câu đã trả trên navigation
-- [ ] **Auto-submit** - khi hết giờ tự động nộp
-- [ ] **Xác nhận nộp** - popup confirm trước khi nộp
-- [ ] **Review câu hỏi** - xem lại tất cả câu trước khi nộp
-- [ ] **Hiển thị kết quả** - sau khi nộp
+- [x] **Hiển thị câu hỏi** - từng lượt (1 câu/màn hình)
+- [x] **Navigation** - prev/next + jump to question number
+- [x] **Timer** - đếm ngược thời gian (hiển thị đẹp)
+- [x] **Đánh dấu đã trả lời** - highlight số câu đã trả trên navigation
+- [x] **Auto-submit** - khi hết giờ tự động nộp
+- [x] **Xác nhận nộp** - popup confirm trước khi nộp
+- [x] **Review câu hỏi** - xem lại tất cả câu trước khi nộp
+- [x] **Hiển thị kết quả** - sau khi nộp → chuyển sang trang result
 
-**Controller cần cập nhật:**
+**Controller cần cập nhật:** ✅ ĐÃ CÓ SẴN
 - `Student/QuizController@take` - trả đủ data (questions với options, time_limit)
 - `Student/QuizController@submit` - xử lý submit, tạo Submission + Grade
+
+**Trạng thái:** ✅ Hoàn thành (22/04/2026)
 
 ### 2.2 Quiz Result Page
 
 **File:** `resources/views/pages/student/quiz-result.blade.php`
 
 **Cần hiển thị:**
-- [ ] Điểm số / Tổng điểm (lớn, nổi bật)
-- [ ] Thời gian làm bài
-- [ ] Số câu đúng / sai / chưa trả lời
-- [ ] **Chi tiết từng câu** - đáp án đã chọn vs đáp án đúng
-- [ ] Nút "Làm lại" hoặc "Quay về khóa học"
-- [ ] Biểu đồ điểm (so với TB lớp)
+- [x] Điểm số / Tổng điểm (lớn, nổi bật)
+- [x] Thời gian làm bài
+- [x] Số câu đúng / sai / chưa trả lời
+- [x] **Chi tiết từng câu** - đáp án đã chọn vs đáp án đúng
+- [x] Nút "Làm lại" hoặc "Quay về khóa học"
+- [x] Phân tích kết quả (thanh điểm đúng/sai/bỏ qua)
+- [x] Tabs: Thống kê / Xem đáp án
+
+**Trạng thái:** ✅ Hoàn thành (22/04/2026)
 
 ### 2.3 Quiz History (Student)
 
@@ -450,8 +455,8 @@ VietQuiz/
 - [x] G1.1: Schema fix (QuestionController + QuizController)
 - [x] G1.2: Mass assignment fix → Không cần (đã có sẵn)
 - [x] G1.3: Quiz creation JS
-- [ ] G2: Quiz-take page
-- [ ] G2: Quiz result page
+- [x] G2: Quiz-take page (22/04/2026)
+- [x] G2: Quiz result page (22/04/2026)
 - [ ] G2: Quiz history
 - [ ] G2: Assignment submission
 - [ ] G3: Analytics real data
