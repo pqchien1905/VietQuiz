@@ -1,160 +1,171 @@
-﻿{{-- Student: vip --}}
+{{-- Student: vip --}}
 @extends('layouts.dashboard', ['role' => 'student'])
+
+@php
+  $plan = $plans['monthly'];
+  $isActive = $subscription?->is_active;
+  $statusNames = ['pending' => 'Đang chờ', 'paid' => 'Đã thanh toán', 'failed' => 'Thất bại', 'cancelled' => 'Đã hủy'];
+  $statusClasses = ['pending' => 'vip-status-pending', 'paid' => 'vip-status-paid', 'failed' => 'vip-status-failed', 'cancelled' => 'vip-status-cancelled'];
+@endphp
 
 @push('styles')
 <style>
-.vip-hero { background:linear-gradient(135deg,#7c3aed,#2563eb); padding:3rem 1.5rem; text-align:center; color:#fff; border-radius:var(--radius-xl); margin-bottom:1.5rem; position:relative; overflow:hidden; }
-    .vip-hero::before { content:''; position:absolute; inset:0; background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Ccircle cx='30' cy='30' r='29'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
-    .plan-card { border:2px solid var(--border); border-radius:var(--radius-xl); padding:2rem; transition:all var(--transition-fast); cursor:pointer; position:relative; }
-    .plan-card:hover { border-color:var(--primary); box-shadow:var(--shadow-lg); transform:translateY(-4px); }
-    .plan-card.selected { border-color:var(--primary); box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 10%,transparent); }
-    .plan-card.popular { border-color:var(--primary); }
-    .feature-row { display:flex; align-items:center; gap:0.5rem; padding:0.5rem 0; border-bottom:1px solid var(--border); font-size:var(--text-sm); }
-    .feature-row:last-child { border-bottom:none; }
-    .check { color:var(--success); flex-shrink:0; }
-    .cross { color:var(--destructive); flex-shrink:0; opacity:.5; }
+  .vip-page{display:flex;flex-direction:column;gap:1.5rem}
+  .vip-hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:1.25rem;align-items:stretch;padding:2rem;border:1px solid var(--border);border-radius:var(--radius-xl);background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 10%,var(--card)),var(--card))}
+  .vip-kicker{display:inline-flex;align-items:center;gap:.45rem;width:max-content;padding:.35rem .75rem;border-radius:999px;background:color-mix(in srgb,var(--success) 12%,transparent);color:var(--success);font-size:var(--text-sm);font-weight:800}
+  .vip-hero h1{margin:.85rem 0 .75rem;font-size:clamp(1.8rem,3vw,2.65rem);line-height:1.08;letter-spacing:0}
+  .vip-hero p{max-width:720px;color:var(--muted-foreground);font-size:var(--text-base);line-height:1.7}
+  .vip-summary{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);padding:1.25rem;display:flex;flex-direction:column;gap:.75rem}
+  .vip-summary-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;font-size:var(--text-sm)}
+  .vip-summary-row strong{font-size:var(--text-base)}
+  .vip-plan{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.45fr);gap:1rem;align-items:stretch}
+  .vip-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);padding:1.25rem}
+  .vip-offer{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)}
+  .vip-price{display:flex;align-items:flex-end;gap:.45rem;margin:.75rem 0}
+  .vip-price strong{font-size:2.4rem;line-height:1;color:var(--primary)}
+  .vip-price span{font-size:var(--text-sm);color:var(--muted-foreground);padding-bottom:.2rem}
+  .vip-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin:1rem 0 0;padding:0;list-style:none}
+  .vip-features li{display:flex;align-items:flex-start;gap:.5rem;color:var(--muted-foreground);font-size:var(--text-sm)}
+  .vip-check{color:var(--success);font-weight:900;line-height:1.35}
+  .vip-form{display:flex;flex-direction:column;gap:.8rem;margin-top:1rem}
+  .vip-form select{width:100%;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--background);color:var(--foreground);padding:.65rem .75rem;font-size:var(--text-sm)}
+  .vip-alert{padding:1rem;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--card)}
+  .vip-alert-success{border-color:color-mix(in srgb,var(--success) 35%,var(--border));background:color-mix(in srgb,var(--success) 8%,var(--card));color:var(--success)}
+  .vip-alert-error{border-color:color-mix(in srgb,var(--destructive) 35%,var(--border));background:color-mix(in srgb,var(--destructive) 8%,var(--card));color:var(--destructive)}
+  .vip-status{display:inline-flex;align-items:center;padding:.28rem .6rem;border-radius:999px;font-size:.75rem;font-weight:800}
+  .vip-status-pending{color:#a16207;background:#fef3c7}
+  .vip-status-paid{color:#047857;background:#d1fae5}
+  .vip-status-failed,.vip-status-cancelled{color:#b91c1c;background:#fee2e2}
+  .vip-info-list{display:flex;flex-direction:column;gap:.75rem;margin:0;padding:0;list-style:none;font-size:var(--text-sm)}
+  .vip-info-list li{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid var(--border);padding-bottom:.75rem}
+  .vip-info-list li:last-child{border-bottom:0;padding-bottom:0}
+  .vip-copy{word-break:break-all;color:var(--muted-foreground);text-align:right}
+  @media (max-width:900px){.vip-hero,.vip-plan{grid-template-columns:1fr}.vip-features{grid-template-columns:1fr}}
 </style>
 @endpush
 
 @section('content')
-  <!-- Hero -->
-      <div class="vip-hero stagger-children">
-        <div style="position:relative;">
-          <div style="font-size:3rem;margin-bottom:0.75rem;">💎</div>
-          <h1 style="color:#fff;font-size:var(--text-4xl);margin-bottom:0.75rem;">Nâng cấp lên VietQuiz Pro</h1>
-          <p style="color:rgba(255,255,255,.85);font-size:var(--text-lg);max-width:560px;margin:0 auto 1.5rem;">Mở khóa toàn bộ tính năng cao cấp để giảng dạy và học tập hiệu quả hơn. Không giới hạn, không quảng cáo.</p>
-          <div style="display:inline-flex;align-items:center;gap:0.5rem;background:rgba(255,255,255,.15);border-radius:9999px;padding:0.375rem 1rem;font-size:var(--text-sm);font-weight:500;color:#fff;">
-            🕐 Ưu đãi đặc biệt: Giảm 30% — còn 3 ngày
-          </div>
+<div class="vip-page">
+  @if(session('success'))
+    <div class="vip-alert vip-alert-success">{{ session('success') }}</div>
+  @endif
+
+  @if(session('error'))
+    <div class="vip-alert vip-alert-error">{{ session('error') }}</div>
+  @endif
+
+  @if($errors->any())
+    <div class="vip-alert vip-alert-error">{{ $errors->first() }}</div>
+  @endif
+
+  <section class="vip-hero">
+    <div>
+      <div class="vip-kicker">Bỏ quảng cáo khi học</div>
+      <h1>Học liền mạch, không bị chen quảng cáo.</h1>
+      <p>Gói này chỉ dành cho học sinh: bỏ quảng cáo trên màn học, màn làm quiz và màn xem bài tập. Không mở thêm tính năng giáo viên, không gói phức tạp, giá rẻ để tập trung học.</p>
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem;">
+        <a href="#vip-plan" class="btn btn-primary">Xem gói</a>
+        <a href="{{ route('student.dashboard') }}" class="btn btn-outline">Về học tiếp</a>
+      </div>
+    </div>
+
+    <aside class="vip-summary">
+      <div class="vip-summary-row"><span>Trạng thái</span><strong>{{ $isActive ? 'Đã kích hoạt' : 'Chưa kích hoạt' }}</strong></div>
+      <div class="vip-summary-row"><span>Gói hiện tại</span><strong>{{ $isActive ? 'Bỏ quảng cáo' : 'Miễn phí' }}</strong></div>
+      <div class="vip-summary-row"><span>Hiệu lực đến</span><strong>{{ $subscription?->expires_at ? $subscription->expires_at->format('d/m/Y') : ($isActive ? 'Không giới hạn' : '—') }}</strong></div>
+      @if($isActive)
+        <form method="POST" action="{{ route('student.vip.cancel') }}" data-confirm="Hủy gói bỏ quảng cáo? Bạn vẫn dùng được đến hết chu kỳ đã thanh toán." data-confirm-ok="Hủy gói">
+          @csrf
+          <button class="btn btn-outline w-full" type="submit">Hủy gia hạn</button>
+        </form>
+      @endif
+    </aside>
+  </section>
+
+  <section id="vip-plan" class="vip-plan">
+    <article class="vip-card vip-offer">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+        <div>
+          <div class="vip-kicker">Gói duy nhất cho học sinh</div>
+          <h2 style="font-size:var(--text-2xl);margin:.75rem 0 .25rem;">Bỏ quảng cáo khi học</h2>
+          <p style="color:var(--muted-foreground);margin:0;">Một gói đơn giản để màn học sạch hơn và ít gián đoạn hơn.</p>
         </div>
+        @if($isActive)
+          <span class="badge badge-success">Đang sử dụng</span>
+        @endif
       </div>
 
-      <!-- Billing toggle -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.5rem;" class="stagger-children">
-        <span style="font-size:var(--text-sm);">Hàng tháng</span>
-        <label class="switch">
-          <input type="checkbox" id="billing-toggle" onchange="toggleBilling(this)" />
-          <span class="switch-slider"></span>
-        </label>
-        <span style="font-size:var(--text-sm);">Hàng năm <span class="badge badge-success">Tiết kiệm 30%</span></span>
+      <div class="vip-price">
+        <strong>{{ number_format($plan['amount']) }}đ</strong>
+        <span>/ tháng</span>
       </div>
 
-      <!-- Plans -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:2rem;max-width:900px;margin-left:auto;margin-right:auto;" class="stagger-children">
-        <!-- Free -->
-        <div class="plan-card" onclick="selectPlan('free')">
-          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;">Miễn phí</div>
-          <div style="font-size:2.5rem;font-weight:800;margin-bottom:0.25rem;">0đ</div>
-          <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">Mãi mãi</div>
-          <button class="btn btn-outline w-full" disabled style="opacity:.6;cursor:default;">Gói hiện tại</button>
-          <div style="margin-top:1.25rem;">
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Tối đa 3 lớp học</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>50 câu hỏi/đề</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Chấm điểm tự động</span></div>
-            <div class="feature-row"><svg class="cross" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>AI gợi ý điểm</span></div>
-            <div class="feature-row"><svg class="cross" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Phân tích nâng cao</span></div>
-            <div class="feature-row"><svg class="cross" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Xuất báo cáo PDF</span></div>
-          </div>
-        </div>
+      <ul class="vip-features">
+        <li><span class="vip-check">✓</span><span>Không hiển thị quảng cáo trên màn học và làm bài.</span></li>
+        <li><span class="vip-check">✓</span><span>Không chen quảng cáo giữa các câu hỏi quiz.</span></li>
+        <li><span class="vip-check">✓</span><span>Giữ nguyên toàn bộ dữ liệu học tập hiện có.</span></li>
+        <li><span class="vip-check">✓</span><span>Hủy gia hạn bất cứ lúc nào trong tài khoản.</span></li>
+      </ul>
 
-        <!-- Pro -->
-        <div class="plan-card popular selected" id="plan-pro" onclick="selectPlan('pro')">
-          <div style="position:absolute;top:-1rem;left:50%;transform:translateX(-50%);"><span class="badge badge-solid-primary" style="padding:.375rem 1rem;">⭐ Phổ biến nhất</span></div>
-          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;color:var(--primary);">Pro</div>
-          <div style="font-size:2.5rem;font-weight:800;margin-bottom:0.25rem;color:var(--primary);" id="pro-price">199Kđ</div>
-          <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;" id="pro-period">/ tháng</div>
-          <button class="btn btn-primary w-full" onclick="checkout('pro')">Đăng ký ngay</button>
-          <div style="margin-top:1.25rem;">
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style="font-weight:500;">Không giới hạn lớp</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style="font-weight:500;">Không giới hạn câu hỏi</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style="font-weight:500;">AI gợi ý điểm tự luận</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style="font-weight:500;">Phân tích nâng cao</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style="font-weight:500;">Xuất báo cáo PDF</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style="font-weight:500;">Hỗ trợ ưu tiên 24/7</span></div>
-          </div>
-        </div>
+      @unless($isActive)
+        <form class="vip-form" method="POST" action="{{ route('student.vip.subscribe') }}">
+          @csrf
+          <input type="hidden" name="plan" value="monthly">
+          <label>
+            <span style="display:block;margin-bottom:.35rem;font-size:var(--text-sm);font-weight:700;">Phương thức thanh toán</span>
+            <select name="bank_code">
+              <option value="">Chọn tại cổng VNPay</option>
+              <option value="VNPAYQR">VNPay QR</option>
+              <option value="VNBANK">Thẻ ATM / tài khoản nội địa</option>
+              <option value="INTCARD">Thẻ quốc tế</option>
+              <option value="NCB">NCB sandbox</option>
+            </select>
+          </label>
+          <button class="btn btn-primary w-full" type="submit">Thanh toán qua VNPay</button>
+        </form>
+      @endunless
+    </article>
 
-        <!-- Enterprise -->
-        <div class="plan-card" onclick="selectPlan('enterprise')">
-          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;">Doanh nghiệp</div>
-          <div style="font-size:2rem;font-weight:800;margin-bottom:0.25rem;">Liên hệ</div>
-          <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">Giá riêng cho tổ chức</div>
-          <button class="btn btn-outline w-full" onclick="contactSales()">Liên hệ Tư vấn</button>
-          <div style="margin-top:1.25rem;">
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Tất cả tính năng Pro</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Quản lý toàn trường</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>SSO / LDAP</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>API access</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Onboarding riêng</span></div>
-            <div class="feature-row"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>SLA 99.9% uptime</span></div>
-          </div>
-        </div>
-      </div>
+    <aside class="vip-card">
+      <h3 class="card-title" style="margin-bottom:.75rem;">Giao dịch gần nhất</h3>
+      @if($latestPayment)
+        <ul class="vip-info-list">
+          <li><span>Mã đơn</span><span class="vip-copy">{{ $latestPayment->txn_ref }}</span></li>
+          <li><span>Số tiền</span><strong>{{ number_format($latestPayment->amount) }}đ</strong></li>
+          <li><span>Trạng thái</span><span class="vip-status {{ $statusClasses[$latestPayment->status] ?? '' }}">{{ $statusNames[$latestPayment->status] ?? $latestPayment->status }}</span></li>
+          <li><span>Thời gian</span><span class="vip-copy">{{ $latestPayment->created_at?->format('d/m/Y H:i') }}</span></li>
+        </ul>
+      @else
+        <p style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.6;">Bạn chưa có giao dịch nào. Sau khi thanh toán, trạng thái giao dịch sẽ xuất hiện tại đây.</p>
+      @endif
+    </aside>
+  </section>
 
-      <!-- FAQ -->
-      <div class="card stagger-children" style="max-width:700px;margin:0 auto;">
-        <div class="card-header"><h3 class="card-title">Câu hỏi thường gặp</h3></div>
-        <div class="card-content" style="padding-top:0;">
-          <div class="accordion-item">
-            <button class="accordion-trigger" onclick="this.closest('.accordion-item').classList.toggle('open')">
-              <span>Có thể hủy đăng ký bất cứ lúc nào không?</span>
-              <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="accordion-content">Có, bạn có thể hủy bất cứ lúc nào. Sau khi hủy, bạn vẫn sử dụng được đến hết chu kỳ đã thanh toán.</div>
-          </div>
-          <div class="accordion-item">
-            <button class="accordion-trigger" onclick="this.closest('.accordion-item').classList.toggle('open')">
-              <span>Thanh toán những phương thức nào?</span>
-              <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="accordion-content">Hỗ trợ thanh toán qua VNPay, Momo, thẻ ngân hàng nội địa, Visa/Mastercard và chuyển khoản ngân hàng.</div>
-          </div>
-          <div class="accordion-item">
-            <button class="accordion-trigger" onclick="this.closest('.accordion-item').classList.toggle('open')">
-              <span>Dữ liệu của tôi có an toàn khi dùng bản miễn phí không?</span>
-              <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="accordion-content">Dữ liệu của bạn luôn được bảo mật với mã hóa AES-256, bất kể gói nào bạn sử dụng.</div>
-          </div>
-          <div class="accordion-item">
-            <button class="accordion-trigger" onclick="this.closest('.accordion-item').classList.toggle('open')">
-              <span>Có ưu đãi cho trường học hoặc tổ chức giáo dục không?</span>
-              <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="accordion-content">Có, liên hệ với chúng tôi để được tư vấn gói Enterprise với mức giá ưu đãi đặc biệt cho tổ chức.</div>
-          </div>
-        </div>
-      </div>
+  <section class="vip-card">
+    <h3 class="card-title" style="margin-bottom:.75rem;">Câu hỏi thường gặp</h3>
+    <div class="accordion-item open">
+      <button class="accordion-trigger" type="button" onclick="this.closest('.accordion-item').classList.toggle('open')">
+        <span>Gói này có mở tính năng giáo viên không?</span>
+        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="accordion-content">Không. Gói học sinh này chỉ bỏ quảng cáo khi học, không mở tính năng tạo lớp, tạo đề hoặc công cụ giáo viên.</div>
+    </div>
+    <div class="accordion-item">
+      <button class="accordion-trigger" type="button" onclick="this.closest('.accordion-item').classList.toggle('open')">
+        <span>Sau khi hủy thì quảng cáo quay lại khi nào?</span>
+        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="accordion-content">Bạn vẫn dùng được đến hết chu kỳ đã thanh toán. Sau ngày hết hạn, tài khoản trở về gói miễn phí.</div>
+    </div>
+    <div class="accordion-item">
+      <button class="accordion-trigger" type="button" onclick="this.closest('.accordion-item').classList.toggle('open')">
+        <span>Thanh toán qua đâu?</span>
+        <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="accordion-content">Trang dùng luồng thanh toán VNPay hiện có của dự án. Nếu môi trường chưa cấu hình VNPay, hệ thống sẽ báo lỗi cấu hình thay vì tạo giao dịch lỗi.</div>
+    </div>
+  </section>
+
   <div id="toast-container"></div>
+</div>
 @endsection
-
-@push('scripts')
-<script>
-// Inline sidebar + header — works on file:// without CORS issues
-(function(){
-var role='student';
-var page=location.pathname.split('/').pop().replace(/^.*\//,'').split('?')[0]||'dashboard.html';
-var I={dash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',book:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',fq:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 10.3c.2-.4.5-.8.9-1a2.1 2.1 0 0 1 2.6.4c.3.4.5.8.5 1.3 0 1.3-2 2-2 2"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',clip:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/><line x1="9" y1="8" x2="11" y2="8"/></svg>',award:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',up:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>',bell:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',trash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',out:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',grad:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>'};
-var NAV=[{k:'Bảng điều khiển',h:'dashboard.html',i:'dash'},{k:'Khóa học',h:'courses.html',i:'book'},{k:'Bài kiểm tra',h:'quizzes.html',i:'fq'},{k:'Bài tập',h:'assignments.html',i:'clip'},{k:'Điểm số',h:'grades.html',i:'award'},{k:'Tham gia lớp',h:'join-class.html',i:'up'}];
-var cn=document.cookie.match(/auth_name=([^;]+)/);
-var un=cn?decodeURIComponent(cn[1]):'Học sinh Demo';
-var initials=un.split(' ').filter(Boolean).map(function(w){return w[0];}).slice(-2).join('').toUpperCase();
-var saved=localStorage.getItem('vietquiz-theme')||'system';
-var dark=saved==='dark'||(saved==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
-if(dark)document.documentElement.classList.add('dark');
-var navHTML=NAV.map(function(n){var a=page===n.h||page.startsWith(n.h.replace('.html',''));return'<a href="'+n.h+'" class="nav-item'+(a?' active':'')+'">'+I[n.i]+'<span>'+n.k+'</span></a>';}).join('');
-var ss=document.getElementById('sidebar-slot');
-if(ss){ss.outerHTML='<aside class="sidebar" id="main-sidebar"><a href="{{ route('home') }}" class="sidebar-logo"><div class="sidebar-logo-icon">'+I.grad+'</div><div class="sidebar-logo-text"><h1>VietQuiz</h1><p>Cổng Học sinh</p></div></a><nav class="sidebar-nav">'+navHTML+'</nav><div class="sidebar-bottom"><a href="{{ route('student.trash') }}" class="nav-item'+(page==='trash.html'?' active':'')+'">'+I.trash+'<span>Thùng rác</span></a></div></aside><div class="mobile-overlay" id="mobile-overlay"></div>';var ov=document.getElementById('mobile-overlay');if(ov)ov.onclick=function(){document.getElementById('main-sidebar').classList.remove('mobile-open');ov.classList.remove('open');};}
-var sunSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-var moonSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-var crownSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>';
-var userSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-var settingsSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-var logoutSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
-var isDark=document.documentElement.classList.contains('dark');
-var hs=document.getElementById('header-slot');
-if(hs){hs.outerHTML='<header class="header" id="main-header"><button class="mobile-menu-btn" id="mobmenubtn" aria-label="Open menu"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="header-search"><div style="position:relative"><svg style="position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted-foreground);pointer-events:none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="search" class="input" placeholder="Tìm kiếm khóa học, bài kiểm tra..." style="padding-left:2.5rem" /></div></div><div class="header-actions"><button class="icon-btn" id="ttbtn" title="'+(isDark?'Light mode':'Dark mode')+'">'+(isDark?sunSvg:moonSvg)+'</button><a href="{{ route('student.notifications') }}" class="icon-btn notification-btn" style="position:relative;text-decoration:none;color:inherit">'+I.bell+'<span style="position:absolute;top:-2px;right:-2px;width:1.25rem;height:1.25rem;background:var(--destructive);color:#fff;border-radius:50%;font-size:.625rem;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">5</span></a><div class="dropdown"><button class="user-menu-btn" id="umtrigger"><div class="avatar avatar-md" style="background:var(--primary);color:var(--primary-foreground);font-size:var(--text-sm);font-weight:600">'+initials+'</div><div style="display:flex;flex-direction:column;align-items:flex-start"><span class="user-menu-name">'+un+'</span><span class="user-menu-role">Học sinh</span></div><svg style="color:var(--muted-foreground);margin-left:.25rem" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="dropdown-menu" id="umenu"><div class="dropdown-label">Tài khoản của tôi</div><a href="{{ route('student.vip') }}" class="dropdown-item" style="color:#eab308">'+crownSvg+' Nâng VIP</a><div class="dropdown-separator"></div><a href="{{ route('student.profile') }}" class="dropdown-item">'+userSvg+' Hồ sơ</a><a href="{{ route('student.settings') }}" class="dropdown-item">'+settingsSvg+' Cài đặt</a><a href="{{ route('student.help') }}" class="dropdown-item"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/></svg> Hỗ trợ</a><div class="dropdown-separator"></div><button class="dropdown-item danger" id="hlbtn">'+logoutSvg+' Đăng xuất</button></div></div></div></header>';document.getElementById('mobmenubtn').onclick=function(){document.getElementById('main-sidebar').classList.toggle('mobile-open');document.getElementById('mobile-overlay').classList.toggle('open');};document.getElementById('hlbtn').onclick=function(){document.cookie='auth_role=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';document.cookie='auth_name=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';location.href='{{ route('login') }}';};document.getElementById('ttbtn').onclick=function(){var d=document.documentElement.classList.toggle('dark');localStorage.setItem('vietquiz-theme',d?'dark':'light');};var ut=document.getElementById('umtrigger'),um=document.getElementById('umenu');if(ut&&um){ut.onclick=function(e){e.stopPropagation();um.classList.toggle('open');};document.onclick=function(){um.classList.remove('open');};}}
-document.body.classList.add('page-enter');
-})();
-</script>
-@endpush

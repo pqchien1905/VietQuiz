@@ -1,15 +1,15 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "pqchien1905/vietquiz",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "VietQuiz online quiz and learning management platform built with Laravel and Blade.",
+    "keywords": ["laravel", "lms", "quiz", "education", "vietquiz"],
     "license": "MIT",
     "require": {
         "php": "^8.3",
         "laravel/framework": "^13.0",
-        "laravel/sanctum": "^4.3",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "phpoffice/phpspreadsheet": "^5.7"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

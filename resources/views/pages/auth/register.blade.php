@@ -73,6 +73,15 @@
             Học sinh
           </button>
         </div>
+        <p style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.5rem;text-align:center;">
+          @if($selectedRole === 'student')
+            Muốn đăng ký làm giáo viên?
+            <a href="{{ route('register', ['role' => 'teacher']) }}" style="color:var(--primary);font-weight:600;">Đăng ký làm giáo viên</a>
+          @else
+            Muốn đăng ký làm học sinh?
+            <a href="{{ route('register', ['role' => 'student']) }}" style="color:var(--primary);font-weight:600;">Đăng ký làm học sinh</a>
+          @endif
+        </p>
       </div>
 
       <div class="alert alert-danger" id="reg-error" style="display:none;margin-bottom:1rem;"></div>

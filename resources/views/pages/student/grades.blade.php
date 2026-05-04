@@ -1,99 +1,305 @@
-﻿{{-- Student: grades --}}
+{{-- Student: grades --}}
 @extends('layouts.dashboard', ['role' => 'student'])
+
+@php
+  $statusLabels = [
+    'all' => 'Tất cả',
+    'graded' => 'Đã chấm',
+    'pending' => 'Chờ chấm',
+    'not_submitted' => 'Chưa nộp',
+  ];
+  $statusCounts = [
+    'all' => $summary['total'],
+    'graded' => $summary['graded'],
+    'pending' => $summary['pending'],
+    'not_submitted' => $summary['not_submitted'],
+  ];
+  $statusBadges = [
+    'graded' => ['class' => 'badge-success', 'label' => 'Đã chấm'],
+    'pending' => ['class' => 'badge-warning', 'label' => 'Chờ chấm'],
+    'not_submitted' => ['class' => 'badge-danger', 'label' => 'Chưa nộp'],
+  ];
+  $letterClass = fn ($letter) => $letter ? 'grade-' . strtolower($letter) : '';
+@endphp
 
 @section('content')
   <div class="page-header stagger-children">
-        <h1>Điểm số</h1>
-        <p style="color:var(--muted-foreground);">Theo dõi kết quả học tập trên tất cả các khóa học</p>
-      </div>
+    <div>
+      <h1>Điểm số</h1>
+      <p style="color:var(--muted-foreground);">Theo dõi kết quả quiz, bài tập và các bài còn thiếu trong lớp học của bạn.</p>
+    </div>
+  </div>
 
-      <!-- Stats -->
-      <div class="stats-grid stats-grid-4 stagger-children" style="margin-bottom:1.5rem;">
-        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Điểm TB Tổng thể</div><div class="stat-card__value" style="color:var(--success);">82.5%</div><div class="stat-card__trend up">↑ B+</div></div>
-        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Đã chấm điểm</div><div class="stat-card__value">18</div><div class="stat-card__label">bài đã chấm</div></div>
-        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Chờ chấm điểm</div><div class="stat-card__value" style="color:var(--warning);">3</div><div class="stat-card__label">bài chờ</div></div>
-        <div class="stat-card"><div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Chưa nộp</div><div class="stat-card__value" style="color:var(--destructive);">2</div><div class="stat-card__label">bài chưa nộp</div></div>
+  <div class="stats-grid stats-grid-4 stagger-children" style="margin-bottom:1.5rem;">
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Điểm TB tổng thể</div>
+      <div class="stat-card__value" style="color:var(--success);">
+        {{ $summary['avg_pct'] !== null ? number_format($summary['avg_pct'], 1) . '%' : '—' }}
       </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;" class="stagger-children">
-        <!-- Course performance chart -->
-        <div class="card">
-          <div class="card-header"><h3 class="card-title">Hiệu suất Khóa học</h3><p class="card-description">Điểm trung bình của bạn trong mỗi khóa học</p></div>
-          <div class="card-content"><canvas id="courseChart" height="200"></canvas></div>
-        </div>
-        <!-- Trend -->
-        <div class="card">
-          <div class="card-header"><h3 class="card-title">Xu hướng Điểm số</h3><p class="card-description">Điểm trung bình theo tuần</p></div>
-          <div class="card-content"><canvas id="trendChart" height="200"></canvas></div>
-        </div>
+      <div class="stat-card__label">{{ $summary['letter'] ? 'Xếp loại ' . $summary['letter'] : 'Chưa có điểm đã chấm' }}</div>
+    </div>
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Đã chấm điểm</div>
+      <div class="stat-card__value">{{ $summary['graded'] }}</div>
+      <div class="stat-card__label">{{ $summary['quiz'] }} quiz, {{ $summary['assignment'] }} bài tập</div>
+    </div>
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Chờ chấm điểm</div>
+      <div class="stat-card__value" style="color:var(--warning);">{{ $summary['pending'] }}</div>
+      <div class="stat-card__label">bài đã nộp đang chờ giáo viên</div>
+    </div>
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Chưa nộp</div>
+      <div class="stat-card__value" style="color:var(--destructive);">{{ $summary['not_submitted'] }}</div>
+      <div class="stat-card__label">
+        {{ $summary['best_pct'] !== null ? 'Điểm cao nhất ' . number_format($summary['best_pct'], 1) . '%' : 'Cần hoàn thành bài được giao' }}
       </div>
+    </div>
+  </div>
 
-      <!-- Grades table -->
-      <div class="card stagger-children">
-        <div class="card-header">
-          <div class="flex items-center justify-between flex-wrap gap-4">
-            <div><h3 class="card-title">Tất cả Điểm số</h3><p class="card-description">Xem chi tiết tất cả điểm số của bạn</p></div>
-            <div style="display:flex;gap:0.5rem;">
-              <select class="input select" style="width:auto;" id="filter-course">
-                <option value="all">Tất cả Khóa học</option>
-                <option>Phát triển Web</option>
-                <option>Cấu trúc Dữ liệu</option>
-                <option>Thiết kế CSDL</option>
-              </select>
-              <select class="input select" style="width:auto;" id="filter-type">
-                <option value="all">Tất cả Loại</option>
-                <option value="quiz">Bài thi</option>
-                <option value="assignment">Bài tập</option>
-              </select>
-            </div>
-          </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:1.5rem;" class="stagger-children">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Hiệu suất theo lớp/khóa học</h3>
+        <p class="card-description">Điểm trung bình các bài đã chấm, nhóm theo nơi giao bài.</p>
+      </div>
+      <div class="card-content">
+        @if(count($courseChartData))
+          <canvas id="courseChart" height="220"></canvas>
+        @else
+          <div style="padding:2rem;text-align:center;color:var(--muted-foreground);">Chưa có dữ liệu điểm để vẽ biểu đồ.</div>
+        @endif
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Xu hướng điểm số</h3>
+        <p class="card-description">Trung bình điểm theo ngày chấm hoặc ngày nộp gần nhất.</p>
+      </div>
+      <div class="card-content">
+        @if(count($trendChartData))
+          <canvas id="trendChart" height="220"></canvas>
+        @else
+          <div style="padding:2rem;text-align:center;color:var(--muted-foreground);">Xu hướng sẽ xuất hiện sau khi có điểm đã chấm.</div>
+        @endif
+      </div>
+    </div>
+  </div>
+
+  <div class="card stagger-children">
+    <div class="card-header">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h3 class="card-title">Bảng điểm của tôi</h3>
+          <p class="card-description">Tìm kiếm, lọc và mở nhanh bài làm để xem chi tiết.</p>
         </div>
-        <div class="table-wrapper" style="border:none;border-radius:0;">
-          <table>
-            <thead>
+        <a href="{{ route('student.assignments') }}" class="btn btn-outline btn-sm">Xem bài tập</a>
+      </div>
+    </div>
+
+    <div class="card-content" style="padding-top:0;">
+      <form method="GET" action="{{ route('student.grades') }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;align-items:end;margin-bottom:1rem;">
+        <div>
+          <label for="q" style="display:block;font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.35rem;">Tìm kiếm</label>
+          <input id="q" name="q" value="{{ $filters['q'] }}" class="input" placeholder="Tên bài, khóa học, lớp...">
+        </div>
+        <div>
+          <label for="course_id" style="display:block;font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.35rem;">Khóa học</label>
+          <select id="course_id" name="course_id" class="input select">
+            <option value="">Tất cả</option>
+            @foreach($courses as $course)
+              <option value="{{ $course->id }}" @selected($filters['course_id'] === $course->id)>{{ $course->name }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div>
+          <label for="class_id" style="display:block;font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.35rem;">Lớp</label>
+          <select id="class_id" name="class_id" class="input select">
+            <option value="">Tất cả</option>
+            @foreach($classes as $class)
+              <option value="{{ $class->id }}" @selected($filters['class_id'] === $class->id)>{{ $class->name }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div>
+          <label for="type" style="display:block;font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.35rem;">Loại</label>
+          <select id="type" name="type" class="input select">
+            <option value="all" @selected($filters['type'] === 'all')>Tất cả</option>
+            <option value="quiz" @selected($filters['type'] === 'quiz')>Bài kiểm tra</option>
+            <option value="assignment" @selected($filters['type'] === 'assignment')>Bài tập</option>
+          </select>
+        </div>
+        <div>
+          <label for="status" style="display:block;font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.35rem;">Trạng thái</label>
+          <select id="status" name="status" class="input select">
+            @foreach($statusLabels as $value => $label)
+              <option value="{{ $value }}" @selected($filters['status'] === $value)>{{ $label }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div style="display:flex;gap:0.5rem;">
+          <button type="submit" class="btn btn-primary">Lọc</button>
+          <a href="{{ route('student.grades') }}" class="btn btn-ghost">Xóa</a>
+        </div>
+      </form>
+
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+        @foreach($statusLabels as $value => $label)
+          <a
+            href="{{ route('student.grades', array_merge(request()->except(['page', 'status']), ['status' => $value])) }}"
+            class="btn btn-sm {{ $filters['status'] === $value ? 'btn-primary' : 'btn-outline' }}"
+          >
+            {{ $label }} <span style="opacity:.75;">({{ $statusCounts[$value] }})</span>
+          </a>
+        @endforeach
+      </div>
+    </div>
+
+    @if($grades->count())
+      <div class="table-wrapper" style="border:none;border-radius:0;">
+        <table>
+          <thead>
+            <tr>
+              <th>Tên bài</th>
+              <th>Lớp/khóa học</th>
+              <th>Loại</th>
+              <th>Điểm</th>
+              <th>Kết quả</th>
+              <th>Thời gian</th>
+              <th>Trạng thái</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @foreach($grades as $grade)
+              @php
+                $badge = $statusBadges[$grade->status] ?? ['class' => 'badge-outline', 'label' => 'Không rõ'];
+              @endphp
               <tr>
-                <th>Tên bài</th>
-                <th>Khóa học</th>
-                <th>Loại</th>
-                <th>Điểm</th>
-                <th>Trọng số</th>
-                <th>Kết quả</th>
-                <th>Trạng thái</th>
+                <td>
+                  <div style="font-weight:600;">{{ $grade->title }}</div>
+                  @if($grade->feedback)
+                    <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-top:0.25rem;max-width:28rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      {{ $grade->feedback }}
+                    </div>
+                  @endif
+                </td>
+                <td>
+                  <div style="font-weight:500;">{{ $grade->scope_name }}</div>
+                  @if($grade->course_name && $grade->class_name)
+                    <div style="font-size:var(--text-sm);color:var(--muted-foreground);">{{ $grade->class_name }}</div>
+                  @endif
+                </td>
+                <td>
+                  <span class="badge {{ $grade->type === 'quiz' ? 'badge-primary' : 'badge-outline' }}">{{ $grade->type_label }}</span>
+                </td>
+                <td>
+                  @if($grade->score !== null)
+                    <div style="font-weight:700;">{{ number_format($grade->score, 1) }}/{{ number_format($grade->max_score, 0) }}</div>
+                    <div style="font-size:var(--text-sm);color:var(--muted-foreground);">{{ number_format($grade->percentage, 1) }}%</div>
+                  @else
+                    <span style="color:var(--muted-foreground);">—</span>
+                  @endif
+                </td>
+                <td>
+                  @if($grade->letter)
+                    <span class="grade-circle {{ $letterClass($grade->letter) }}" style="display:inline-flex;width:2rem;height:2rem;font-size:var(--text-sm);">
+                      {{ $grade->letter }}
+                    </span>
+                  @else
+                    <span style="color:var(--muted-foreground);">—</span>
+                  @endif
+                </td>
+                <td style="font-size:var(--text-sm);color:var(--muted-foreground);">{{ $grade->date_label }}</td>
+                <td><span class="badge {{ $badge['class'] }}">{{ $badge['label'] }}</span></td>
+                <td style="text-align:right;">
+                  <a href="{{ $grade->url }}" class="btn btn-outline btn-sm">Chi tiết</a>
+                </td>
               </tr>
-            </thead>
-            <tbody id="grades-table"></tbody>
-          </table>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card-content" style="border-top:1px solid var(--border);">
+        {{ $grades->links() }}
+      </div>
+    @else
+      <div class="card-content">
+        <div style="padding:3rem 1rem;text-align:center;color:var(--muted-foreground);">
+          <div style="font-weight:600;color:var(--foreground);margin-bottom:0.35rem;">Chưa có dòng điểm phù hợp</div>
+          <div>Thử xóa bộ lọc hoặc hoàn thành bài kiểm tra, bài tập được giao để bảng điểm cập nhật.</div>
         </div>
       </div>
-  <div id="toast-container"></div>
+    @endif
+  </div>
 @endsection
 
 @push('scripts')
 <script>
 (function(){
-  var GRADES=[
-    {name:'Thi Giữa kỳ',course:'Phát triển Web',type:'quiz',score:88,max:100,weight:'30%',status:'graded'},
-    {name:'Thư viện Component React',course:'Phát triển Web',type:'assignment',score:92,max:100,weight:'20%',status:'graded'},
-    {name:'Trắc nghiệm HTML/CSS',course:'Phát triển Web',type:'quiz',score:78,max:100,weight:'10%',status:'graded'},
-    {name:'Cây Tìm kiếm Nhị phân',course:'Cấu trúc Dữ liệu',type:'assignment',score:null,max:100,weight:'25%',status:'pending'},
-    {name:'Trắc nghiệm Thuật toán Sắp xếp',course:'Cấu trúc Dữ liệu',type:'quiz',score:85,max:100,weight:'15%',status:'graded'},
-    {name:'Thiết kế Sơ đồ CSDL',course:'Thiết kế CSDL',type:'assignment',score:null,max:100,weight:'30%',status:'not_submitted'},
-    {name:'Trắc nghiệm Truy vấn SQL',course:'Thiết kế CSDL',type:'quiz',score:72,max:100,weight:'20%',status:'graded'},
-    {name:'Thi Cuối kỳ',course:'Phát triển Web',type:'quiz',score:90,max:100,weight:'40%',status:'graded'}
-  ];
-  var STATUS_MAP={graded:'<span class="badge badge-success">Đã chấm</span>',pending:'<span class="badge badge-warning">Chờ chấm</span>',not_submitted:'<span class="badge badge-danger">Chưa nộp</span>'};
-  function getGrade(pct){if(pct>=90)return{g:'A',c:'var(--success)'};if(pct>=80)return{g:'B',c:'var(--info)'};if(pct>=65)return{g:'C',c:'var(--warning)'};return{g:'F',c:'var(--destructive)'};}
-  document.getElementById('grades-table').innerHTML=GRADES.map(function(g){
-    var pct=g.score!==null?Math.round((g.score/g.max)*100):null;
-    var grade=pct!==null?getGrade(pct):null;
-    var typeBadge=g.type==='quiz'?'badge-primary':'badge-outline';
-    var typeLabel=g.type==='quiz'?'Bài thi':'Bài tập';
-    var gradeHtml=grade?'<span class="grade-circle grade-'+grade.g.toLowerCase()+'" style="display:inline-flex;width:2rem;height:2rem;font-size:var(--text-sm);">'+grade.g+'</span>':'—';
-    return '<tr><td style="font-weight:500;">'+g.name+'</td><td style="font-size:var(--text-sm);color:var(--muted-foreground);">'+g.course+'</td><td><span class="badge '+typeBadge+'">'+typeLabel+'</span></td><td><span style="font-weight:600;">'+(pct!==null?pct+'%':'—')+'</span></td><td style="font-size:var(--text-sm);">'+g.weight+'</td><td>'+gradeHtml+'</td><td>'+STATUS_MAP[g.status]+'</td></tr>';
-  }).join('');
-  if(typeof Chart!=='undefined'){
-    new Chart(document.getElementById('courseChart'),{type:'bar',data:{labels:['Phát triển Web','Cấu trúc DL','Thiết kế CSDL','Mạng MT','KT Phần mềm'],datasets:[{label:'Điểm TB',data:[87,82,75,88,79],backgroundColor:['#3b82f6','#f97316','#22c55e','#a855f7','#06b6d4'],borderRadius:4}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,max:100}}}});
-    new Chart(document.getElementById('trendChart'),{type:'line',data:{labels:['Tuần 1','Tuần 2','Tuần 3','Tuần 4','Tuần 5','Tuần 6'],datasets:[{label:'Điểm TB của bạn',data:[75,79,82,78,85,88],borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',fill:true,tension:0.4,pointRadius:5},{label:'TB lớp',data:[70,72,70,74,73,75],borderColor:'#f97316',backgroundColor:'transparent',tension:0.4,pointRadius:4,borderDash:[4,4]}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:false,min:50,max:100}}}});
+  const courseData = @json($courseChartData);
+  const trendData = @json($trendChartData);
+
+  if (typeof Chart === 'undefined') {
+    return;
+  }
+
+  const courseCanvas = document.getElementById('courseChart');
+  if (courseCanvas && courseData.length) {
+    new Chart(courseCanvas, {
+      type: 'bar',
+      data: {
+        labels: courseData.map(item => item.label),
+        datasets: [{
+          label: 'Điểm TB',
+          data: courseData.map(item => item.average),
+          backgroundColor: ['#2563eb', '#16a34a', '#f97316', '#7c3aed', '#0891b2', '#dc2626', '#4b5563', '#ca8a04'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: function(context) {
+                const item = courseData[context.dataIndex];
+                return item.count + ' mục đã chấm';
+              }
+            }
+          }
+        },
+        scales: { x: { beginAtZero: true, max: 100 } }
+      }
+    });
+  }
+
+  const trendCanvas = document.getElementById('trendChart');
+  if (trendCanvas && trendData.length) {
+    new Chart(trendCanvas, {
+      type: 'line',
+      data: {
+        labels: trendData.map(item => item.label),
+        datasets: [{
+          label: 'Điểm TB',
+          data: trendData.map(item => item.average),
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37,99,235,0.08)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, max: 100 } }
+      }
+    });
   }
 })();
 </script>

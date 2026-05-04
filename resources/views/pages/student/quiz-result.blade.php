@@ -92,6 +92,18 @@
     </h1>
     <p style="color:var(--muted-foreground);margin-bottom:1rem;">{{ $quiz->title }}</p>
 
+    @if($quiz->quiz_type === 'practice')
+    <div style="display:inline-flex;align-items:center;gap:0.375rem;padding:0.25rem 0.75rem;background:color-mix(in srgb,var(--info) 10%,transparent);color:var(--info);border-radius:9999px;font-size:var(--text-xs);font-weight:600;border:1px solid color-mix(in srgb,var(--info) 25%,transparent);margin-bottom:0.75rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Bài luyện tập
+    </div>
+    @else
+    <div style="display:inline-flex;align-items:center;gap:0.375rem;padding:0.25rem 0.75rem;background:color-mix(in srgb,var(--warning) 10%,transparent);color:var(--warning);border-radius:9999px;font-size:var(--text-xs);font-weight:600;border:1px solid color-mix(in srgb,var(--warning) 25%,transparent);margin-bottom:0.75rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Bài kiểm tra
+    </div>
+    @endif
+
     <div style="display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;margin-bottom:1.5rem;">
         <div class="stat-mini">
             <div class="stat-mini-val" style="color:var(--success);">

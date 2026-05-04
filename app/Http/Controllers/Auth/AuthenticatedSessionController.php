@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +17,7 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
-        return view('pages.auth.login', ['role' => request('role', 'teacher')]);
+        return view('pages.auth.login');
     }
 
     /**
@@ -27,12 +28,11 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->forget(AdminController::SESSION_KEY);
 
         $user = $request->user();
-        if ($user && $user->isTeacher()) {
-            return redirect()->intended(route('teacher.dashboard'));
-        }
-        return redirect()->intended(route('student.dashboard'));
+
+        return redirect()->intended($user->dashboardUrl());
     }
 
     /**
@@ -43,9 +43,8 @@ class AuthenticatedSessionController extends Controller
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
+        $request->session()->regenerate(true);
 
-        $request->session()->regenerateToken();
-
-        return redirect('/');
+        return redirect()->route('login');
     }
 }

@@ -50,19 +50,12 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        // Validate role matches selected tab
-        $selectedRole = $this->input('role');
         $user = Auth::user();
-
-        if ($selectedRole && $user->role !== $selectedRole) {
+        if ($user && ! in_array($user->role, ['teacher', 'student'], true)) {
             Auth::logout();
-            RateLimiter::hit($this->throttleKey());
-
-            $roleLabel = $selectedRole === 'teacher' ? 'Giáo viên' : 'Học sinh';
-            $correctLabel = $user->role === 'teacher' ? 'Giáo viên' : 'Học sinh';
 
             throw ValidationException::withMessages([
-                'email' => "Tài khoản này là {$correctLabel}, không phải {$roleLabel}. Vui lòng chọn đúng vai trò.",
+                'email' => 'Tài khoản này chưa có trang làm việc trong phiên bản hiện tại.',
             ]);
         }
 

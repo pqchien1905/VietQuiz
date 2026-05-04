@@ -146,7 +146,7 @@
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 600; font-size: var(--text-base); margin-bottom: 0.125rem;">{{ $quiz->title }}</div>
                     <div style="font-size: var(--text-xs); color: var(--muted-foreground);">
-                        {{ $quiz->questions->count() }} câu
+                        {{ $quiz->questions_count ?? $quiz->questions->count() }} câu
                         @if($quiz->time_limit) &middot; {{ $quiz->time_limit }} phút @endif
                         &middot; Đạt: {{ $quiz->passing_score }}%
                     </div>
@@ -189,7 +189,7 @@
                 <span class="badge badge-success">Đã nộp</span>
                 <a href="{{ route('student.assignment-detail', $assignment) }}" class="btn btn-outline btn-sm">Xem</a>
                 @elseif($isOverdue)
-                <span class="badge badge-destructive">Quá hạn</span>
+                <span class="badge badge-danger">Quá hạn</span>
                 @else
                 <a href="{{ route('student.assignment-detail', $assignment) }}" class="btn btn-primary btn-sm">Nộp bài</a>
                 @endif
@@ -216,7 +216,7 @@
             <div style="flex: 1;">
                 <div style="font-weight: 600; margin-bottom: 0.25rem;">{{ $quiz->title }}</div>
                 <div style="font-size: var(--text-xs); color: var(--muted-foreground);">
-                    {{ $quiz->questions->count() }} câu
+                    {{ $quiz->questions_count ?? $quiz->questions->count() }} câu
                     @if($quiz->time_limit) &middot; {{ $quiz->time_limit }} phút @endif
                     &middot; Đạt: {{ $quiz->passing_score }}%
                 </div>
@@ -264,7 +264,7 @@
             <span class="badge badge-success">Đã nộp</span>
             <a href="{{ route('student.assignment-detail', $assignment) }}" class="btn btn-outline btn-sm">Xem</a>
             @elseif($isOverdue)
-            <span class="badge badge-destructive">Quá hạn</span>
+            <span class="badge badge-danger">Quá hạn</span>
             @else
             <a href="{{ route('student.assignment-detail', $assignment) }}" class="btn btn-primary btn-sm">Nộp bài</a>
             @endif

@@ -45,10 +45,4 @@ class ClassModel extends Model
     {
         return $this->hasMany(Quiz::class, 'class_id');
     }
-
-    /* ── Accessors ── */
-    public function getStudentsCountAttribute(): int
-    {
-        return $this->students()->count();
-    }
 }

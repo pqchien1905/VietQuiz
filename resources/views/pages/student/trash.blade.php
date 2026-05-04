@@ -1,119 +1,228 @@
-﻿{{-- Student: trash --}}
+{{-- Student: trash --}}
 @extends('layouts.dashboard', ['role' => 'student'])
+
+@php
+  $activeType = $type ?? 'all';
+  $items = $trashedItems ?? collect();
+  $allItems = $allTrashed ?? $items;
+  $allCount = $counts['all'] ?? $items->count();
+  $expiringCount = $allItems->where('is_expiring', true)->count();
+  $restorableCount = $allItems->where('days_left', '>', 0)->count();
+  $badges = [
+    'notification' => 'badge-info',
+  ];
+@endphp
 
 @section('content')
   <div class="page-header stagger-children">
-        <div class="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1>Thùng rác</h1>
-            <p style="color:var(--muted-foreground);">Các mục đã xóa sẽ bị xóa vĩnh viễn sau 30 ngày</p>
-          </div>
-          <div style="display:flex;gap:0.5rem;">
-            <button class="btn btn-outline btn-sm" id="btn-restore-all">Khôi phục tất cả</button>
-            <button class="btn btn-destructive btn-sm" id="btn-delete-all">Xóa vĩnh viễn tất cả</button>
-          </div>
+    <div class="flex items-center justify-between flex-wrap gap-4">
+      <div>
+        <h1>Thùng rác</h1>
+        <p style="color:var(--muted-foreground);">Quản lý các thông báo bạn đã xóa và khôi phục khi cần.</p>
+      </div>
+
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <form method="POST" action="{{ route('student.trash.restore-all') }}" data-confirm="Khôi phục tất cả mục trong thùng rác?" data-confirm-ok="Khôi phục">
+          @csrf
+          <button class="btn btn-outline btn-sm" type="submit" @disabled($allCount === 0)>Khôi phục tất cả</button>
+        </form>
+        <form method="POST" action="{{ route('student.trash.force-delete-all') }}" data-confirm="Xóa vĩnh viễn tất cả mục trong thùng rác? Hành động này không thể hoàn tác." data-confirm-ok="Xóa vĩnh viễn">
+          @csrf
+          @method('DELETE')
+          <button class="btn btn-destructive btn-sm" type="submit" @disabled($allCount === 0)>Xóa vĩnh viễn tất cả</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  @if(session('success'))
+    <div class="alert alert-success" style="margin-bottom:1rem;"><span>{{ session('success') }}</span></div>
+  @endif
+
+  @if($errors->any())
+    <div class="alert alert-danger" style="margin-bottom:1rem;"><span>{{ $errors->first() }}</span></div>
+  @endif
+
+  <div class="stats-grid stats-grid-4 stagger-children" style="margin-bottom:1.5rem;">
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Tổng mục đã xóa</div>
+      <div class="stat-card__value">{{ $allCount }}</div>
+      <div class="stat-card__label">trong thùng rác</div>
+    </div>
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Có thể khôi phục</div>
+      <div class="stat-card__value" style="color:var(--success);">{{ $restorableCount }}</div>
+      <div class="stat-card__label">mục chưa hết hạn giữ</div>
+    </div>
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Sắp hết hạn</div>
+      <div class="stat-card__value" style="color:var(--warning);">{{ $expiringCount }}</div>
+      <div class="stat-card__label">còn 7 ngày hoặc ít hơn</div>
+    </div>
+    <div class="stat-card">
+      <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.5rem;">Loại dữ liệu</div>
+      <div class="stat-card__value">{{ count($typeLabels ?? []) }}</div>
+      <div class="stat-card__label">hiện hỗ trợ thông báo</div>
+    </div>
+  </div>
+
+  <div class="alert alert-warning stagger-children" style="margin-bottom:1.25rem;">
+    <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span style="font-size:var(--text-sm);">Các mục đã xóa được giữ trong thùng rác <strong>30 ngày</strong>. Xóa vĩnh viễn sẽ không thể hoàn tác.</span>
+  </div>
+
+  <div class="tabs-list stagger-children" style="margin-bottom:1.25rem;max-width:520px;">
+    <a class="tab-trigger {{ $activeType === 'all' ? 'active' : '' }}" href="{{ route('student.trash') }}" style="text-decoration:none;">Tất cả ({{ $counts['all'] ?? 0 }})</a>
+    @foreach($typeLabels as $trashType => $label)
+      <a class="tab-trigger {{ $activeType === $trashType ? 'active' : '' }}" href="{{ route('student.trash', ['type' => $trashType]) }}" style="text-decoration:none;">
+        {{ $label }} ({{ $counts[$trashType] ?? 0 }})
+      </a>
+    @endforeach
+  </div>
+
+  <form method="POST" action="{{ route('student.trash.restore-selected') }}" id="bulk-form">
+    @csrf
+
+    <div class="card stagger-children">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1rem 1rem 0;">
+        <div style="font-size:var(--text-sm);color:var(--muted-foreground);">
+          Đang hiển thị <strong style="color:var(--foreground);">{{ $items->count() }}</strong> / {{ $allCount }} mục
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" type="submit" id="restore-selected-btn" disabled data-confirm="Khôi phục các mục đã chọn?" data-confirm-ok="Khôi phục">Khôi phục đã chọn</button>
+          <button class="btn btn-destructive btn-sm" type="submit" id="delete-selected-btn" disabled formmethod="POST" formaction="{{ route('student.trash.force-delete-selected') }}" data-method="delete-selected" data-confirm="Xóa vĩnh viễn các mục đã chọn? Hành động này không thể hoàn tác." data-confirm-ok="Xóa vĩnh viễn">Xóa đã chọn</button>
         </div>
       </div>
 
-      <div class="alert alert-warning stagger-children" style="margin-bottom:1.25rem;">
-        <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span style="font-size:var(--text-sm);">Các mục đã xóa trong thùng rác sẽ bị xóa vĩnh viễn sau <strong>30 ngày</strong>. Hãy khôi phục những gì bạn cần trước đó.</span>
-      </div>
-
-      <div class="tabs-list stagger-children" id="filter-tabs" style="margin-bottom:1.25rem;max-width:400px;">
-        <button class="tab-trigger active" data-filter="all">Tất cả (5)</button>
-        <button class="tab-trigger" data-filter="quiz">Đề thi</button>
-        <button class="tab-trigger" data-filter="assignment">Bài tập</button>
-        <button class="tab-trigger" data-filter="question">Câu hỏi</button>
-      </div>
-
-      <div class="card stagger-children">
-        <div class="table-wrapper" style="border:none;border-radius:0;">
+      @if($items->isNotEmpty())
+        <div class="table-wrapper" style="border:none;border-radius:0;margin-top:0.75rem;">
           <table>
             <thead>
               <tr>
-                <th style="width:2.5rem;"><input type="checkbox" id="select-all" /></th>
+                <th style="width:2.5rem;"><input type="checkbox" id="select-all" aria-label="Chọn tất cả" /></th>
                 <th>Tên mục</th>
                 <th>Loại</th>
                 <th>Ngày xóa</th>
-                <th>Xóa bởi</th>
+                <th>Đã xóa</th>
                 <th>Còn lại</th>
-                <th></th>
+                <th style="width:13rem;"></th>
               </tr>
             </thead>
-            <tbody id="trash-table"></tbody>
+            <tbody>
+              @foreach($items as $item)
+                <tr>
+                  <td>
+                    <input type="checkbox" class="item-check" name="items[]" value="{{ $item->key }}" aria-label="Chọn {{ $item->name }}" />
+                  </td>
+                  <td style="font-weight:500;font-size:var(--text-sm);max-width:28rem;">
+                    <div>{{ $item->name }}</div>
+                    @if($item->description)
+                      <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        {{ $item->description }}
+                      </div>
+                    @endif
+                  </td>
+                  <td>
+                    <span class="badge {{ $badges[$item->type] ?? 'badge-default' }}">{{ $item->type_label }}</span>
+                  </td>
+                  <td style="font-size:var(--text-sm);color:var(--muted-foreground);">{{ $item->deleted_at_label }}</td>
+                  <td style="font-size:var(--text-sm);color:var(--muted-foreground);">{{ $item->age_days }} ngày trước</td>
+                  <td>
+                    <span style="font-size:var(--text-sm);font-weight:600;color:{{ $item->is_expiring ? 'var(--destructive)' : 'var(--muted-foreground)' }};">
+                      {{ $item->days_left }} ngày
+                    </span>
+                  </td>
+                  <td>
+                    <div style="display:flex;gap:.25rem;justify-content:flex-end;">
+                      <button class="btn btn-ghost btn-sm" type="submit" form="restore-{{ $item->type }}-{{ $item->id }}">Khôi phục</button>
+                      <button class="btn btn-ghost btn-sm" style="color:var(--destructive);" type="submit" form="delete-{{ $item->type }}-{{ $item->id }}">Xóa</button>
+                    </div>
+                  </td>
+                </tr>
+              @endforeach
+            </tbody>
           </table>
         </div>
-        <div id="trash-empty" class="empty-state" style="display:none;padding:3rem;">
-          <div style="font-size:3rem;">🗑️</div>
-          <h3>Thùng rác trống</h3>
-          <p>Không có mục nào trong thùng rác</p>
+      @else
+        <div class="empty-state" style="padding:3rem;">
+          <div style="font-size:3rem;">Thùng rác</div>
+          <h3>Không có mục nào</h3>
+          <p>{{ $activeType === 'all' ? 'Thùng rác của bạn đang trống.' : 'Không có mục nào thuộc loại đang lọc.' }}</p>
+          <a href="{{ route('student.notifications') }}" class="btn btn-outline" style="margin-top:1rem;">Xem thông báo</a>
         </div>
-      </div>
+      @endif
+    </div>
+  </form>
+
+  @foreach($items as $item)
+    <form method="POST" action="{{ route('student.trash.restore', [$item->type, $item->id]) }}" id="restore-{{ $item->type }}-{{ $item->id }}" data-confirm="Khôi phục &quot;{{ $item->name }}&quot;?" data-confirm-ok="Khôi phục">
+      @csrf
+    </form>
+
+    <form method="POST" action="{{ route('student.trash.force-delete', [$item->type, $item->id]) }}" id="delete-{{ $item->type }}-{{ $item->id }}" data-confirm="Xóa vĩnh viễn &quot;{{ $item->name }}&quot;? Hành động này không thể hoàn tác." data-confirm-ok="Xóa vĩnh viễn">
+      @csrf
+      @method('DELETE')
+    </form>
+  @endforeach
+
   <div id="toast-container"></div>
 @endsection
 
 @push('scripts')
 <script>
 (function(){
-  var TYPE_BADGE={quiz:'badge-primary',assignment:'badge-warning',question:'badge-success'};
-  var TYPE_LABEL={quiz:'Đề thi',assignment:'Bài tập',question:'Câu hỏi'};
-  var ITEMS=[
-    {id:1,name:'Bài kiểm tra Cấu trúc Dữ liệu',type:'quiz',deleted:'28/03/2026',by:'Học sinh Demo',daysLeft:27},
-    {id:2,name:'Bài tập Hóa học Chương 5',type:'assignment',deleted:'25/03/2026',by:'Học sinh Demo',daysLeft:24},
-    {id:3,name:'Câu hỏi: Phương trình bậc 3',type:'question',deleted:'22/03/2026',by:'Học sinh Demo',daysLeft:21},
-    {id:4,name:'Bài kiểm tra Vật lý Điện học',type:'quiz',deleted:'20/03/2026',by:'Học sinh Demo',daysLeft:19},
-    {id:5,name:'Bài tập Sinh học Chương 2',type:'assignment',deleted:'15/03/2026',by:'Học sinh Demo',daysLeft:14}
-  ];
-  var filtered=ITEMS.slice();
-  function render(data){
-    var tbody=document.getElementById('trash-table');
-    var empty=document.getElementById('trash-empty');
-    if(!data.length){tbody.innerHTML='';empty.style.display='';return;}
-    empty.style.display='none';
-    tbody.innerHTML=data.map(function(i){
-      var urgent=i.daysLeft<=7;
-      var urgentColor=urgent?'var(--destructive)':'var(--muted-foreground)';
-      return '<tr><td><input type="checkbox" class="item-check" value="'+i.id+'" /></td><td style="font-weight:500;font-size:var(--text-sm);">'+i.name+'</td><td><span class="badge '+TYPE_BADGE[i.type]+'">'+TYPE_LABEL[i.type]+'</span></td><td style="font-size:var(--text-sm);color:var(--muted-foreground);">'+i.deleted+'</td><td style="font-size:var(--text-sm);color:var(--muted-foreground);">'+i.by+'</td><td><span style="font-size:var(--text-sm);font-weight:600;color:'+urgentColor+';">'+i.daysLeft+' ngày</span></td><td><div style="display:flex;gap:0.25rem;"><button class="btn btn-ghost btn-sm" data-action="restore" data-id="'+i.id+'">Khôi phục</button><button class="btn btn-ghost btn-sm" style="color:var(--destructive);" data-action="delete" data-id="'+i.id+'">Xóa</button></div></td></tr>';
-    }).join('');
-  }
-  document.getElementById('filter-tabs').addEventListener('click',function(e){
-    var btn=e.target.closest('.tab-trigger');if(!btn)return;
-    document.querySelectorAll('#filter-tabs .tab-trigger').forEach(function(b){b.classList.remove('active');});
-    btn.classList.add('active');
-    var type=btn.dataset.filter;
-    filtered=type==='all'?ITEMS:ITEMS.filter(function(i){return i.type===type;});
-    render(filtered);
-  });
-  document.getElementById('select-all').addEventListener('change',function(cb){
-    document.querySelectorAll('.item-check').forEach(function(c){c.checked=cb.target.checked;});
-  });
-  document.getElementById('trash-table').addEventListener('click',function(e){
-    var btn=e.target.closest('[data-action]');if(!btn)return;
-    var id=parseInt(btn.dataset.id);
-    if(btn.dataset.action==='restore'){
-      ITEMS=ITEMS.filter(function(i){return i.id!==id;});filtered=filtered.filter(function(i){return i.id!==id;});render(filtered);updateTabCounts();toast('Đã khôi phục mục thành công');
-    }else if(btn.dataset.action==='delete'){
-      if(!confirm('Xóa vĩnh viễn mục này? Không thể hoàn tác!'))return;
-      ITEMS=ITEMS.filter(function(i){return i.id!==id;});filtered=filtered.filter(function(i){return i.id!==id;});render(filtered);updateTabCounts();toast('Đã xóa vĩnh viễn');
+  var checks = Array.prototype.slice.call(document.querySelectorAll('.item-check'));
+  var selectAll = document.getElementById('select-all');
+  var restoreBtn = document.getElementById('restore-selected-btn');
+  var deleteBtn = document.getElementById('delete-selected-btn');
+  var bulkForm = document.getElementById('bulk-form');
+
+  function updateBulkState() {
+    var checked = checks.filter(function(check) { return check.checked; });
+    var hasChecked = checked.length > 0;
+    if (restoreBtn) restoreBtn.disabled = !hasChecked;
+    if (deleteBtn) deleteBtn.disabled = !hasChecked;
+    if (selectAll) {
+      selectAll.checked = checks.length > 0 && checked.length === checks.length;
+      selectAll.indeterminate = checked.length > 0 && checked.length < checks.length;
     }
-  });
-  document.getElementById('btn-restore-all').addEventListener('click',function(){
-    if(!ITEMS.length)return;ITEMS=[];filtered=[];render([]);updateTabCounts();toast('Đã khôi phục tất cả mục');
-  });
-  document.getElementById('btn-delete-all').addEventListener('click',function(){
-    if(!ITEMS.length)return;if(!confirm('Xóa vĩnh viễn TẤT CẢ mục trong thùng rác? Không thể hoàn tác!'))return;
-    ITEMS=[];filtered=[];render([]);updateTabCounts();toast('Đã xóa vĩnh viễn tất cả mục');
-  });
-  function updateTabCounts(){
-    var tabs=document.querySelectorAll('#filter-tabs .tab-trigger');
-    tabs[0].textContent='Tất cả ('+ITEMS.length+')';
-    tabs[1].textContent='Đề thi ('+ITEMS.filter(function(i){return i.type==='quiz';}).length+')';
-    tabs[2].textContent='Bài tập ('+ITEMS.filter(function(i){return i.type==='assignment';}).length+')';
-    tabs[3].textContent='Câu hỏi ('+ITEMS.filter(function(i){return i.type==='question';}).length+')';
   }
-  function toast(m){var tc=document.getElementById('toast-container');if(!tc)return;var e=document.createElement('div');e.className='toast toast-success';e.innerHTML='<span>✅</span><span>'+m+'</span>';tc.appendChild(e);setTimeout(function(){e.classList.add('show');},10);setTimeout(function(){e.classList.remove('show');setTimeout(function(){e.remove();},300);},3000);}
-  render(ITEMS);
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checks.forEach(function(check) { check.checked = selectAll.checked; });
+      updateBulkState();
+    });
+  }
+
+  checks.forEach(function(check) {
+    check.addEventListener('change', updateBulkState);
+  });
+
+  if (bulkForm) {
+    bulkForm.addEventListener('submit', function(event) {
+      var submitter = event.submitter;
+      var methodInput = bulkForm.querySelector('input[name="_method"]');
+      if (submitter) {
+        bulkForm.dataset.confirm = submitter.dataset.confirm || '';
+        bulkForm.dataset.confirmOk = submitter.dataset.confirmOk || 'OK';
+        bulkForm.action = submitter.formAction || bulkForm.action;
+      }
+      if (submitter && submitter.dataset.method === 'delete-selected') {
+        if (!methodInput) {
+          methodInput = document.createElement('input');
+          methodInput.type = 'hidden';
+          methodInput.name = '_method';
+          bulkForm.appendChild(methodInput);
+        }
+        methodInput.value = 'DELETE';
+      } else if (methodInput) {
+        methodInput.remove();
+      }
+    });
+  }
+
+  updateBulkState();
 })();
 </script>
 @endpush

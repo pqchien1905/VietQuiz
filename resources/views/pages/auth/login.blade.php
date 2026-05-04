@@ -1,28 +1,13 @@
 {{-- Login Page --}}
 @extends('layouts.auth')
 
-@php
-    $selectedRole = request('role', 'teacher');
-@endphp
-
 @section('title', 'Đăng nhập — VietQuiz')
 
 @php($description = 'Đăng nhập VietQuiz — Nền tảng học tập thông minh cho giáo viên và học sinh.')
 
-@php($role = $role ?? request('role', 'teacher'))
-
 @push('scripts')
 <script>
   // Theme is handled by the main layout
-
-  let activeRole = '{{ $role }}';
-
-  window.selectRole = (role) => {
-    activeRole = role;
-    document.getElementById('tab-teacher').classList.toggle('active', role === 'teacher');
-    document.getElementById('tab-student').classList.toggle('active', role === 'student');
-    document.getElementById('selected-role').value = role;
-  };
 
   // Password toggle
   const passwordInput = document.getElementById('password');
@@ -36,38 +21,14 @@
       : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
   });
 
-  function showError(id, msg) {
-    document.getElementById(id).style.display = 'flex';
-    document.getElementById(id + '-text').textContent = msg;
-    document.getElementById(id.replace('-error', '')).classList.add('input-error');
-  }
-  function clearError(id) {
-    document.getElementById(id).style.display = 'none';
-    const input = document.getElementById(id.replace('-error', ''));
-    if (input) input.classList.remove('input-error');
-  }
-
-  document.getElementById('email')?.addEventListener('input', () => clearError('email-error'));
-  document.getElementById('password')?.addEventListener('input', () => clearError('password-error'));
-
   document.getElementById('login-form')?.addEventListener('submit', (e) => {
-    // Let Laravel form validation handle everything
     const btn = document.getElementById('submit-btn');
     btn.disabled = true;
     btn.classList.add('loading');
     btn.textContent = 'Đang đăng nhập...';
   });
-
-  // Pre-select role from URL
-  @if($role === 'student')
-    selectRole('student');
-  @else
-    selectRole('teacher');
-  @endif
 </script>
 @endpush
-
-@php($selectedRole = $role ?? request('role', 'teacher'))
 
 @section('auth-content')
   <div class="auth-logo">
@@ -81,23 +42,9 @@
   <div class="card shadow-xl" style="border-width: 2px;">
     <div class="card-header">
       <h2 class="card-title" style="font-size: var(--text-2xl);">Đăng nhập</h2>
-      <p class="card-description">Chọn vai trò và nhập thông tin đăng nhập</p>
+      <p class="card-description">Nhập thông tin đăng nhập để tiếp tục</p>
     </div>
     <div class="card-content">
-      <div class="form-group" style="margin-bottom: 1.25rem;">
-        <label class="label">Tôi là...</label>
-        <div class="role-tabs">
-          <button class="role-tab {{ $selectedRole === 'teacher' ? 'active' : '' }}" id="tab-teacher" type="button" onclick="selectRole('teacher')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-            Giáo viên
-          </button>
-          <button class="role-tab {{ $selectedRole === 'student' ? 'active' : '' }}" id="tab-student" type="button" onclick="selectRole('student')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Học sinh
-          </button>
-        </div>
-      </div>
-
       <div class="alert alert-danger" id="general-error" style="display:none; margin-bottom: 1rem;">
         <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span id="general-error-text"></span>
@@ -112,7 +59,6 @@
 
       <form method="POST" action="{{ route('login') }}" id="login-form" novalidate>
         @csrf
-        <input type="hidden" name="role" id="selected-role" value="{{ $role ?? 'teacher' }}" />
         <div class="form-group" style="margin-bottom: 1rem;">
           <label class="label" for="email">Địa chỉ Email</label>
           <div class="input-wrapper">

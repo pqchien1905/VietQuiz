@@ -35,4 +35,28 @@ return [
         ],
     ],
 
+    'ai_questions' => [
+        'key' => env('AI_QUESTION_API_KEY'),
+        'url' => env('AI_QUESTION_API_URL', 'http://localhost:20128/v1/messages'),
+        'model' => env('AI_QUESTION_MODEL', 'gh/gpt-4o-mini'),
+        'adapter' => env('AI_QUESTION_API_ADAPTER', 'anthropic_messages'),
+        'timeout' => env('AI_QUESTION_TIMEOUT', 45),
+    ],
+
+    'libreoffice' => [
+        'path' => env('LIBREOFFICE_PATH'),
+    ],
+
+    'vnpay' => [
+        'tmn_code' => env('VNPAY_TMN_CODE'),
+        'hash_secret' => env('VNPAY_HASH_SECRET'),
+        'payment_url' => env('VNPAY_PAYMENT_URL', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
+        'version' => env('VNPAY_VERSION', '2.1.0'),
+    ],
+
+    'admin' => [
+        'username' => env('ADMIN_USERNAME', 'admin'),
+        'password' => env('ADMIN_PASSWORD', 'password'),
+    ],
+
 ];

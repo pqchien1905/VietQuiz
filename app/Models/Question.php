@@ -13,8 +13,8 @@ class Question extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'quiz_id', 'teacher_id', 'subject', 'content',
-        'type', 'options', 'correct_answer', 'points', 'explanation',
+        'quiz_id', 'teacher_id', 'folder_id', 'subject', 'content',
+        'type', 'options', 'correct_answer', 'points', 'explanation', 'order',
     ];
 
     protected function casts(): array
@@ -33,6 +33,11 @@ class Question extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(QuestionFolder::class, 'folder_id');
     }
 
     /* ── Helpers ── */

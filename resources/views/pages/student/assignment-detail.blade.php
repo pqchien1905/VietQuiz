@@ -1,143 +1,351 @@
 ﻿{{-- Student: assignment-detail --}}
 @extends('layouts.dashboard', ['role' => 'student'])
 
+@push('styles')
+<style>
+.file-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: var(--muted);
+}
+.file-drop-zone:hover, .file-drop-zone.drag-over {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+.file-drop-zone input[type="file"] {
+    display: none;
+}
+.uploaded-file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--muted);
+    border-radius: var(--radius-md);
+    margin-top: 0.75rem;
+}
+.uploaded-file-item .file-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+</style>
+@endpush
+
 @section('content')
   <!-- Breadcrumb -->
-      <div class="breadcrumb">
-        <a href="{{ route('student.assignments') }}">Bài tập</a>
-        <span class="breadcrumb-sep">›</span>
-        <span class="active" id="breadcrumb-title">Bài tập Phương trình Bậc hai</span>
-      </div>
+  <div class="breadcrumb">
+    <a href="{{ route('student.assignments') }}">Bài tập</a>
+    <span class="breadcrumb-sep">›</span>
+    <span class="active">{{ $assignment->title }}</span>
+  </div>
 
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;">
-        <!-- Left: Instructions -->
-        <div>
-          <div class="card">
-            <div class="card-header">
-              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-                <div>
-                  <h2 class="card-title" id="assignment-title">Bài tập Phương trình Bậc hai</h2>
-                  <p class="card-description" id="assignment-course">Khóa học: Toán 10 — Học kỳ II</p>
-                </div>
-                <span class="badge badge-warning" id="status-badge">Đã nộp</span>
-              </div>
-            </div>
-            <div class="card-content">
-              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
-                <div style="background:var(--muted);padding:0.875rem;border-radius:var(--radius-md);">
-                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:0.25rem;">Điểm</div>
-                  <div style="font-size:var(--text-2xl);font-weight:700;color:var(--success);" id="score-display">8.5/10</div>
-                </div>
-                <div style="background:var(--muted);padding:0.875rem;border-radius:var(--radius-md);">
-                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:0.25rem;">Hạn nộp</div>
-                  <div style="font-size:var(--text-base);font-weight:600;" id="due-display">17/02/2026</div>
-                </div>
-                <div style="background:var(--muted);padding:0.875rem;border-radius:var(--radius-md);">
-                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:0.25rem;">Nộp lúc</div>
-                  <div style="font-size:var(--text-base);font-weight:600;" id="submitted-display">15/02/2026</div>
-                </div>
-              </div>
+  @if(session('success'))
+    <div class="alert alert-success" style="margin-bottom:1rem;">
+      <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      {{ session('success') }}
+    </div>
+  @endif
 
-              <h3 style="font-size:var(--text-lg);font-weight:600;margin-bottom:0.75rem;">Mô tả bài tập</h3>
-              <p style="font-size:var(--text-sm);line-height:1.7;color:var(--muted-foreground);margin-bottom:1.5rem;">
-                Giải các phương trình bậc hai sau bằng công thức nghiệm và công thức Vi-ét. Nộp file PDF hoặc viết tay rồi chụp ảnh.
+  @php
+    $dueDate = $assignment->due_at ? \Carbon\Carbon::parse($assignment->due_at) : null;
+    $isPast = $dueDate && $dueDate->isPast();
+    $isSubmitted = $submission !== null;
+    $isGraded = $grade !== null;
+    $timeLeft = $dueDate ? $dueDate->diffForHumans() : null;
+    $score = $isGraded && $assignment->total_points > 0
+      ? round(($grade->score / $assignment->total_points) * 100) : null;
+    $typeIcons = ['essay' => '📝', 'code' => '💻', 'project' => '🚀', 'practice' => '🔬'];
+    $typeLabels = ['essay' => 'Tự luận', 'code' => 'Lập trình', 'project' => 'Dự án', 'practice' => 'Thực hành'];
+    $typeIcon = $typeIcons[$assignment->type] ?? '📋';
+    $typeLabel = $typeLabels[$assignment->type] ?? 'Bài tập';
+    $courseName = $assignment->class?->name ?? $assignment->course?->name ?? 'Không rõ lớp';
+  @endphp
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;">
+    <!-- Left: Instructions -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+            <div>
+              <h2 class="card-title">{{ $assignment->title }}</h2>
+              <p class="card-description">
+                {{ $typeIcon }} {{ $typeLabel }} · {{ $courseName }}
+                @if($assignment->teacher)
+                  · GV: {{ $assignment->teacher->name }}
+                @endif
               </p>
-
-              <h3 style="font-size:var(--text-lg);font-weight:600;margin-bottom:0.75rem;">Nội dung câu hỏi</h3>
-              <div id="questions-list" style="display:flex;flex-direction:column;gap:1rem;"></div>
             </div>
-
-            <!-- Grading feedback -->
-            <div class="card-footer">
-              <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                <span style="font-size:var(--text-sm);font-weight:500;color:var(--success);">Đã chấm bởi GV Nguyễn Văn A • 18/02/2026</span>
-              </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              @if($isGraded)
+                <span class="badge badge-success">Đã chấm</span>
+              @elseif($isSubmitted)
+                <span class="badge badge-info">Đã nộp</span>
+              @elseif($isPast)
+                <span class="badge badge-danger">Quá hạn</span>
+              @else
+                <span class="badge badge-warning">Chưa nộp</span>
+              @endif
             </div>
           </div>
         </div>
-
-        <!-- Right: Submission + Feedback -->
-        <div style="display:flex;flex-direction:column;gap:1.5rem;">
-          <!-- Submission info -->
-          <div class="card">
-            <div class="card-header"><h3 class="card-title" style="font-size:var(--text-base);">Bài nộp của bạn</h3></div>
-            <div class="card-content">
-              <div style="background:var(--muted);border-radius:var(--radius-md);padding:1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.75rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <div>
-                  <div style="font-weight:500;font-size:var(--text-sm);">bai_tap_ptbac2.pdf</div>
-                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">2.3 MB • Đã nộp 15/02</div>
+        <div class="card-content">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">
+            <div style="background:var(--muted);padding:0.875rem;border-radius:var(--radius-md);">
+              <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:0.25rem;">Điểm</div>
+              @if($isGraded)
+                <div style="font-size:var(--text-2xl);font-weight:700;color:var(--success);">{{ $grade->score }}/{{ $assignment->total_points ?? 100 }}</div>
+                <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.25rem;">{{ $score }}%</div>
+              @else
+                <div style="font-size:var(--text-2xl);font-weight:700;color:var(--muted-foreground);">—</div>
+              @endif
+            </div>
+            <div style="background:var(--muted);padding:0.875rem;border-radius:var(--radius-md);">
+              <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:0.25rem;">Hạn nộp</div>
+              @if($dueDate)
+                <div style="font-size:var(--text-base);font-weight:600;{{ $isPast ? 'color:var(--destructive);' : '' }}">
+                  {{ $dueDate->format('d/m/Y H:i') }}
                 </div>
-              </div>
-              <a href="#" class="btn btn-outline btn-sm w-full" style="justify-content:center;">Tải lại bài nộp</a>
+                @if(!$isPast && $timeLeft)
+                  <div style="font-size:var(--text-xs);color:var(--warning);margin-top:0.25rem;">{{ $timeLeft }}</div>
+                @elseif($isPast)
+                  <div style="font-size:var(--text-xs);color:var(--destructive);margin-top:0.25rem;">Đã quá hạn</div>
+                @endif
+              @else
+                <div style="font-size:var(--text-base);font-weight:600;color:var(--muted-foreground);">Không giới hạn</div>
+              @endif
+            </div>
+            <div style="background:var(--muted);padding:0.875rem;border-radius:var(--radius-md);">
+              <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:0.25rem;">Nộp lúc</div>
+              @if($submission?->submitted_at)
+                <div style="font-size:var(--text-base);font-weight:600;">{{ \Carbon\Carbon::parse($submission->submitted_at)->format('d/m/Y H:i') }}</div>
+              @else
+                <div style="font-size:var(--text-base);font-weight:600;color:var(--muted-foreground);">—</div>
+              @endif
             </div>
           </div>
 
-          <!-- Feedback -->
-          <div class="card">
-            <div class="card-header"><h3 class="card-title" style="font-size:var(--text-base);">Nhận xét của Giáo viên</h3></div>
-            <div class="card-content">
-              <div style="display:flex;gap:0.75rem;margin-bottom:1rem;">
-                <div class="avatar avatar-sm" style="flex-shrink:0;">NVA</div>
-                <div>
-                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Nguyễn Văn A — 18/02/2026</div>
-                  <p style="font-size:var(--text-sm);line-height:1.6;margin-top:0.25rem;">
-                    Bài làm tốt! Câu 3 và câu 5 cần trình bày rõ hơn bước tính delta. Hãy chú ý điều kiện của phương trình trước khi kết luận nghiệm.
-                  </p>
-                </div>
-              </div>
-              <div class="alert alert-info" style="font-size:var(--text-xs);">
-                <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Nộp lại trước <strong>20/02/2026</strong> nếu muốn cải thiện điểm.
-              </div>
-            </div>
-          </div>
+          <h3 style="font-size:var(--text-lg);font-weight:600;margin-bottom:0.75rem;">Mô tả bài tập</h3>
+          @if($assignment->description)
+            <p style="font-size:var(--text-sm);line-height:1.7;color:var(--muted-foreground);margin-bottom:1.5rem;">
+              {{ $assignment->description }}
+            </p>
+          @else
+            <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;font-style:italic;">
+              Không có mô tả
+            </p>
+          @endif
 
-          <!-- Quick actions -->
-          <div class="card">
-            <div class="card-content" style="display:flex;flex-direction:column;gap:0.5rem;">
-              <button class="btn btn-outline btn-sm w-full" style="justify-content:center;" onclick="askQuestion()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                Hỏi Giáo viên
-              </button>
-              <a href="{{ route('student.assignments') }}" class="btn btn-ghost btn-sm w-full" style="justify-content:center;">
-                ← Quay lại danh sách
-              </a>
+          @if($assignment->attachment)
+            <h3 style="font-size:var(--text-lg);font-weight:600;margin-bottom:0.75rem;">Tài liệu đính kèm</h3>
+            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.875rem;background:var(--muted);border-radius:var(--radius-md);margin-bottom:1.5rem;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <div style="flex:1;">
+                <div style="font-weight:500;font-size:var(--text-sm);">{{ basename($assignment->attachment) }}</div>
+              </div>
+              <a href="{{ Storage::url($assignment->attachment) }}" target="_blank" class="btn btn-outline btn-sm">Tải về</a>
             </div>
+          @endif
+
+          <!-- Submission Form -->
+          @if(!$isPast || $isSubmitted)
+            <h3 style="font-size:var(--text-lg);font-weight:600;margin-bottom:0.75rem;">
+              {{ $isSubmitted ? 'Cập nhật bài nộp' : 'Nộp bài' }}
+            </h3>
+
+            <form method="POST" action="{{ route('student.assignment.submit', $assignment) }}" enctype="multipart/form-data" id="submission-form">
+              @csrf
+
+              <!-- Text submission -->
+              <div style="margin-bottom:1rem;">
+                <label style="display:block;font-size:var(--text-sm);font-weight:500;margin-bottom:0.5rem;">
+                  Nội dung trả lời
+                  <span style="font-weight:400;color:var(--muted-foreground);">(tùy chọn)</span>
+                </label>
+                <textarea name="content"
+                  class="input"
+                  rows="6"
+                  placeholder="Nhập nội dung bài làm tại đây..."
+                  style="width:100%;resize:vertical;font-family:inherit;"
+                >{{ old('content', $submission?->content) }}</textarea>
+                @error('content')
+                  <p style="color:var(--destructive);font-size:var(--text-xs);margin-top:0.25rem;">{{ $message }}</p>
+                @enderror
+              </div>
+
+              <!-- File upload -->
+              <div style="margin-bottom:1rem;">
+                <label style="display:block;font-size:var(--text-sm);font-weight:500;margin-bottom:0.5rem;">
+                  Đính kèm file
+                  <span style="font-weight:400;color:var(--muted-foreground);">(PDF, DOCX, ZIP, ảnh - tối đa 10MB)</span>
+                </label>
+
+                @if($submission?->attachment)
+                  <div class="uploaded-file-item">
+                    <div class="file-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-weight:500;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ basename($submission->attachment) }}</div>
+                    </div>
+                    <a href="{{ Storage::url($submission->attachment) }}" target="_blank" class="btn btn-ghost btn-sm">Xem</a>
+                  </div>
+                  <p style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.5rem;">Tải file mới sẽ thay thế file cũ.</p>
+                @endif
+
+                <div class="file-drop-zone" id="file-drop-zone" onclick="document.getElementById('file-input').click()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 0.5rem;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <div style="font-weight:500;margin-bottom:0.25rem;">Kéo thả file vào đây hoặc click để chọn</div>
+                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">PDF, DOCX, ZIP, PNG, JPG (tối đa 10MB)</div>
+                  <input type="file" name="attachment" id="file-input" accept=".pdf,.doc,.docx,.zip,.png,.jpg,.jpeg" onchange="handleFileSelect(this)">
+                </div>
+
+                <div id="file-preview" style="display:none;margin-top:0.75rem;"></div>
+                @error('attachment')
+                  <p style="color:var(--destructive);font-size:var(--text-xs);margin-top:0.25rem;">{{ $message }}</p>
+                @enderror
+              </div>
+
+              <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary">
+                  {{ $isSubmitted ? '💾 Cập nhật bài nộp' : '📤 Nộp bài' }}
+                </button>
+                @if($isSubmitted)
+                  <span style="font-size:var(--text-xs);color:var(--muted-foreground);">Bạn có thể nộp lại nhiều lần trước hạn.</span>
+                @endif
+              </div>
+            </form>
+          @else
+            <div class="alert alert-warning">
+              <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Hạn nộp đã qua. Bạn không thể nộp bài được nữa.
+            </div>
+          @endif
+        </div>
+
+        <!-- Grading feedback -->
+        @if($isGraded && $grade?->feedback)
+          <div class="card-footer">
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span style="font-size:var(--text-sm);font-weight:500;color:var(--success);">
+                Đã chấm bởi {{ $grade->grader?->name ?? 'Giáo viên' }}
+                @if($grade->graded_at)
+                  · {{ \Carbon\Carbon::parse($grade->graded_at)->format('d/m/Y') }}
+                @endif
+              </span>
+            </div>
+            @if($grade->feedback)
+              <p style="font-size:var(--text-sm);line-height:1.6;margin-top:0.5rem;color:var(--muted-foreground);">
+                {{ $grade->feedback }}
+              </p>
+            @endif
+          </div>
+        @endif
+      </div>
+    </div>
+
+    <!-- Right: Info + Actions -->
+    <div style="display:flex;flex-direction:column;gap:1.5rem;">
+      <!-- Quick info -->
+      <div class="card">
+        <div class="card-header"><h3 class="card-title" style="font-size:var(--text-base);">Thông tin</h3></div>
+        <div class="card-content" style="display:flex;flex-direction:column;gap:0.75rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--text-sm);">
+            <span style="color:var(--muted-foreground);">Điểm tối đa</span>
+            <span style="font-weight:600;">{{ $assignment->total_points ?? 100 }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--text-sm);">
+            <span style="color:var(--muted-foreground);">Loại</span>
+            <span style="font-weight:600;">{{ $typeIcon }} {{ $typeLabel }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--text-sm);">
+            <span style="color:var(--muted-foreground);">Giáo viên</span>
+            <span style="font-weight:600;">{{ $assignment->teacher?->name ?? '—' }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--text-sm);">
+            <span style="color:var(--muted-foreground);">Ngày giao</span>
+            <span style="font-weight:600;">{{ $assignment->created_at->format('d/m/Y') }}</span>
           </div>
         </div>
       </div>
+
+      <!-- Quick actions -->
+      <div class="card">
+        <div class="card-content" style="display:flex;flex-direction:column;gap:0.5rem;">
+          <a href="{{ route('student.assignments') }}" class="btn btn-ghost btn-sm w-full" style="justify-content:center;">
+            ← Quay lại danh sách
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="toast-container"></div>
 @endsection
 
 @push('scripts')
 <script>
-// Inline sidebar + header — works on file:// without CORS issues
-(function(){
-var role='student';
-var page=location.pathname.split('/').pop().replace(/^.*\//,'').split('?')[0]||'dashboard.html';
-var I={dash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',book:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',fq:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 10.3c.2-.4.5-.8.9-1a2.1 2.1 0 0 1 2.6.4c.3.4.5.8.5 1.3 0 1.3-2 2-2 2"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',clip:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/><line x1="9" y1="8" x2="11" y2="8"/></svg>',award:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',up:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>',bell:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',trash:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',out:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',grad:'<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>'};
-var NAV=[{k:'Bảng điều khiển',h:'dashboard.html',i:'dash'},{k:'Khóa học',h:'courses.html',i:'book'},{k:'Bài kiểm tra',h:'quizzes.html',i:'fq'},{k:'Bài tập',h:'assignments.html',i:'clip'},{k:'Điểm số',h:'grades.html',i:'award'},{k:'Tham gia lớp',h:'join-class.html',i:'up'}];
-var cn=document.cookie.match(/auth_name=([^;]+)/);
-var un=cn?decodeURIComponent(cn[1]):'Học sinh Demo';
-var initials=un.split(' ').filter(Boolean).map(function(w){return w[0];}).slice(-2).join('').toUpperCase();
-var saved=localStorage.getItem('vietquiz-theme')||'system';
-var dark=saved==='dark'||(saved==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
-if(dark)document.documentElement.classList.add('dark');
-var navHTML=NAV.map(function(n){var a=page===n.h||page.startsWith(n.h.replace('.html',''));return'<a href="'+n.h+'" class="nav-item'+(a?' active':'')+'">'+I[n.i]+'<span>'+n.k+'</span></a>';}).join('');
-var ss=document.getElementById('sidebar-slot');
-if(ss){ss.outerHTML='<aside class="sidebar" id="main-sidebar"><a href="{{ route('home') }}" class="sidebar-logo"><div class="sidebar-logo-icon">'+I.grad+'</div><div class="sidebar-logo-text"><h1>VietQuiz</h1><p>Cổng Học sinh</p></div></a><nav class="sidebar-nav">'+navHTML+'</nav><div class="sidebar-bottom"><a href="{{ route('student.trash') }}" class="nav-item'+(page==='trash.html'?' active':'')+'">'+I.trash+'<span>Thùng rác</span></a></div></aside><div class="mobile-overlay" id="mobile-overlay"></div>';var ov=document.getElementById('mobile-overlay');if(ov)ov.onclick=function(){document.getElementById('main-sidebar').classList.remove('mobile-open');ov.classList.remove('open');};}
-var sunSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-var moonSvg='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-var crownSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>';
-var userSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-var settingsSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-var logoutSvg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
-var isDark=document.documentElement.classList.contains('dark');
-var hs=document.getElementById('header-slot');
-if(hs){hs.outerHTML='<header class="header" id="main-header"><button class="mobile-menu-btn" id="mobmenubtn" aria-label="Open menu"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="header-search"><div style="position:relative"><svg style="position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted-foreground);pointer-events:none;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="search" class="input" placeholder="Tìm kiếm khóa học, bài kiểm tra..." style="padding-left:2.5rem" /></div></div><div class="header-actions"><button class="icon-btn" id="ttbtn" title="'+(isDark?'Light mode':'Dark mode')+'">'+(isDark?sunSvg:moonSvg)+'</button><a href="{{ route('student.notifications') }}" class="icon-btn notification-btn" style="position:relative;text-decoration:none;color:inherit">'+I.bell+'<span style="position:absolute;top:-2px;right:-2px;width:1.25rem;height:1.25rem;background:var(--destructive);color:#fff;border-radius:50%;font-size:.625rem;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">5</span></a><div class="dropdown"><button class="user-menu-btn" id="umtrigger"><div class="avatar avatar-md" style="background:var(--primary);color:var(--primary-foreground);font-size:var(--text-sm);font-weight:600">'+initials+'</div><div style="display:flex;flex-direction:column;align-items:flex-start"><span class="user-menu-name">'+un+'</span><span class="user-menu-role">Học sinh</span></div><svg style="color:var(--muted-foreground);margin-left:.25rem" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button><div class="dropdown-menu" id="umenu"><div class="dropdown-label">Tài khoản của tôi</div><a href="{{ route('student.vip') }}" class="dropdown-item" style="color:#eab308">'+crownSvg+' Nâng VIP</a><div class="dropdown-separator"></div><a href="{{ route('student.profile') }}" class="dropdown-item">'+userSvg+' Hồ sơ</a><a href="{{ route('student.settings') }}" class="dropdown-item">'+settingsSvg+' Cài đặt</a><a href="{{ route('student.help') }}" class="dropdown-item"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/></svg> Hỗ trợ</a><div class="dropdown-separator"></div><button class="dropdown-item danger" id="hlbtn">'+logoutSvg+' Đăng xuất</button></div></div></div></header>';document.getElementById('mobmenubtn').onclick=function(){document.getElementById('main-sidebar').classList.toggle('mobile-open');document.getElementById('mobile-overlay').classList.toggle('open');};document.getElementById('hlbtn').onclick=function(){document.cookie='auth_role=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';document.cookie='auth_name=;path=/;expires=Thu,01 Jan 1970 00:00:00 GMT';location.href='{{ route('login') }}';};document.getElementById('ttbtn').onclick=function(){var d=document.documentElement.classList.toggle('dark');localStorage.setItem('vietquiz-theme',d?'dark':'light');};var ut=document.getElementById('umtrigger'),um=document.getElementById('umenu');if(ut&&um){ut.onclick=function(e){e.stopPropagation();um.classList.toggle('open');};document.onclick=function(){um.classList.remove('open');};}}
-document.body.classList.add('page-enter');
-})();
+  // File drop zone drag-over effect
+  const dropZone = document.getElementById('file-drop-zone');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      this.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+    });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      const input = document.getElementById('file-input');
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        handleFileSelect(input);
+      }
+    });
+  }
+
+  function handleFileSelect(input) {
+    const file = input.files[0];
+    const preview = document.getElementById('file-preview');
+    if (!file) return;
+
+    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+    const ext = file.name.split('.').pop().toUpperCase();
+    const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext.toLowerCase());
+
+    let html = `<div class="uploaded-file-item">
+      <div class="file-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:500;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${file.name}</div>
+        <div style="font-size:var(--text-xs);color:var(--muted-foreground);">${ext} · ${sizeMB} MB</div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="removeFile()">✕</button>
+    </div>`;
+
+    preview.innerHTML = html;
+    preview.style.display = 'block';
+  }
+
+  function removeFile() {
+    const input = document.getElementById('file-input');
+    input.value = '';
+    document.getElementById('file-preview').style.display = 'none';
+  }
 </script>
 @endpush

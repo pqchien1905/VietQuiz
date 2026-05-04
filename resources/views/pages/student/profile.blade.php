@@ -1,69 +1,128 @@
-﻿{{-- Student: profile --}}
+{{-- Student: profile --}}
 @extends('layouts.dashboard', ['role' => 'student'])
+
+@php
+  $avatarUrl = null;
+  if (!empty($user->avatar)) {
+    $avatarUrl = \Illuminate\Support\Str::startsWith($user->avatar, ['http://', 'https://'])
+      ? $user->avatar
+      : asset('storage/' . ltrim($user->avatar, '/'));
+  }
+  $initials = collect(explode(' ', $user->name))->filter()->map(fn($word) => mb_substr($word, 0, 1))->take(2)->implode('') ?: 'HS';
+  $iconMap = [
+    'class' => '🎓',
+    'book' => '📚',
+    'target' => '🎯',
+    'assignment' => '📎',
+    'star' => '⭐',
+    'flame' => '🔥',
+    'quiz' => '📝',
+  ];
+@endphp
 
 @push('styles')
 <style>
-.profile-hero { background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 70%,var(--info))); padding:3rem 1.5rem 5rem; color:#fff; }
-    .profile-card { margin-top:-4rem; position:relative; z-index:1; }
-    .achievement-badge { display:flex;flex-direction:column;align-items:center;gap:0.25rem;padding:0.875rem;border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--border);text-align:center; }
-    .achievement-badge .icon { font-size:1.75rem; }
-    .achievement-badge .label { font-size:var(--text-xs);color:var(--muted-foreground); }
-    .achievement-badge .value { font-size:var(--text-sm);font-weight:700; }
-    .activity-day { width:0.875rem;height:0.875rem;border-radius:2px;background:var(--muted);cursor:default; }
-    .activity-day.level-1 { background:color-mix(in srgb,var(--success) 30%,transparent); }
-    .activity-day.level-2 { background:color-mix(in srgb,var(--success) 55%,transparent); }
-    .activity-day.level-3 { background:color-mix(in srgb,var(--success) 80%,transparent); }
-    .activity-day.level-4 { background:var(--success); }
+  .profile-shell{max-width:1180px;margin:0 auto;padding:1.5rem}
+  .profile-hero{border-radius:var(--radius-lg);background:linear-gradient(135deg,#2563eb,#0f766e);color:#fff;padding:2rem;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:1.5rem;align-items:center;box-shadow:var(--shadow-md)}
+  .profile-avatar{width:5.5rem;height:5.5rem;border-radius:999px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:4px solid rgba(255,255,255,.45);background:rgba(255,255,255,.18);color:#fff;font-size:var(--text-xl);font-weight:800}
+  .profile-avatar img{width:100%;height:100%;object-fit:cover}
+  .profile-title{color:#fff;font-size:var(--text-3xl);line-height:1.15;margin:0}
+  .profile-subtitle{color:rgba(255,255,255,.84);font-size:var(--text-sm);margin-top:.35rem}
+  .profile-hero-stats{display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:1rem}
+  .profile-hero-stat{min-width:5.25rem;color:rgba(255,255,255,.88);font-size:var(--text-xs)}
+  .profile-hero-stat strong{display:block;color:#fff;font-size:var(--text-xl);line-height:1.1}
+  .profile-actions{display:flex;flex-direction:column;gap:.625rem;min-width:10rem}
+  .profile-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.85fr);gap:1.25rem;margin-top:1.25rem}
+  .profile-stack{display:flex;flex-direction:column;gap:1.25rem}
+  .achievement-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.75rem}
+  .achievement-badge{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.95rem;border-radius:var(--radius-md);background:var(--muted);border:1px solid var(--border);text-align:center;min-height:7rem}
+  .achievement-badge.inactive{opacity:.55}
+  .achievement-badge .icon{font-size:1.65rem}
+  .achievement-badge .label{font-size:var(--text-xs);color:var(--muted-foreground)}
+  .achievement-badge .value{font-size:var(--text-sm);font-weight:800}
+  .activity-grid{display:flex;gap:.25rem;flex-wrap:wrap}
+  .activity-day{width:.875rem;height:.875rem;border-radius:2px;background:var(--muted)}
+  .activity-day.level-1{background:color-mix(in srgb,var(--success) 30%,transparent)}
+  .activity-day.level-2{background:color-mix(in srgb,var(--success) 55%,transparent)}
+  .activity-day.level-3{background:color-mix(in srgb,var(--success) 80%,transparent)}
+  .activity-day.level-4{background:var(--success)}
+  .profile-list{display:flex;flex-direction:column;gap:.75rem}
+  .profile-row{display:flex;align-items:center;justify-content:space-between;gap:.875rem;padding:.875rem;border:1px solid var(--border);border-radius:var(--radius-md);color:inherit;text-decoration:none}
+  .profile-row:hover{border-color:var(--primary);box-shadow:var(--shadow-sm)}
+  .row-left{display:flex;align-items:center;gap:.75rem;min-width:0}
+  .row-icon{width:2.4rem;height:2.4rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--primary) 12%,transparent);flex-shrink:0}
+  .row-title{font-weight:700;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row-meta{font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.15rem}
+  .info-list{display:flex;flex-direction:column;gap:.85rem}
+  .info-row{display:flex;gap:.75rem;align-items:flex-start}
+  .info-icon{width:2rem;height:2rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--muted);flex-shrink:0}
+  @media (max-width:900px){.profile-hero{grid-template-columns:auto 1fr}.profile-actions{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap}.profile-grid{grid-template-columns:1fr}}
+  @media (max-width:640px){.profile-shell{padding:1rem}.profile-hero{grid-template-columns:1fr;padding:1.25rem}.profile-avatar{width:4.5rem;height:4.5rem}}
 </style>
 @endpush
 
 @section('content')
-  <!-- Hero banner -->
-      <div class="profile-hero">
-        <div style="max-width:900px;margin:0 auto;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
-          <div class="avatar avatar-2xl" id="profile-avatar" style="border:4px solid rgba(255,255,255,0.5);">GV</div>
-          <div style="flex:1;">
-            <h1 style="color:#fff;font-size:var(--text-3xl);" id="profile-name">Giáo viên Demo</h1>
-            <div style="color:rgba(255,255,255,.8);font-size:var(--text-sm);margin-top:0.25rem;" id="profile-role">Giáo viên • Trường THPT Example</div>
-            <div style="display:flex;gap:1.5rem;margin-top:1rem;flex-wrap:wrap;">
-              <div style="color:rgba(255,255,255,.9);font-size:var(--text-sm);"><span style="font-weight:700;font-size:var(--text-xl);" id="stat-courses">6</span><br/>Khóa học</div>
-              <div style="color:rgba(255,255,255,.9);font-size:var(--text-sm);"><span style="font-weight:700;font-size:var(--text-xl);" id="stat-quizzes">12</span><br/>Bài kiểm tra</div>
-              <div style="color:rgba(255,255,255,.9);font-size:var(--text-sm);"><span style="font-weight:700;font-size:var(--text-xl);" id="stat-assignments">18</span><br/>Bài tập</div>
-              <div style="color:rgba(255,255,255,.9);font-size:var(--text-sm);"><span style="font-weight:700;font-size:var(--text-xl);" id="stat-avg">82.5</span><br/>Điểm TB</div>
-            </div>
-          </div>
-          <div id="profile-edit-btn"></div>
+  <div class="profile-shell">
+    <section class="profile-hero">
+      <div class="profile-avatar" aria-label="Ảnh đại diện">
+        @if($avatarUrl)
+          <img src="{{ $avatarUrl }}" alt="{{ $user->name }}">
+        @else
+          {{ $initials }}
+        @endif
+      </div>
+
+      <div>
+        <h1 class="profile-title">{{ $user->name }}</h1>
+        <div class="profile-subtitle">
+          Học sinh · {{ $classes->first()?->name ?? 'Chưa tham gia lớp' }} · Thành viên từ {{ $memberSince }}
+        </div>
+        <div class="profile-hero-stats">
+          <div class="profile-hero-stat"><strong>{{ number_format($classCount) }}</strong>Lớp học</div>
+          <div class="profile-hero-stat"><strong>{{ number_format($courseCount) }}</strong>Khóa học</div>
+          <div class="profile-hero-stat"><strong>{{ number_format($quizCount) }}</strong>Quiz đã làm</div>
+          <div class="profile-hero-stat"><strong>{{ $avgGrade !== null ? $avgGrade . '%' : '—' }}</strong>Điểm TB</div>
         </div>
       </div>
 
-      <div style="max-width:900px;margin:0 auto;padding:0 1.5rem 2rem;" class="profile-card">
-        <div class="card" style="margin-bottom:1.5rem;">
-          <div class="card-content" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
-            <div>
-              <div style="font-size:var(--text-sm);font-weight:500;">Chỉnh sửa thông tin hồ sơ</div>
-              <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Cập nhật ảnh, tiểu sử và thông tin liên hệ</div>
+      <div class="profile-actions">
+        <a href="{{ route('student.settings') }}" class="btn btn-primary">Chỉnh sửa hồ sơ</a>
+        <a href="{{ route('student.grades') }}" class="btn btn-outline" style="background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35);">Xem điểm số</a>
+      </div>
+    </section>
+
+    <div class="profile-grid">
+      <div class="profile-stack">
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Thành tích học tập</h3>
+            <p class="card-description">Các mốc được tính từ lớp, khóa học, bài nộp và điểm số thật.</p>
+          </div>
+          <div class="card-content">
+            <div class="achievement-grid">
+              @foreach($achievements as $achievement)
+                <div class="achievement-badge {{ $achievement['active'] ? '' : 'inactive' }}">
+                  <div class="icon">{{ $iconMap[$achievement['icon']] ?? '⭐' }}</div>
+                  <div class="value">{{ $achievement['value'] }}</div>
+                  <div class="label">{{ $achievement['label'] }}</div>
+                </div>
+              @endforeach
             </div>
-            <a href="{{ route('student.settings') }}" class="btn btn-primary btn-sm gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              Chỉnh sửa
-            </a>
           </div>
-        </div>
+        </section>
 
-        <!-- Achievements -->
-        <div class="card" style="margin-bottom:1.5rem;">
-          <div class="card-header"><h3 class="card-title">Thành tích</h3><p class="card-description">Huy hiệu và mốc quan trọng</p></div>
-          <div class="card-content">
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:0.75rem;" id="achievements-grid"></div>
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Hoạt động 12 tuần qua</h3>
+            <p class="card-description">Tổng hợp ngày tham gia lớp, ghi danh khóa học, nộp quiz và nộp bài tập.</p>
           </div>
-        </div>
-
-        <!-- Activity heatmap -->
-        <div class="card" style="margin-bottom:1.5rem;">
-          <div class="card-header"><h3 class="card-title">Hoạt động 12 tuần qua</h3></div>
           <div class="card-content">
-            <div style="display:flex;gap:0.25rem;flex-wrap:wrap;" id="activity-grid"></div>
-            <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.75rem;font-size:var(--text-xs);color:var(--muted-foreground);">
+            <div class="activity-grid">
+              @foreach($activityHeatmap as $day)
+                <div class="activity-day level-{{ $day['level'] }}" title="{{ $day['date']->format('d/m/Y') }} · {{ $day['count'] }} hoạt động"></div>
+              @endforeach
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem;font-size:var(--text-xs);color:var(--muted-foreground);">
               <span>Ít hơn</span>
               <div class="activity-day"></div>
               <div class="activity-day level-1"></div>
@@ -73,55 +132,151 @@
               <span>Nhiều hơn</span>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- About + Contact -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
-          <div class="card">
-            <div class="card-header"><h3 class="card-title">Giới thiệu</h3></div>
-            <div class="card-content">
-              <p style="font-size:var(--text-sm);line-height:1.7;color:var(--muted-foreground);">Học sinh lớp 10A chuyên Toán tại THPT Example. Đam mê học tập, luôn cố gắng đạt kết quả cao nhất trong các bài kiểm tra và bài tập.</p>
-              <div style="margin-top:1rem;display:flex;flex-direction:column;gap:0.5rem;">
-                <div style="font-size:var(--text-sm);display:flex;gap:0.5rem;"><span>🎓</span><span>THPT Example • Lớp 10A chuyên Toán</span></div>
-                <div style="font-size:var(--text-sm);display:flex;gap:0.5rem;"><span>📍</span><span>Hà Nội, Việt Nam</span></div>
-                <div style="font-size:var(--text-sm);display:flex;gap:0.5rem;"><span>📅</span><span>Tham gia từ tháng 9/2025</span></div>
-              </div>
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Hoạt động gần đây</h3>
+            <p class="card-description">Các bài làm, bài nộp và lớp mới nhất của bạn.</p>
+          </div>
+          <div class="card-content">
+            <div class="profile-list">
+              @forelse($recentActivities as $activity)
+                <a href="{{ $activity->url }}" class="profile-row">
+                  <div class="row-left">
+                    <div class="row-icon">{{ $iconMap[$activity->type] ?? '📌' }}</div>
+                    <div style="min-width:0;">
+                      <div class="row-title">{{ $activity->title }}</div>
+                      <div class="row-meta">{{ $activity->meta }}</div>
+                    </div>
+                  </div>
+                  <span style="font-size:var(--text-xs);color:var(--muted-foreground);white-space:nowrap;">{{ $activity->created_at?->diffForHumans() }}</span>
+                </a>
+              @empty
+                <div style="color:var(--muted-foreground);font-size:var(--text-sm);">Chưa có hoạt động học tập gần đây.</div>
+              @endforelse
             </div>
           </div>
-          <div class="card">
-            <div class="card-header"><h3 class="card-title">Liên hệ</h3></div>
-            <div class="card-content" style="display:flex;flex-direction:column;gap:0.75rem;">
-              <div style="display:flex;align-items:center;gap:0.75rem;">
-                <div style="width:2rem;height:2rem;border-radius:var(--radius-md);background:color-mix(in srgb,var(--primary) 12%,transparent);display:flex;align-items:center;justify-content:center;">📧</div>
-                <div><div style="font-size:var(--text-xs);color:var(--muted-foreground);">Email</div><div style="font-size:var(--text-sm);" id="profile-email">teacher@demo.com</div></div>
-              </div>
-              <div style="display:flex;align-items:center;gap:0.75rem;">
-                <div style="width:2rem;height:2rem;border-radius:var(--radius-md);background:color-mix(in srgb,var(--success) 12%,transparent);display:flex;align-items:center;justify-content:center;">📞</div>
-                <div><div style="font-size:var(--text-xs);color:var(--muted-foreground);">Điện thoại</div><div style="font-size:var(--text-sm);">090 987 6543</div></div>
-              </div>
-              <div style="display:flex;align-items:center;gap:0.75rem;">
-                <div style="width:2rem;height:2rem;border-radius:var(--radius-md);background:color-mix(in srgb,var(--warning) 12%,transparent);display:flex;align-items:center;justify-content:center;">🏫</div>
-                <div><div style="font-size:var(--text-xs);color:var(--muted-foreground);">Trường</div><div style="font-size:var(--text-sm);">THPT Example, Hà Nội</div></div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
-  <div id="toast-container"></div>
-@endsection
 
-@push('scripts')
-<script>
-(function(){
-  var cn=document.cookie.match(/auth_name=([^;]+)/);var name=cn?decodeURIComponent(cn[1]):'Học sinh Demo';
-  var el=document.getElementById('profile-name');if(el&&name)el.textContent=name;
-  document.getElementById('profile-avatar').textContent=(name||'U').split(' ').filter(Boolean).map(function(w){return w[0];}).slice(-2).join('').toUpperCase();
-  var roleEl=document.getElementById('profile-role');if(roleEl)roleEl.textContent='Học sinh • Lớp 10A — THPT Example';
-  var ACHIEVEMENTS=[{icon:'🏆',label:'Học sinh Xuất sắc',value:'Top 10%'},{icon:'🎯',label:'Bài kiểm tra Đầu tiên',value:'Tháng 9/2025'},{icon:'👥',label:'10+ Lớp đã tham gia',value:'Thành tích'},{icon:'⭐',label:'Điểm cao nhất',value:'5 lần'},{icon:'📚',label:'50+ Bài đã làm',value:'Học tập'},{icon:'🔥',label:'Streak 14 ngày',value:'Liên tiếp'}];
-  document.getElementById('achievements-grid').innerHTML=ACHIEVEMENTS.map(function(a){return '<div class="achievement-badge"><div class="icon">'+a.icon+'</div><div class="value">'+a.value+'</div><div class="label">'+a.label+'</div></div>';}).join('');
-  var grid=document.getElementById('activity-grid');
-  var levels=[0,1,0,2,3,0,1,2,0,3,1,0,2,4,1,0,3,2,1,0,4,3,1,2,0,1,2,3,4,1,0,2,3,1,0,4,2,1,3,0,2,4,1,0,3,2,1,4,0,2,3,1,0,4,3,2,1,4,0,2,3,1,0,4,2,3,0,1,2,4,3,2,1,0,3,1,4,2,0,3,1,2,4,0,3];
-  grid.innerHTML=levels.map(function(l){return '<div class="activity-day level-'+l+'"></div>';}).join('');
-})();
-</script>
-@endpush
+      <aside class="profile-stack">
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Thông tin cá nhân</h3>
+          </div>
+          <div class="card-content">
+            <div class="info-list">
+              <div class="info-row">
+                <div class="info-icon">📧</div>
+                <div>
+                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Email</div>
+                  <a href="mailto:{{ $user->email }}" style="font-size:var(--text-sm);color:inherit;">{{ $user->email }}</a>
+                </div>
+              </div>
+              <div class="info-row">
+                <div class="info-icon">📞</div>
+                <div>
+                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Điện thoại</div>
+                  @if($user->phone)
+                    <a href="tel:{{ $user->phone }}" style="font-size:var(--text-sm);color:inherit;">{{ $user->phone }}</a>
+                  @else
+                    <span style="font-size:var(--text-sm);color:var(--muted-foreground);">Chưa cập nhật</span>
+                  @endif
+                </div>
+              </div>
+              <div class="info-row">
+                <div class="info-icon">🏫</div>
+                <div>
+                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Lớp hiện tại</div>
+                  <div style="font-size:var(--text-sm);">{{ $classes->first()?->name ?? 'Chưa tham gia lớp' }}</div>
+                </div>
+              </div>
+              <div class="info-row">
+                <div class="info-icon">📅</div>
+                <div>
+                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Ngày tạo tài khoản</div>
+                  <div style="font-size:var(--text-sm);">{{ $user->created_at?->format('d/m/Y') }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Tiến độ nhanh</h3>
+          </div>
+          <div class="card-content">
+            <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);gap:.75rem;">
+              <div class="stat-card" style="padding:1rem;">
+                <div class="stat-card__value">{{ $pendingQuizCount }}</div>
+                <div class="stat-card__label">Quiz đang làm</div>
+              </div>
+              <div class="stat-card" style="padding:1rem;">
+                <div class="stat-card__value">{{ $pendingAssignmentCount }}</div>
+                <div class="stat-card__label">Bài tập chưa nộp</div>
+              </div>
+              <div class="stat-card" style="padding:1rem;">
+                <div class="stat-card__value">{{ $bestGrade !== null ? $bestGrade . '%' : '—' }}</div>
+                <div class="stat-card__label">Điểm cao nhất</div>
+              </div>
+              <div class="stat-card" style="padding:1rem;">
+                <div class="stat-card__value">{{ $assignmentCount }}</div>
+                <div class="stat-card__label">Bài đã nộp</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Lớp đang học</h3>
+          </div>
+          <div class="card-content">
+            <div class="profile-list">
+              @forelse($classes as $class)
+                <a href="{{ route('student.classes.show', $class) }}" class="profile-row">
+                  <div class="row-left">
+                    <div class="row-icon">🎓</div>
+                    <div style="min-width:0;">
+                      <div class="row-title">{{ $class->name }}</div>
+                      <div class="row-meta">{{ $class->teacher?->name ?? 'Giáo viên' }} · {{ $class->courses_count }} khóa học</div>
+                    </div>
+                  </div>
+                  <span class="badge badge-outline">{{ $class->students_count }} HS</span>
+                </a>
+              @empty
+                <div style="color:var(--muted-foreground);font-size:var(--text-sm);">Bạn chưa tham gia lớp nào.</div>
+                <a href="{{ route('student.join-class') }}" class="btn btn-primary btn-sm">Tham gia lớp</a>
+              @endforelse
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h3 class="card-title">Khóa học gần đây</h3>
+          </div>
+          <div class="card-content">
+            <div class="profile-list">
+              @forelse($courses as $course)
+                <a href="{{ route('student.courses.show', $course) }}" class="profile-row">
+                  <div class="row-left">
+                    <div class="row-icon">📚</div>
+                    <div style="min-width:0;">
+                      <div class="row-title">{{ $course->name }}</div>
+                      <div class="row-meta">{{ $course->quizzes_count }} quiz · {{ $course->assignments_count }} bài tập</div>
+                    </div>
+                  </div>
+                </a>
+              @empty
+                <div style="color:var(--muted-foreground);font-size:var(--text-sm);">Chưa có khóa học nào.</div>
+              @endforelse
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+@endsection

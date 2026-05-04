@@ -1,103 +1,196 @@
-﻿{{-- Teacher: vip --}}
+{{-- Teacher: vip --}}
 @extends('layouts.dashboard', ['role' => 'teacher'])
+
+@php
+  $active = $subscription && $subscription->is_active;
+  $planNames = ['monthly' => 'Pro tháng', 'yearly' => 'Pro năm', 'lifetime' => 'Pro trọn đời'];
+  $statusNames = ['pending' => 'Đang chờ', 'paid' => 'Đã thanh toán', 'failed' => 'Thất bại', 'cancelled' => 'Đã hủy'];
+  $statusClasses = ['pending' => 'vip-status-pending', 'paid' => 'vip-status-paid', 'failed' => 'vip-status-failed', 'cancelled' => 'vip-status-cancelled'];
+@endphp
 
 @push('styles')
 <style>
-.vip-hero { background:linear-gradient(135deg,#7c3aed,#2563eb); padding:3rem 1.5rem; text-align:center; color:#fff; border-radius:var(--radius-xl); margin-bottom:1.5rem; position:relative; overflow:hidden; }
-    .vip-hero::before { content:''; position:absolute; inset:0; background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Ccircle cx='30' cy='30' r='29'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
-    .plan-card { border:2px solid var(--border); border-radius:var(--radius-xl); padding:2rem; transition:all var(--transition-fast); cursor:pointer; position:relative; }
-    .plan-card:hover { border-color:var(--primary); box-shadow:var(--shadow-lg); transform:translateY(-4px); }
-    .plan-card.selected { border-color:var(--primary); box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 10%,transparent); }
-    .plan-card.popular { border-color:var(--primary); }
-    .feature-row { display:flex; align-items:center; gap:0.5rem; padding:0.5rem 0; border-bottom:1px solid var(--border); font-size:var(--text-sm); }
-    .feature-row:last-child { border-bottom:none; }
-    .check { color:var(--success); flex-shrink:0; }
-    .cross { color:var(--destructive); flex-shrink:0; opacity:.5; }
+  .vip-page { display:flex; flex-direction:column; gap:1.5rem; }
+  .vip-hero { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(280px,.6fr); gap:1.5rem; align-items:stretch; padding:2rem; border:1px solid var(--border); border-radius:var(--radius-xl); background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 14%,var(--card)),var(--card)); }
+  .vip-kicker { display:inline-flex; align-items:center; gap:.5rem; width:max-content; padding:.35rem .75rem; border-radius:999px; background:color-mix(in srgb,var(--success) 12%,transparent); color:var(--success); font-size:var(--text-sm); font-weight:700; }
+  .vip-hero h1 { margin:.85rem 0 .75rem; font-size:clamp(1.75rem,3vw,2.6rem); line-height:1.08; letter-spacing:0; }
+  .vip-hero p { max-width:680px; color:var(--muted-foreground); font-size:var(--text-base); line-height:1.7; }
+  .vip-summary { border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); padding:1.25rem; display:flex; flex-direction:column; gap:.75rem; }
+  .vip-summary-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:var(--text-sm); }
+  .vip-summary-row strong { font-size:var(--text-base); }
+  .vip-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
+  .vip-plan { position:relative; display:flex; flex-direction:column; gap:1rem; padding:1.25rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); transition:border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast); }
+  .vip-plan:hover { border-color:var(--primary); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .vip-plan.featured { border-color:var(--primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent); }
+  .vip-plan-badge { position:absolute; top:-.75rem; left:1rem; padding:.25rem .65rem; border-radius:999px; background:var(--primary); color:var(--primary-foreground); font-size:.72rem; font-weight:800; }
+  .vip-plan-title { font-size:var(--text-lg); font-weight:800; }
+  .vip-price { display:flex; align-items:flex-end; gap:.35rem; }
+  .vip-price strong { font-size:2rem; line-height:1; }
+  .vip-price span { color:var(--muted-foreground); font-size:var(--text-sm); }
+  .vip-features { display:flex; flex-direction:column; gap:.55rem; margin:0; padding:0; list-style:none; color:var(--muted-foreground); font-size:var(--text-sm); }
+  .vip-features li { display:flex; gap:.5rem; align-items:flex-start; }
+  .vip-form { display:flex; flex-direction:column; gap:.75rem; margin-top:auto; }
+  .vip-form select { width:100%; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--background); color:var(--foreground); padding:.65rem .75rem; font-size:var(--text-sm); }
+  .vip-section-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,.45fr); gap:1rem; align-items:start; }
+  .vip-alert { padding:1rem; border-radius:var(--radius-lg); border:1px solid var(--border); background:var(--card); }
+  .vip-alert-success { border-color:color-mix(in srgb,var(--success) 35%,var(--border)); background:color-mix(in srgb,var(--success) 8%,var(--card)); color:var(--success); }
+  .vip-alert-error { border-color:color-mix(in srgb,var(--destructive) 35%,var(--border)); background:color-mix(in srgb,var(--destructive) 8%,var(--card)); color:var(--destructive); }
+  .vip-status { display:inline-flex; align-items:center; padding:.28rem .6rem; border-radius:999px; font-size:.75rem; font-weight:800; }
+  .vip-status-pending { color:#a16207; background:#fef3c7; }
+  .vip-status-paid { color:#047857; background:#d1fae5; }
+  .vip-status-failed, .vip-status-cancelled { color:#b91c1c; background:#fee2e2; }
+  .vip-info-list { display:flex; flex-direction:column; gap:.75rem; margin:0; padding:0; list-style:none; font-size:var(--text-sm); }
+  .vip-info-list li { display:flex; justify-content:space-between; gap:1rem; border-bottom:1px solid var(--border); padding-bottom:.75rem; }
+  .vip-info-list li:last-child { border-bottom:0; padding-bottom:0; }
+  .vip-copy { word-break:break-all; color:var(--muted-foreground); text-align:right; }
+  @media (max-width: 1024px) {
+    .vip-hero, .vip-section-grid { grid-template-columns:1fr; }
+    .vip-grid { grid-template-columns:1fr; }
+  }
 </style>
 @endpush
 
 @section('content')
-  <!-- Hero -->
-      <div class="vip-hero stagger-children">
-        <div style="position:relative;">
-          <div style="font-size:3rem;margin-bottom:0.75rem;">💎</div>
-          <h1 style="color:#fff;font-size:var(--text-4xl);margin-bottom:0.75rem;">Nâng cấp lên VietQuiz Pro</h1>
-          <p style="color:rgba(255,255,255,.85);font-size:var(--text-lg);max-width:560px;margin:0 auto 1.5rem;">Mở khóa toàn bộ tính năng cao cấp để giảng dạy và học tập hiệu quả hơn. Không giới hạn, không quảng cáo.</p>
-          <div style="display:inline-flex;align-items:center;gap:0.5rem;background:rgba(255,255,255,.15);border-radius:9999px;padding:0.375rem 1rem;font-size:var(--text-sm);font-weight:500;color:#fff;">
-            ⏰ Ưu đãi đặc biệt: Giảm 30% — còn 3 ngày
-          </div>
-        </div>
+<div class="vip-page">
+  @if(session('success'))
+    <div class="vip-alert vip-alert-success">{{ session('success') }}</div>
+  @endif
+
+  @if(session('error'))
+    <div class="vip-alert vip-alert-error">{{ session('error') }}</div>
+  @endif
+
+  @if($errors->any())
+    <div class="vip-alert vip-alert-error">{{ $errors->first() }}</div>
+  @endif
+
+  <section class="vip-hero">
+    <div>
+      <div class="vip-kicker">Thanh toán qua VNPay sandbox</div>
+      <h1>Nâng cấp VietQuiz Pro cho giáo viên</h1>
+      <p>Mở khóa tạo đề không giới hạn, AI hỗ trợ câu hỏi và chấm tự luận, phân tích lớp học nâng cao, xuất báo cáo và ưu tiên hỗ trợ khi vận hành lớp.</p>
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.25rem;">
+        <a href="#vip-plans" class="btn btn-primary">Chọn gói</a>
+        <a href="#vnpay-info" class="btn btn-outline">Thông tin VNPay</a>
       </div>
+    </div>
 
-      <!-- Billing toggle -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.5rem;" class="stagger-children">
-        <span style="font-size:var(--text-sm);">Hàng tháng</span>
-        <label class="switch">
-          <input type="checkbox" id="billing-toggle" onchange="toggleBilling(this)" />
-          <span class="switch-slider"></span>
-        </label>
-        <span style="font-size:var(--text-sm);">Hàng năm <span class="badge badge-success">Tiết kiệm 30%</span></span>
+    <aside class="vip-summary">
+      <div class="vip-summary-row">
+        <span>Trạng thái</span>
+        <strong>{{ $active ? 'Đang dùng Pro' : 'Gói miễn phí' }}</strong>
       </div>
-
-      <!-- Plans -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:2rem;max-width:900px;margin-left:auto;margin-right:auto;" class="stagger-children">
-        <!-- Free -->
-        <div class="plan-card" onclick="selectPlan('free')">
-          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;">Miễn phí</div>
-          <div style="font-size:2.5rem;font-weight:800;margin-bottom:0.25rem;">0₫</div>
-          <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">Mãi mãi</div>
-          <button class="btn btn-outline w-full" disabled style="opacity:.6;cursor:default;">Gói hiện tại</button>
-          <div style="margin-top:1.25rem;" id="feat-free"></div>
-        </div>
-
-        <!-- Pro -->
-        <div class="plan-card popular selected" id="plan-pro" onclick="selectPlan('pro')">
-          <div style="position:absolute;top:-1rem;left:50%;transform:translateX(-50%);"><span class="badge badge-solid-primary" style="padding:.375rem 1rem;">⭐ Phổ biến nhất</span></div>
-          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;color:var(--primary);">Pro</div>
-          <div style="font-size:2.5rem;font-weight:800;margin-bottom:0.25rem;color:var(--primary);" id="pro-price">199K₫</div>
-          <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;" id="pro-period">/ tháng</div>
-          <button class="btn btn-primary w-full" onclick="checkout('pro')">Đăng ký ngay</button>
-          <div style="margin-top:1.25rem;" id="feat-pro"></div>
-        </div>
-
-        <!-- Enterprise -->
-        <div class="plan-card" onclick="selectPlan('enterprise')">
-          <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:0.5rem;">Doanh nghiệp</div>
-          <div style="font-size:2rem;font-weight:800;margin-bottom:0.25rem;">Liên hệ</div>
-          <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">Giá riêng cho tổ chức</div>
-          <button class="btn btn-outline w-full" onclick="contactSales()">Liên hệ Tư vấn</button>
-          <div style="margin-top:1.25rem;" id="feat-ent"></div>
-        </div>
+      <div class="vip-summary-row">
+        <span>Gói hiện tại</span>
+        <strong>{{ $active ? ($planNames[$subscription->plan] ?? 'Pro') : 'Free' }}</strong>
       </div>
-
-      <!-- FAQ -->
-      <div class="card stagger-children" style="max-width:700px;margin:0 auto;">
-        <div class="card-header"><h3 class="card-title">Câu hỏi thường gặp</h3></div>
-        <div class="card-content" style="padding-top:0;" id="vip-faq"></div>
+      <div class="vip-summary-row">
+        <span>Hiệu lực đến</span>
+        <strong>
+          @if(!$active)
+            -
+          @elseif($subscription->plan === 'lifetime' || !$subscription->expires_at)
+            Trọn đời
+          @else
+            {{ $subscription->expires_at->format('d/m/Y') }}
+          @endif
+        </strong>
       </div>
-  <div id="toast-container"></div>
+      @if($active)
+        <form method="POST" action="{{ route('teacher.vip.cancel') }}">
+          @csrf
+          <button class="btn btn-outline w-full" type="submit">Hủy gia hạn</button>
+        </form>
+      @endif
+    </aside>
+  </section>
+
+  <section id="vip-plans" class="vip-grid">
+    <article class="vip-plan">
+      <div class="vip-plan-title">Pro tháng</div>
+      <div class="vip-price"><strong>{{ number_format($plans['monthly']['amount']) }}đ</strong><span>/ tháng</span></div>
+      <ul class="vip-features">
+        <li><span>✓</span><span>Không giới hạn lớp học và ngân hàng câu hỏi</span></li>
+        <li><span>✓</span><span>AI gợi ý câu hỏi theo chủ đề</span></li>
+        <li><span>✓</span><span>Xuất báo cáo PDF/Excel</span></li>
+      </ul>
+      <form class="vip-form" method="POST" action="{{ route('teacher.vip.subscribe') }}">
+        @csrf
+        <input type="hidden" name="plan" value="monthly">
+        @include('pages.teacher.partials.vip-bank-select')
+        <button class="btn btn-primary w-full" type="submit">Thanh toán VNPay</button>
+      </form>
+    </article>
+
+    <article class="vip-plan featured">
+      <div class="vip-plan-badge">Tiết kiệm 30%</div>
+      <div class="vip-plan-title">Pro năm</div>
+      <div class="vip-price"><strong>{{ number_format($plans['yearly']['amount']) }}đ</strong><span>/ năm</span></div>
+      <ul class="vip-features">
+        <li><span>✓</span><span>Tất cả quyền lợi Pro tháng</span></li>
+        <li><span>✓</span><span>Ưu tiên hỗ trợ trong ngày làm việc</span></li>
+        <li><span>✓</span><span>Phù hợp giáo viên dùng thường xuyên</span></li>
+      </ul>
+      <form class="vip-form" method="POST" action="{{ route('teacher.vip.subscribe') }}">
+        @csrf
+        <input type="hidden" name="plan" value="yearly">
+        @include('pages.teacher.partials.vip-bank-select')
+        <button class="btn btn-primary w-full" type="submit">Thanh toán VNPay</button>
+      </form>
+    </article>
+
+    <article class="vip-plan">
+      <div class="vip-plan-title">Pro trọn đời</div>
+      <div class="vip-price"><strong>{{ number_format($plans['lifetime']['amount']) }}đ</strong><span>/ một lần</span></div>
+      <ul class="vip-features">
+        <li><span>✓</span><span>Không cần gia hạn định kỳ</span></li>
+        <li><span>✓</span><span>Nhận mọi cập nhật Pro tương lai</span></li>
+        <li><span>✓</span><span>Phù hợp tài khoản cá nhân lâu dài</span></li>
+      </ul>
+      <form class="vip-form" method="POST" action="{{ route('teacher.vip.subscribe') }}">
+        @csrf
+        <input type="hidden" name="plan" value="lifetime">
+        @include('pages.teacher.partials.vip-bank-select')
+        <button class="btn btn-primary w-full" type="submit">Thanh toán VNPay</button>
+      </form>
+    </article>
+  </section>
+
+  <section class="vip-section-grid">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Giao dịch gần nhất</h3>
+      </div>
+      <div class="card-content">
+        @if($latestPayment)
+          <ul class="vip-info-list">
+            <li><span>Mã đơn</span><span class="vip-copy">{{ $latestPayment->txn_ref }}</span></li>
+            <li><span>Gói</span><strong>{{ $planNames[$latestPayment->plan] ?? $latestPayment->plan }}</strong></li>
+            <li><span>Số tiền</span><strong>{{ number_format($latestPayment->amount) }}đ</strong></li>
+            <li><span>Trạng thái</span><span class="vip-status {{ $statusClasses[$latestPayment->status] ?? '' }}">{{ $statusNames[$latestPayment->status] ?? $latestPayment->status }}</span></li>
+            <li><span>Thời gian</span><strong>{{ $latestPayment->created_at->format('d/m/Y H:i') }}</strong></li>
+          </ul>
+        @else
+          <p style="margin:0;color:var(--muted-foreground);">Chưa có giao dịch VIP nào.</p>
+        @endif
+      </div>
+    </div>
+
+    <div class="card" id="vnpay-info">
+      <div class="card-header">
+        <h3 class="card-title">Thông tin kiểm thử</h3>
+      </div>
+      <div class="card-content">
+        <ul class="vip-info-list">
+          <li><span>IPN URL</span><span class="vip-copy">{{ $ipnUrl }}</span></li>
+          <li><span>Ngân hàng</span><strong>NCB</strong></li>
+          <li><span>Số thẻ</span><span class="vip-copy">9704198526191432198</span></li>
+          <li><span>Chủ thẻ</span><strong>NGUYEN VAN A</strong></li>
+          <li><span>Ngày phát hành</span><strong>07/15</strong></li>
+          <li><span>OTP</span><strong>123456</strong></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
 @endsection
-
-@push('scripts')
-<script>
-(function(){
-// Feature rows
-function fr(arr,bold){return arr.map(function(r){return '<div class="feature-row"><span>'+r[0]+'</span><span'+(bold?' style="font-weight:500;"':'')+'>'+r[1]+'</span></div>';}).join('');}
-document.getElementById('feat-free').innerHTML=fr([['✅','Tối đa 3 lớp học'],['✅','50 câu hỏi/đề'],['✅','Chấm điểm tự động'],['❌','AI gợi ý điểm'],['❌','Phân tích nâng cao'],['❌','Xuất báo cáo PDF']]);
-document.getElementById('feat-pro').innerHTML=fr([['✅','Không giới hạn lớp'],['✅','Không giới hạn câu hỏi'],['✅','AI gợi ý điểm tự luận'],['✅','Phân tích nâng cao'],['✅','Xuất báo cáo PDF'],['✅','Hỗ trợ ưu tiên 24/7']],true);
-document.getElementById('feat-ent').innerHTML=fr([['✅','Tất cả tính năng Pro'],['✅','Quản lý toàn trường'],['✅','SSO / LDAP'],['✅','API access'],['✅','Onboarding riêng'],['✅','SLA 99.9% uptime']]);
-// FAQ
-var VF=[{q:'Có thể hủy đăng ký bất cứ lúc nào không?',a:'Có, bạn có thể hủy bất cứ lúc nào. Sau khi hủy, bạn vẫn sử dụng được đến hết chu kỳ đã thanh toán.'},{q:'Thanh toán những phương thức nào?',a:'Hỗ trợ thanh toán qua VNPay, Momo, thẻ ngân hàng nội địa, Visa/Mastercard và chuyển khoản ngân hàng.'},{q:'Dữ liệu của tôi có an toàn khi dùng bản miễn phí không?',a:'Dữ liệu của bạn luôn được bảo mật với mã hóa AES-256, bất kể gói nào bạn sử dụng.'},{q:'Có ưu đãi cho trường học hoặc tổ chức giáo dục không?',a:'Có, liên hệ với chúng tôi để được tư vấn gói Enterprise với mức giá ưu đãi đặc biệt cho tổ chức.'}];
-document.getElementById('vip-faq').innerHTML=VF.map(function(f){return '<div class="accordion-item"><button class="accordion-trigger" onclick="this.closest(\'.accordion-item\').classList.toggle(\'.open\')"><span>'+f.q+'</span><svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button><div class="accordion-content">'+f.a+'</div></div>';}).join('');
-// Fix accordion click
-document.getElementById('vip-faq').addEventListener('click',function(e){var t=e.target.closest('.accordion-trigger');if(t)t.closest('.accordion-item').classList.toggle('open');});
-
-var yearly=false;
-window.toggleBilling=function(cb){yearly=cb.checked;document.getElementById('pro-price').textContent=yearly?'139K₫':'199K₫';document.getElementById('pro-period').textContent=yearly?'/ tháng (thanh toán năm)':'/ tháng';};
-window.selectPlan=function(plan){document.querySelectorAll('.plan-card').forEach(function(c){c.classList.remove('selected');});if(plan==='pro')document.getElementById('plan-pro').classList.add('selected');};
-window.checkout=function(){toast('Đang chuyển đến trang thanh toán...');setTimeout(function(){toast('Nâng cấp thành công! Chào mừng lên Pro 🎉');},2000);};
-window.contactSales=function(){toast('Đội ngũ tư vấn sẽ liên hệ với bạn trong 1 ngày làm việc.');};
-function toast(m){var tc=document.getElementById('toast-container');if(!tc)return;var e=document.createElement('div');e.className='toast toast-success';e.innerHTML='<span>✅</span><span>'+m+'</span>';tc.appendChild(e);setTimeout(function(){e.classList.add('show');},10);setTimeout(function(){e.classList.remove('show');setTimeout(function(){e.remove();},300);},3000);}
-})();
-</script>
-@endpush

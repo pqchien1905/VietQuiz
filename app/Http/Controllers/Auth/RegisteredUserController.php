@@ -36,6 +36,7 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['required', 'in:teacher,student'],
             'phone' => ['nullable', 'string', 'max:15'],
+            'terms' => ['accepted'],
         ]);
 
         $user = User::create([
@@ -44,15 +45,14 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->input('role', 'student'),
             'phone' => $request->phone,
+            'can_switch_role' => false,
+            'last_active_role' => $request->input('role', 'student'),
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        if ($user->isTeacher()) {
-            return redirect()->intended(route('teacher.dashboard'));
-        }
-        return redirect()->intended(route('student.dashboard'));
+        return redirect()->intended($user->dashboardUrl());
     }
 }

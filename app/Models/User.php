@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,14 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
-        'name', 'email', 'password', 'role', 'avatar', 'phone', 'subject',
+        'name', 'email', 'password', 'role', 'can_switch_role', 'last_active_role', 'avatar', 'phone', 'subject',
     ];
 
     protected $hidden = [
@@ -31,10 +31,15 @@ class User extends Authenticatable
         ];
     }
 
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+
     /* ── Relationships ── */
     public function classes(): BelongsToMany
     {
-        return $this->belongsToMany(ClassModel::class, 'class_user', 'class_id', 'user_id')
+        return $this->belongsToMany(ClassModel::class, 'class_user', 'user_id', 'class_id')
             ->withPivot('joined_at');
     }
 
@@ -57,6 +62,16 @@ class User extends Authenticatable
     public function quizzes(): HasMany
     {
         return $this->hasMany(Quiz::class, 'teacher_id');
+    }
+
+    public function quizFolders(): HasMany
+    {
+        return $this->hasMany(QuizFolder::class, 'teacher_id');
+    }
+
+    public function questionFolders(): HasMany
+    {
+        return $this->hasMany(QuestionFolder::class, 'teacher_id');
     }
 
     public function questions(): HasMany
@@ -89,10 +104,20 @@ class User extends Authenticatable
         return $this->hasOne(VipSubscription::class);
     }
 
+    public function vipPayments(): HasMany
+    {
+        return $this->hasMany(VipPayment::class);
+    }
+
     public function quizAttempts(): BelongsToMany
     {
         return $this->belongsToMany(Quiz::class, 'quiz_user')
-            ->withPivot(['score', 'total_points', 'answers', 'started_at', 'submitted_at', 'is_graded']);
+            ->withPivot(['score', 'total_points', 'answers', 'started_at', 'submitted_at', 'is_graded', 'shuffled_options']);
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
     }
 
     /* ── Accessors ── */
@@ -106,8 +131,42 @@ class User extends Authenticatable
         return $this->role === 'student';
     }
 
+    public function dashboardRouteName(): string
+    {
+        return match ($this->role) {
+            'teacher' => 'teacher.dashboard',
+            default => 'student.dashboard',
+        };
+    }
+
+    public function dashboardUrl(bool $absolute = true): string
+    {
+        return route($this->dashboardRouteName(), absolute: $absolute);
+    }
+
     public function isVip(): bool
     {
-        return $this->vipSubscription?->status === 'active';
+        return (bool) $this->vipSubscription?->is_active;
+    }
+
+    public function canSwitchRole(): bool
+    {
+        return (bool) $this->can_switch_role;
+    }
+
+    public function isDualAccount(): bool
+    {
+        return $this->can_switch_role === true;
+    }
+
+    public function getLastActiveRole(): ?string
+    {
+        return $this->last_active_role;
+    }
+
+    public function setLastActiveRole(string $role): void
+    {
+        $this->last_active_role = $role;
+        $this->save();
     }
 }
