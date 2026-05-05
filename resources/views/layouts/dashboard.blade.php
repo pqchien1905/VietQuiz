@@ -23,6 +23,13 @@
   $accountSubtitle = $isVip
     ? ($planLabels[$user->vipSubscription->plan] ?? 'VIP')
     : ($role === 'student' ? 'Gói miễn phí' : 'Tài khoản thường');
+  $vipDetailUrl = route("$role.vip") . ($role === 'teacher' ? '#vip-plans' : '#vip-plan');
+  $vipExpiresLabel = null;
+  if ($isVip) {
+    $vipExpiresLabel = ($user->vipSubscription->plan === 'lifetime' || !$user->vipSubscription->expires_at)
+      ? 'Trọn đời'
+      : $user->vipSubscription->expires_at->format('d/m/Y');
+  }
 
   $currentPage = request()->path();
   $currentPage = last(explode('/', $currentPage)) ?: 'dashboard';
@@ -340,10 +347,13 @@
               </div>
             </div>
             @if($isVip)
-              <div class="dropdown-item" style="color:#eab308;cursor:default;" role="menuitem">
+              <a href="{{ $vipDetailUrl }}" class="dropdown-item" style="color:#eab308;" role="menuitem">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>
-                ⭐ {{ $planLabels[$user->vipSubscription->plan] ?? 'VIP' }} — Đã kích hoạt
-              </div>
+                <span style="display:flex;flex-direction:column;gap:.1rem;min-width:0;">
+                  <span>Quản lý / gia hạn gói</span>
+                  <span style="font-size:var(--text-xs);color:var(--muted-foreground);">Hiệu lực đến: {{ $vipExpiresLabel }}</span>
+                </span>
+              </a>
             @else
               <a href="{{ route("$role.vip") }}" class="dropdown-item" style="color:#eab308;" role="menuitem">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>

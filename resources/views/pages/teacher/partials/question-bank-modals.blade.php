@@ -61,7 +61,7 @@
 
 <div class="modal-overlay ai-modal-overlay" id="ai-modal">
   <div class="ai-modal">
-    <form method="POST" action="{{ route('teacher.questions.generate-ai') }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('teacher.questions.generate-ai') }}" enctype="multipart/form-data" id="ai-question-form">
       @csrf
       <div class="ai-modal__header">
         <div>
@@ -137,6 +137,23 @@
         <button type="submit" class="btn btn-primary" id="ai-submit-btn">Tạo câu hỏi</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay ai-modal-overlay" id="ai-progress-modal" data-static="true" role="dialog" aria-modal="true" aria-labelledby="ai-progress-title">
+  <div class="ai-modal ai-progress-card">
+    <div class="ai-modal__body">
+      <div class="ai-progress-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3l1.6 4.6L18 9.2l-4.4 1.6L12 15.4l-1.6-4.6L6 9.2l4.4-1.6L12 3z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z"/></svg>
+      </div>
+      <h3 id="ai-progress-title" style="font-size:var(--text-lg);font-weight:900;margin:0;">Đang tạo câu hỏi bằng AI</h3>
+      <div class="ai-progress-percent" id="ai-progress-percent">0%</div>
+      <div class="ai-progress-track" aria-hidden="true">
+        <div class="ai-progress-bar" id="ai-progress-bar"></div>
+      </div>
+      <p class="ai-progress-note" id="ai-progress-status">Đang bắt đầu tạo câu hỏi...</p>
+      <p class="ai-progress-note">Vui lòng không đóng trang cho đến khi hệ thống tạo xong.</p>
+    </div>
   </div>
 </div>
 

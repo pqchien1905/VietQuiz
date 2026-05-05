@@ -3,6 +3,7 @@
 namespace Tests\Feature\Student;
 
 use App\Models\User;
+use App\Models\VipSubscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -33,5 +34,23 @@ class StudentVipTest extends TestCase
                 'plan' => 'yearly',
             ])
             ->assertSessionHasErrors('plan');
+    }
+
+    public function test_active_vip_dropdown_links_to_plan_details(): void
+    {
+        $student = User::factory()->create(['role' => 'student']);
+        VipSubscription::create([
+            'user_id' => $student->id,
+            'plan' => 'monthly',
+            'status' => 'active',
+            'started_at' => now()->subDay(),
+            'expires_at' => now()->addMonth(),
+        ]);
+
+        $this->actingAs($student)
+            ->get(route('student.dashboard'))
+            ->assertOk()
+            ->assertSee('Quản lý / gia hạn gói')
+            ->assertSee(route('student.vip') . '#vip-plan', false);
     }
 }

@@ -6,16 +6,90 @@
 
 @php
   $mainStats = [
-    ['Người dùng', $stats['users'], $stats['teachers'].' giáo viên · '.$stats['students'].' học sinh', 'var(--primary)', route('admin.users')],
-    ['Lớp / khóa', $stats['classes'], $stats['courses'].' khóa học', 'var(--info)', route('admin.classes')],
-    ['Bài kiểm tra', $stats['quizzes'], $attemptCount.' lượt làm', 'var(--success)', route('admin.quizzes')],
-    ['Bài tập', $stats['assignments'], $stats['submissions'].' bài nộp', 'var(--warning)', route('admin.assignments')],
-    ['Hỗ trợ đang mở', $stats['tickets'], 'Cần xử lý', 'var(--destructive)', route('admin.tickets', ['status' => 'open'])],
-    ['VIP hoạt động', $stats['vip'], 'Đang hiệu lực', '#eab308', route('admin.vip')],
-    ['Điểm trung bình', $avgScore !== null ? round($avgScore, 1) : '—', 'Tất cả điểm', 'var(--accent)', route('admin.grades')],
-    ['Phân hệ', 10, 'Đang quản trị', 'var(--primary)', route('admin.system')],
+    ['label' => 'Người dùng', 'value' => $stats['users'], 'detail' => $stats['teachers'].' giáo viên · '.$stats['students'].' học sinh', 'tone' => 'var(--primary)', 'href' => route('admin.users'), 'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>'],
+    ['label' => 'Lớp / khóa', 'value' => $stats['classes'], 'detail' => $stats['courses'].' khóa học', 'tone' => 'var(--info)', 'href' => route('admin.classes'), 'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'],
+    ['label' => 'Bài kiểm tra', 'value' => $stats['quizzes'], 'detail' => $attemptCount.' lượt làm', 'tone' => 'var(--success)', 'href' => route('admin.quizzes'), 'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>'],
+    ['label' => 'Bài tập', 'value' => $stats['assignments'], 'detail' => $stats['submissions'].' bài nộp', 'tone' => 'var(--warning)', 'href' => route('admin.assignments'), 'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>'],
+    ['label' => 'Hỗ trợ đang mở', 'value' => $stats['tickets'], 'detail' => 'Cần xử lý', 'tone' => 'var(--destructive)', 'href' => route('admin.tickets', ['status' => 'open']), 'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'],
+    ['label' => 'VIP hoạt động', 'value' => $stats['vip'], 'detail' => 'Đang hiệu lực', 'tone' => '#eab308', 'href' => route('admin.vip'), 'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'],
+    ['label' => 'Điểm trung bình', 'value' => $avgScore !== null ? round($avgScore, 1) : '—', 'detail' => 'Tất cả điểm', 'tone' => 'var(--accent)', 'href' => route('admin.grades'), 'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'],
   ];
 @endphp
+
+@push('styles')
+<style>
+  .admin-dashboard-stats {
+    display:grid;
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    gap:1rem;
+  }
+  .admin-dashboard-stat {
+    --stat-tone:var(--primary);
+    grid-column:span 3;
+    min-height:9rem;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:1rem;
+    padding:1.25rem;
+    border:1px solid color-mix(in srgb,var(--stat-tone) 24%,var(--border));
+    border-radius:var(--radius-lg);
+    background:
+      linear-gradient(135deg,color-mix(in srgb,var(--stat-tone) 8%,transparent),transparent 48%),
+      var(--card);
+    color:inherit;
+    text-decoration:none;
+    box-shadow:var(--shadow-sm);
+    transition:transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    overflow:hidden;
+    position:relative;
+  }
+  .admin-dashboard-stat:nth-child(n+5) { grid-column:span 4; }
+  .admin-dashboard-stat:hover {
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-md);
+    border-color:var(--stat-tone);
+  }
+  .admin-dashboard-stat__body { min-width:0; display:flex; flex-direction:column; gap:.45rem; }
+  .admin-dashboard-stat__label {
+    color:var(--muted-foreground);
+    font-size:var(--text-sm);
+    font-weight:750;
+  }
+  .admin-dashboard-stat__value {
+    color:var(--stat-tone);
+    font-size:clamp(2rem,3vw,2.55rem);
+    font-weight:950;
+    line-height:.9;
+    letter-spacing:0;
+  }
+  .admin-dashboard-stat__detail {
+    color:var(--muted-foreground);
+    font-size:var(--text-sm);
+    font-weight:650;
+    overflow-wrap:anywhere;
+  }
+  .admin-dashboard-stat__icon {
+    width:2.75rem;
+    height:2.75rem;
+    flex:0 0 auto;
+    display:grid;
+    place-items:center;
+    border-radius:var(--radius-md);
+    background:color-mix(in srgb,var(--stat-tone) 13%,transparent);
+    color:var(--stat-tone);
+  }
+  .admin-dashboard-stat__icon svg { width:1.35rem; height:1.35rem; }
+  @media (max-width:1200px) {
+    .admin-dashboard-stat,
+    .admin-dashboard-stat:nth-child(n+5) { grid-column:span 6; }
+  }
+  @media (max-width:680px) {
+    .admin-dashboard-stat,
+    .admin-dashboard-stat:nth-child(n+5) { grid-column:1 / -1; min-height:0; }
+  }
+</style>
+@endpush
 
 @section('content')
 <section class="admin-hero">
@@ -29,12 +103,15 @@
   </div>
 </section>
 
-<section class="stats-grid stats-grid-4 stagger-children">
+<section class="admin-dashboard-stats stagger-children">
   @foreach($mainStats as $card)
-    <a href="{{ $card[4] }}" class="stat-card" style="text-decoration:none;color:inherit;">
-      <div class="stat-card__label">{{ $card[0] }}</div>
-      <div class="stat-card__value" style="color:{{ $card[3] }}">{{ is_numeric($card[1]) ? number_format($card[1]) : $card[1] }}</div>
-      <div class="stat-card__label">{{ $card[2] }}</div>
+    <a href="{{ $card['href'] }}" class="admin-dashboard-stat" style="--stat-tone:{{ $card['tone'] }}">
+      <span class="admin-dashboard-stat__body">
+        <span class="admin-dashboard-stat__label">{{ $card['label'] }}</span>
+        <span class="admin-dashboard-stat__value">{{ is_numeric($card['value']) ? number_format($card['value']) : $card['value'] }}</span>
+        <span class="admin-dashboard-stat__detail">{{ $card['detail'] }}</span>
+      </span>
+      <span class="admin-dashboard-stat__icon">{!! $card['icon'] !!}</span>
     </a>
   @endforeach
 </section>

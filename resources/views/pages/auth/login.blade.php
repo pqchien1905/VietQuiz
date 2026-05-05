@@ -105,14 +105,4 @@
       </p>
     </div>
   </div>
-
-  <div class="card demo-card" style="border-style: dashed; background: var(--muted);">
-    <div class="card-content" style="padding: 1rem;">
-      <p style="font-weight: 500; font-size: var(--text-sm); color: var(--muted-foreground); margin-bottom: 0.5rem;">Thông tin đăng nhập Demo:</p>
-      <div style="font-size: var(--text-sm); color: var(--muted-foreground); display: flex; flex-direction: column; gap: 0.25rem;">
-        <span>Giáo viên: teacher@demo.com / password123</span>
-        <span>Học sinh: student@demo.com / password123</span>
-      </div>
-    </div>
-  </div>
 @endsection

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Shared;
 
 use App\Http\Controllers\Controller;
 use App\Models\VipPayment;
+use App\Models\VipPlan;
 use App\Models\VipSubscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -12,28 +13,6 @@ use Illuminate\Support\Str;
 
 class VipController extends Controller
 {
-    private const TEACHER_PLANS = [
-        'monthly' => [
-            'label' => 'Goi Pro thang',
-            'amount' => 199000,
-        ],
-        'yearly' => [
-            'label' => 'Goi Pro nam',
-            'amount' => 1668000,
-        ],
-        'lifetime' => [
-            'label' => 'Goi Pro tron doi',
-            'amount' => 3999000,
-        ],
-    ];
-
-    private const STUDENT_PLANS = [
-        'monthly' => [
-            'label' => 'Goi bo qua quang cao khi hoc',
-            'amount' => 19000,
-        ],
-    ];
-
     public function index(Request $request)
     {
         $user = $request->user();
@@ -263,6 +242,32 @@ class VipController extends Controller
 
     private function plansForUser($user): array
     {
-        return $user->isTeacher() ? self::TEACHER_PLANS : self::STUDENT_PLANS;
+        $audience = $user->isTeacher() ? 'teacher' : 'student';
+        $plans = VipPlan::where('audience', $audience)
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->get()
+            ->mapWithKeys(fn ($plan) => [
+                $plan->plan => [
+                    'label' => $plan->label,
+                    'amount' => (int) $plan->amount,
+                ],
+            ])
+            ->all();
+
+        if ($plans !== []) {
+            return $plans;
+        }
+
+        return collect(VipPlan::defaults())
+            ->where('audience', $audience)
+            ->where('status', 'active')
+            ->mapWithKeys(fn ($plan) => [
+                $plan['plan'] => [
+                    'label' => $plan['label'],
+                    'amount' => $plan['amount'],
+                ],
+            ])
+            ->all();
     }
 }

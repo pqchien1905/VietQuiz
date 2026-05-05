@@ -6,6 +6,9 @@
   <meta name="description" content="VietQuiz — Nền tảng Kiểm tra Đánh giá Toàn diện hàng đầu Việt Nam. Tạo đề thi, chấm điểm tự động, phân tích học sinh." />
   <title>VietQuiz — Nền tảng Học tập & Kiểm tra Thông minh</title>
 
+  <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+  <meta name="theme-color" content="#2563eb">
+
   @vite(['resources/css/app.css'])
 
   @stack('styles')

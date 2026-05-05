@@ -51,6 +51,12 @@
   .ai-alert{display:none;border-radius:var(--radius-md);padding:.75rem 1rem;font-size:var(--text-sm)}
   .ai-alert.error{display:block;border:1px solid color-mix(in srgb,var(--destructive) 35%,var(--border));background:color-mix(in srgb,var(--destructive) 10%,var(--card));color:var(--destructive)}
   .ai-alert.success{display:block;border:1px solid color-mix(in srgb,var(--success) 35%,var(--border));background:color-mix(in srgb,var(--success) 10%,var(--card));color:var(--success)}
+  .ai-progress-card{max-width:28rem;text-align:center}
+  .ai-progress-icon{width:3rem;height:3rem;border-radius:999px;margin:0 auto .9rem;display:grid;place-items:center;background:color-mix(in srgb,var(--primary) 12%,var(--card));color:var(--primary)}
+  .ai-progress-percent{font-size:var(--text-4xl);font-weight:900;line-height:1;color:var(--primary);margin:.75rem 0 .35rem}
+  .ai-progress-track{height:.65rem;border-radius:999px;background:var(--muted);overflow:hidden;margin:1rem 0 .75rem}
+  .ai-progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--primary),var(--success));border-radius:inherit;transition:width .35s ease}
+  .ai-progress-note{font-size:var(--text-sm);color:var(--muted-foreground);line-height:1.6}
   @media(max-width:760px){
     .question-filter-left,.question-toolbar{align-items:stretch}
     .folder-grid{grid-template-columns:1fr}
@@ -578,14 +584,19 @@
 
   document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
     overlay.addEventListener('click', function(event) {
+      if (overlay.dataset.static === 'true') return;
       if (event.target === overlay) closeQuestionModal(overlay.id);
     });
   });
 
   document.addEventListener('keydown', function(event) {
     if (event.key !== 'Escape') return;
-    document.querySelectorAll('.modal-overlay.open').forEach(overlay => overlay.classList.remove('open'));
-    document.body.style.overflow = '';
+    document.querySelectorAll('.modal-overlay.open').forEach(function(overlay) {
+      if (overlay.dataset.static !== 'true') overlay.classList.remove('open');
+    });
+    if (!document.querySelector('.modal-overlay.open')) {
+      document.body.style.overflow = '';
+    }
   });
 
   document.getElementById('add-question-form')?.addEventListener('submit', function() {
@@ -627,6 +638,64 @@
     } else if (type === 'short_answer') {
       answer.value = document.getElementById('edit-sa-answer-bank')?.value.trim() || 'Giáo viên chấm theo ý chính.';
     }
+  });
+
+  function startAiQuestionProgress() {
+    const modal = document.getElementById('ai-progress-modal');
+    const bar = document.getElementById('ai-progress-bar');
+    const percent = document.getElementById('ai-progress-percent');
+    const status = document.getElementById('ai-progress-status');
+    const submitBtn = document.getElementById('ai-submit-btn');
+    if (!modal || !bar || !percent) return;
+
+    let value = 0;
+    const steps = [
+      [8, 'Đang kiểm tra dữ liệu...'],
+      [18, 'Đang đọc chủ đề hoặc file nguồn...'],
+      [32, 'Đang gửi yêu cầu đến AI...'],
+      [48, 'AI đang phân tích nội dung...'],
+      [64, 'Đang xây dựng câu hỏi và đáp án...'],
+      [78, 'Đang chuẩn hóa độ khó...'],
+      [88, 'Đang lưu câu hỏi vào ngân hàng...'],
+      [95, 'Sắp hoàn tất...'],
+    ];
+    let stepIndex = 0;
+
+    closeQuestionModal('ai-modal');
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Đang tạo...';
+    }
+
+    const render = function(nextValue, nextStatus) {
+      value = Math.max(value, nextValue);
+      bar.style.width = value + '%';
+      percent.textContent = value + '%';
+      if (status && nextStatus) status.textContent = nextStatus;
+    };
+
+    render(3, 'Đang bắt đầu tạo câu hỏi...');
+    window.aiQuestionProgressTimer = window.setInterval(function() {
+      if (stepIndex < steps.length) {
+        render(steps[stepIndex][0], steps[stepIndex][1]);
+        stepIndex += 1;
+        return;
+      }
+
+      if (value < 95) {
+        render(value + 1, 'Vẫn đang xử lý, vui lòng đợi...');
+      }
+    }, 900);
+  }
+
+  document.getElementById('ai-question-form')?.addEventListener('submit', function(event) {
+    if (!this.checkValidity()) {
+      return;
+    }
+
+    startAiQuestionProgress();
   });
 </script>
 @endpush
