@@ -6,6 +6,7 @@ use App\Http\Controllers\RegisterAsStudentController;
 use App\Http\Controllers\RegisterAsTeacherController;
 use App\Http\Controllers\RemoveTeacherRoleController;
 use App\Http\Controllers\Shared\HelpController;
+use App\Http\Controllers\Shared\ChatbotController;
 use App\Http\Controllers\Shared\NotificationController;
 use App\Http\Controllers\Shared\ProfileController as SharedProfileController;
 use App\Http\Controllers\Shared\SettingsController;
@@ -30,7 +31,7 @@ use App\Http\Controllers\Student\StudentDashboardController;
 use Illuminate\Support\Facades\Route;
 
 // ── Public ──────────────────────────────────────────────
-Route::get('/', fn () => redirect()->route('login'))->name('home');
+Route::get('/', fn () => view('pages.index'))->name('home');
 Route::get('/vip/vnpay-return', [VipController::class, 'vnpayReturn'])->name('vip.vnpay.return');
 Route::get('/vip/vnpay-ipn', [VipController::class, 'vnpayIpn'])->name('vip.vnpay.ipn');
 
@@ -332,6 +333,7 @@ Route::middleware('auth')->group(function () {
         // Help
         Route::get('/help', [HelpController::class, 'index'])->name('help');
         Route::post('/help/ticket', [HelpController::class, 'submitTicket'])->name('help.ticket');
+        Route::post('/chatbot/message', [ChatbotController::class, 'message'])->name('chatbot.message');
 
         // VIP
         Route::get('/vip', [VipController::class, 'index'])->name('vip');
@@ -409,6 +411,7 @@ Route::middleware('auth')->group(function () {
         // Help
         Route::get('/help', [HelpController::class, 'index'])->name('help');
         Route::post('/help/ticket', [HelpController::class, 'submitTicket'])->name('help.ticket');
+        Route::post('/chatbot/message', [ChatbotController::class, 'message'])->name('chatbot.message');
 
         // VIP
         Route::get('/vip', [VipController::class, 'index'])->name('vip');

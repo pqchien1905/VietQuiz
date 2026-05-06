@@ -10,4 +10,5 @@ import './components/page-init.js';
 import './components/sidebar.js';
 import './components/header.js';
 import './components/charts.js';
+import './components/chatbot.js';
 import './core/i18n.js';

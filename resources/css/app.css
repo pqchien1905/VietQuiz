@@ -4,6 +4,7 @@
 @import './layout.css';
 @import './components.css';
 @import './animations.css';
+@import './chatbot.css';
 
 /* Dark mode */
 .dark {

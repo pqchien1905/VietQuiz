@@ -416,6 +416,8 @@
   </div>
 </div>
 
+<x-chatbot-widget :role="$role" />
+
 <!-- Modal: Register as Teacher -->
 <div id="teacher-reg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:var(--card);border-radius:var(--radius-lg);padding:1.5rem;max-width:400px;width:90%;box-shadow:var(--shadow-lg);">

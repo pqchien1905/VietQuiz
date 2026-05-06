@@ -60,7 +60,9 @@
 @section('content')
 @php
   $avgGradeText = $avgGrade !== null ? number_format($avgGrade, 1) . '%' : 'Chưa có';
-  $todayText = now()->translatedFormat('l, d/m/Y');
+  $todayTextRaw = now()->translatedFormat('l, d/m/Y');
+  $todayText = mb_strtoupper(mb_substr($todayTextRaw, 0, 1, 'UTF-8'), 'UTF-8')
+    . mb_substr($todayTextRaw, 1, mb_strlen($todayTextRaw, 'UTF-8'), 'UTF-8');
   $formatDue = function ($date) {
       if (!$date) {
           return 'Không giới hạn';
