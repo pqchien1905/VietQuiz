@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Quiz;
+use App\Models\QuizViolation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,10 +42,7 @@ class QuizController extends Controller
                 ->orWhere(function ($q) {
                     $q->whereNull('class_id')
                         ->whereNull('course_id')
-                        ->where(function ($q) {
-                            $q->whereNull('assigned_students')
-                                ->orWhereJsonLength('assigned_students', 0);
-                        });
+                        ->where('public_to_all_students', true);
                 });
         };
 
@@ -203,6 +201,14 @@ class QuizController extends Controller
 
         if ($existingAttempt) {
             $startedAt = Carbon::parse($existingAttempt->pivot->started_at);
+
+            if ($this->attemptDeadline($quiz, $startedAt)?->isPast()) {
+                $this->expireAttempt($user, $quiz);
+
+                return redirect()
+                    ->route('student.quiz-result', $quiz)
+                    ->with('error', 'Thời gian làm bài đã kết thúc. Hệ thống đã tự động đóng lượt làm bài này.');
+            }
         } else {
             // Check max attempts only before creating a new attempt. An unfinished
             // attempt must remain resumable even when max_attempts is 1.
@@ -327,6 +333,16 @@ class QuizController extends Controller
             }
         }
 
+        if ($this->attemptDeadline($quiz, Carbon::parse($attempt->pivot->started_at))?->isPast()) {
+            $this->expireAttempt($user, $quiz);
+
+            return response()->json([
+                'error' => 'Thời gian làm bài đã kết thúc. Bài làm không được ghi nhận sau thời hạn.',
+                'time_expired' => true,
+                'redirect_url' => route('student.quiz-result', $quiz),
+            ], 403);
+        }
+
         $questions = $quiz->questions;
         $totalPoints = 0;
         $earnedPoints = 0;
@@ -379,6 +395,108 @@ class QuizController extends Controller
             'passed' => $passed,
             'results' => $questionResults,
         ]);
+    }
+
+    public function logViolation(Request $request, Quiz $quiz)
+    {
+        $validated = $request->validate([
+            'event_type' => 'required|string|in:tab_hidden,focus_lost,fullscreen_exit,copy,cut,paste,context_menu,blocked_shortcut,devtools_detected',
+            'metadata' => 'nullable|array',
+        ]);
+
+        $user = $request->user();
+
+        abort_unless($quiz->isAssignedToUser($user), 403);
+
+        if ($quiz->status !== 'published' || $quiz->quiz_type !== 'exam' || ! $quiz->anti_cheat_enabled) {
+            return response()->json(['logged' => false]);
+        }
+
+        $attemptRow = DB::table('quiz_user')
+            ->where('quiz_id', $quiz->id)
+            ->where('user_id', $user->id)
+            ->whereNull('submitted_at')
+            ->first();
+
+        if (! $attemptRow) {
+            return response()->json([
+                'logged' => false,
+                'already_submitted' => DB::table('quiz_user')
+                    ->where('quiz_id', $quiz->id)
+                    ->where('user_id', $user->id)
+                    ->whereNotNull('submitted_at')
+                    ->exists(),
+            ], 409);
+        }
+
+        if ($this->attemptDeadline($quiz, Carbon::parse($attemptRow->started_at))?->isPast()) {
+            $this->expireAttempt($user, $quiz);
+
+            return response()->json([
+                'logged' => false,
+                'time_expired' => true,
+                'should_redirect' => true,
+                'redirect_url' => route('student.quiz-result', $quiz),
+            ], 403);
+        }
+
+        QuizViolation::create([
+            'quiz_id' => $quiz->id,
+            'user_id' => $user->id,
+            'quiz_attempt_id' => $attemptRow->id,
+            'event_type' => $validated['event_type'],
+            'metadata' => $validated['metadata'] ?? null,
+            'occurred_at' => now(),
+        ]);
+
+        $violationCount = QuizViolation::where('quiz_id', $quiz->id)
+            ->where('user_id', $user->id)
+            ->where('quiz_attempt_id', $attemptRow->id)
+            ->count();
+
+        $maxViolations = $this->maxAntiCheatViolations();
+        $shouldAutoSubmit = $violationCount >= $maxViolations;
+        if ($shouldAutoSubmit) {
+            $this->expireAttempt($user, $quiz);
+        }
+
+        return response()->json([
+            'logged' => true,
+            'violation_count' => $violationCount,
+            'max_violations' => $maxViolations,
+            'should_auto_submit' => $shouldAutoSubmit,
+            'redirect_url' => route('student.quiz-result', $quiz),
+        ]);
+    }
+
+    private function maxAntiCheatViolations(): int
+    {
+        return max(1, (int) config('vietquiz.anti_cheat.max_violations', 3));
+    }
+
+    private function attemptDeadline(Quiz $quiz, Carbon $startedAt): ?Carbon
+    {
+        $limit = $quiz->time_limit ?? $quiz->duration_minutes;
+
+        return $limit ? $startedAt->copy()->addMinutes((int) $limit) : null;
+    }
+
+    private function expireAttempt($user, Quiz $quiz): void
+    {
+        $totalPoints = $quiz->questions()->get(['points'])->sum(fn ($question) => $question->points ?? 1);
+
+        DB::table('quiz_user')
+            ->where('quiz_id', $quiz->id)
+            ->where('user_id', $user->id)
+            ->whereNull('submitted_at')
+            ->update([
+                'answers' => json_encode([]),
+                'score' => 0,
+                'total_points' => $totalPoints,
+                'submitted_at' => now(),
+                'is_graded' => true,
+                'updated_at' => now(),
+            ]);
     }
 
     private function isSubmittedAnswerCorrect($question, string $answer, ?array $shuffleInfo = null): bool

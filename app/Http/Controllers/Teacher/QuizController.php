@@ -5,18 +5,22 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Mail\QuizAssigned;
 use App\Models\ClassModel;
+use App\Models\Course;
 use App\Models\Notification;
 use App\Models\Question;
 use App\Models\Quiz;
+use App\Models\QuizViolation;
 use App\Models\User;
 use App\Services\AiQuestionGenerator;
 use App\Services\DocumentTextExtractor;
 use App\Services\QuestionFileImporter;
+use App\Services\QuizAssignmentScopeValidator;
 use App\Support\VipFeature;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Throwable;
 
@@ -268,7 +272,7 @@ class QuizController extends Controller
             'is_published' => 'boolean',
             'quiz_type' => 'nullable|in:exam,practice',
             'anti_cheat_enabled' => 'boolean',
-            'assignment_type' => 'nullable|in:class,everyone,specific',
+            'assignment_type' => 'required|in:class,everyone,specific',
             'assigned_students' => 'nullable|array',
             'assigned_students.*' => ['integer', Rule::exists('users', 'id')->where('role', 'student')],
             'questions' => 'required|array|min:1',
@@ -284,7 +288,11 @@ class QuizController extends Controller
             return back()->withInput()->with('error', VipFeature::quizQuestionLimitMessage());
         }
 
-        $assignmentType = $validated['assignment_type'] ?? 'class';
+        $assignmentType = $validated['assignment_type'];
+        $this->validateQuizAssignmentScope($assignmentType, $validated);
+        if ($assignmentType === 'specific') {
+            $this->validateAssignedStudentsInAssignmentScope($validated);
+        }
         if (! empty($validated['folder_id'])) {
             $ownsFolder = $request->user()->quizFolders()->whereKey($validated['folder_id'])->exists();
             abort_unless($ownsFolder, 403);
@@ -294,7 +302,7 @@ class QuizController extends Controller
             'teacher_id' => $request->user()->id,
             'folder_id' => $validated['folder_id'] ?? null,
             'course_id' => $assignmentType === 'everyone' ? null : ($validated['course_id'] ?? null),
-            'class_id' => $assignmentType === 'class' ? ($validated['class_id'] ?? null) : null,
+            'class_id' => in_array($assignmentType, ['class', 'specific'], true) ? ($validated['class_id'] ?? null) : null,
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'time_limit' => $validated['time_limit'] ?? null,
@@ -309,6 +317,7 @@ class QuizController extends Controller
             'assigned_students' => $assignmentType === 'specific'
                 ? ($validated['assigned_students'] ?? [])
                 : null,
+            'public_to_all_students' => $assignmentType === 'everyone',
             'status' => ($validated['is_published'] ?? false) ? 'published' : 'draft',
         ]);
 
@@ -360,7 +369,26 @@ class QuizController extends Controller
                 : 0))
             : 0;
 
-        return view('pages.teacher.quiz-detail', compact('quiz', 'avgScore'));
+        $violationSummary = QuizViolation::query()
+            ->where('quiz_id', $quiz->id)
+            ->with('user:id,name,email')
+            ->latest('occurred_at')
+            ->get()
+            ->groupBy('user_id')
+            ->map(function ($logs) {
+                $latest = $logs->first();
+
+                return [
+                    'student' => $latest->user,
+                    'total' => $logs->count(),
+                    'events' => $logs->countBy('event_type')->sortDesc(),
+                    'latest_at' => $latest->occurred_at,
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        return view('pages.teacher.quiz-detail', compact('quiz', 'avgScore', 'violationSummary'));
     }
 
     public function edit(Request $request, Quiz $quiz)
@@ -414,7 +442,7 @@ class QuizController extends Controller
             'is_published' => 'boolean',
             'quiz_type' => 'nullable|in:exam,practice',
             'anti_cheat_enabled' => 'boolean',
-            'assignment_type' => 'nullable|in:class,everyone,specific',
+            'assignment_type' => 'required|in:class,everyone,specific',
             'assigned_students' => 'nullable|array',
             'assigned_students.*' => ['integer', Rule::exists('users', 'id')->where('role', 'student')],
             'questions' => 'required|array|min:1',
@@ -430,7 +458,11 @@ class QuizController extends Controller
             return back()->withInput()->with('error', VipFeature::quizQuestionLimitMessage());
         }
 
-        $assignmentType = $validated['assignment_type'] ?? 'class';
+        $assignmentType = $validated['assignment_type'];
+        $this->validateQuizAssignmentScope($assignmentType, $validated);
+        if ($assignmentType === 'specific') {
+            $this->validateAssignedStudentsInAssignmentScope($validated);
+        }
         if (! empty($validated['folder_id'])) {
             $ownsFolder = $request->user()->quizFolders()->whereKey($validated['folder_id'])->exists();
             abort_unless($ownsFolder, 403);
@@ -441,7 +473,7 @@ class QuizController extends Controller
         $quiz->update([
             'folder_id' => $validated['folder_id'] ?? null,
             'course_id' => $assignmentType === 'everyone' ? null : ($validated['course_id'] ?? null),
-            'class_id' => $assignmentType === 'class' ? ($validated['class_id'] ?? null) : null,
+            'class_id' => in_array($assignmentType, ['class', 'specific'], true) ? ($validated['class_id'] ?? null) : null,
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'time_limit' => $validated['time_limit'] ?? null,
@@ -456,6 +488,7 @@ class QuizController extends Controller
             'assigned_students' => $assignmentType === 'specific'
                 ? ($validated['assigned_students'] ?? [])
                 : null,
+            'public_to_all_students' => $assignmentType === 'everyone',
             'status' => ($validated['is_published'] ?? false) ? 'published' : 'draft',
         ]);
 
@@ -515,6 +548,10 @@ class QuizController extends Controller
     public function publish(Request $request, Quiz $quiz)
     {
         $this->authorizeTeacher($request, $quiz);
+        if (! $quiz->hasAssignmentScope()) {
+            return redirect()->back()->with('error', 'Vui lòng chọn phạm vi giao bài trước khi xuất bản.');
+        }
+
         $quiz->update(['status' => 'published']);
         $this->notifyStudentsAboutQuiz($quiz, $request->user());
 
@@ -534,6 +571,36 @@ class QuizController extends Controller
         abort_unless($quiz->teacher_id === $request->user()->id, 403);
     }
 
+    private function validateQuizAssignmentScope(string $assignmentType, array $validated): void
+    {
+        if ($assignmentType === 'specific' && empty($validated['assigned_students'])) {
+            throw ValidationException::withMessages([
+                'assigned_students' => 'Vui lòng chọn ít nhất một học sinh để giao bài.',
+            ]);
+        }
+
+        if ($assignmentType === 'class' && empty($validated['class_id']) && empty($validated['course_id'])) {
+            throw ValidationException::withMessages([
+                'class_id' => 'Vui lòng chọn lớp học hoặc khóa học để giao bài.',
+            ]);
+        }
+    }
+
+    private function validateAssignedStudentsInAssignmentScope(array $validated): void
+    {
+        $invalidStudentIds = app(QuizAssignmentScopeValidator::class)->invalidAssignedStudentIds(
+            $validated['assigned_students'] ?? [],
+            isset($validated['class_id']) ? (int) $validated['class_id'] : null,
+            isset($validated['course_id']) ? (int) $validated['course_id'] : null,
+        );
+
+        if ($invalidStudentIds !== []) {
+            throw ValidationException::withMessages([
+                'assigned_students' => 'Danh sách học sinh được chọn có học sinh không thuộc lớp hoặc khóa học đã chọn.',
+            ]);
+        }
+    }
+
     private function notifyStudentsAboutQuiz(Quiz $quiz, $teacher): void
     {
         $studentIds = collect();
@@ -550,9 +617,21 @@ class QuizController extends Controller
                 $students = collect();
                 $className = null;
             }
-        } else {
+        } elseif ($quiz->course_id) {
+            $course = Course::find($quiz->course_id);
+            if ($course) {
+                $students = $course->students()->get();
+                $className = $course->name;
+            } else {
+                $students = collect();
+                $className = null;
+            }
+        } elseif ($quiz->public_to_all_students) {
             $students = User::where('role', 'student')->get();
             $className = 'Mọi người';
+        } else {
+            $students = collect();
+            $className = null;
         }
 
         $dueDate = $quiz->end_at ? Carbon::parse($quiz->end_at)->format('d/m/Y H:i') : null;

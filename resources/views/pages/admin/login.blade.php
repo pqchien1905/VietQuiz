@@ -24,15 +24,15 @@
         <form method="POST" action="{{ route('admin.login') }}" style="display:flex;flex-direction:column;gap:1rem;">
           @csrf
           <div class="form-group">
-            <label class="label" for="username">Tài khoản</label>
-            <input id="username" name="username" class="input" value="{{ old('username', 'admin') }}" required autofocus>
+            <label class="label" for="username">Email admin</label>
+            <input id="username" name="username" type="email" class="input" value="{{ old('username') }}" required autofocus>
           </div>
           <div class="form-group">
             <label class="label" for="password">Mật khẩu</label>
             <input id="password" name="password" type="password" class="input" required>
           </div>
           <button class="btn btn-primary btn-lg" type="submit">Vào trang quản trị</button>
-          <p style="color:var(--muted-foreground);font-size:var(--text-xs);margin:0;">Tài khoản mặc định: <strong>admin</strong> / <strong>password</strong>. Có thể đổi bằng biến cấu hình trong `.env`.</p>
+          <p style="color:var(--muted-foreground);font-size:var(--text-xs);margin:0;">Tài khoản admin được tạo trong database. Không sử dụng mật khẩu mặc định khi triển khai.</p>
         </form>
       </div>
     </div>

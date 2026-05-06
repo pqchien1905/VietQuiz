@@ -129,6 +129,74 @@ class TeacherQuizManagementTest extends TestCase
         $this->assertNull($quiz->course_id);
     }
 
+    public function test_teacher_can_assign_specific_students_within_selected_class(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $class = ClassModel::create([
+            'teacher_id' => $teacher->id,
+            'name' => 'Scoped Class',
+            'code' => 'SCOPE1',
+        ]);
+        $class->students()->attach($student->id, ['joined_at' => now()]);
+
+        $response = $this->actingAs($teacher)
+            ->post(route('teacher.quizzes.store'), $this->validQuizPayload([
+                'assignment_type' => 'specific',
+                'class_id' => $class->id,
+                'assigned_students' => [$student->id],
+            ]));
+
+        $quiz = Quiz::firstOrFail();
+        $response->assertRedirect(route('teacher.quiz-detail', $quiz));
+        $this->assertSame($class->id, $quiz->class_id);
+        $this->assertSame([$student->id], $quiz->assigned_students);
+    }
+
+    public function test_teacher_cannot_assign_specific_students_outside_selected_class_on_update(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $insideStudent = User::factory()->create(['role' => 'student']);
+        $outsideStudent = User::factory()->create(['role' => 'student']);
+        $class = ClassModel::create([
+            'teacher_id' => $teacher->id,
+            'name' => 'Scoped Update Class',
+            'code' => 'SCOPE2',
+        ]);
+        $class->students()->attach($insideStudent->id, ['joined_at' => now()]);
+
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'class_id' => $class->id,
+            'assigned_students' => [$insideStudent->id],
+            'title' => 'Scoped quiz',
+            'status' => 'draft',
+            'quiz_type' => 'exam',
+        ]);
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Cau hoi goc',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'A',
+            'points' => 1,
+        ]);
+
+        $this->actingAs($teacher)
+            ->from(route('teacher.quizzes.edit', $quiz))
+            ->put(route('teacher.quizzes.update', $quiz), $this->validQuizPayload([
+                'assignment_type' => 'specific',
+                'class_id' => $class->id,
+                'assigned_students' => [$outsideStudent->id],
+            ]))
+            ->assertRedirect(route('teacher.quizzes.edit', $quiz))
+            ->assertSessionHasErrors('assigned_students');
+
+        $quiz->refresh();
+        $this->assertSame([$insideStudent->id], $quiz->assigned_students);
+    }
+
     public function test_teacher_can_publish_unpublish_and_delete_only_own_quiz(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher']);
@@ -138,6 +206,7 @@ class TeacherQuizManagementTest extends TestCase
             'title' => 'Own quiz',
             'status' => 'draft',
             'quiz_type' => 'exam',
+            'public_to_all_students' => true,
         ]);
         $otherQuiz = Quiz::create([
             'teacher_id' => $otherTeacher->id,
@@ -165,6 +234,24 @@ class TeacherQuizManagementTest extends TestCase
             ->delete(route('teacher.quizzes.destroy', $quiz))
             ->assertRedirect(route('teacher.quizzes'));
         $this->assertSoftDeleted($quiz);
+    }
+
+    public function test_teacher_cannot_publish_quiz_without_assignment_scope(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'No scope quiz',
+            'status' => 'draft',
+            'quiz_type' => 'exam',
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.quizzes.publish', $quiz))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame('draft', $quiz->fresh()->status);
     }
 
     public function test_non_vip_teacher_cannot_call_ai_question_generation_endpoint(): void

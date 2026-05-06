@@ -289,8 +289,23 @@
     && round(($attempt->pivot->score / $attempt->pivot->total_points) * 100) >= ($quiz->passing_score ?? 50)
   )->count();
   $passRate = $submittedCount > 0 ? round(($passCount / $submittedCount) * 100) : 0;
-  $targetLabel = $quiz->classModel?->name ?? ($quiz->course?->title ?? (!empty($quiz->assigned_students) ? count($quiz->assigned_students) . ' học sinh được chọn' : 'Mọi người'));
+  $targetLabel = $quiz->classModel?->name
+    ?? ($quiz->course?->title
+    ?? (!empty($quiz->assigned_students) ? count($quiz->assigned_students) . ' học sinh được chọn' : ($quiz->public_to_all_students ? 'Mọi người' : 'Chưa chọn phạm vi')));
   $formatDateTime = fn($value) => $value ? \Carbon\Carbon::parse($value)->format('d/m/Y H:i') : 'Chưa đặt';
+  $violationSummary = $violationSummary ?? collect();
+  $violationTotal = $violationSummary->sum('total');
+  $violationLabels = [
+    'tab_hidden' => 'Đổi tab',
+    'focus_lost' => 'Mất focus',
+    'fullscreen_exit' => 'Thoát fullscreen',
+    'copy' => 'Sao chép',
+    'cut' => 'Cắt',
+    'paste' => 'Dán',
+    'context_menu' => 'Chuột phải',
+    'blocked_shortcut' => 'Phím tắt bị chặn',
+    'devtools_detected' => 'DevTools',
+  ];
   $normalizeOptions = function ($raw) {
     if (is_array($raw)) return $raw;
     if (!$raw) return [];
@@ -484,6 +499,40 @@
           <span class="detail-value">{{ $formatDateTime($quiz->end_at) }}</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Báo cáo chống gian lận</h3>
+      <p class="card-description">{{ $violationTotal }} vi phạm từ {{ $violationSummary->count() }} học sinh</p>
+    </div>
+    <div class="card-content">
+      @if($violationSummary->count() > 0)
+        @foreach($violationSummary->take(8) as $item)
+          <div class="attempt-row">
+            <div class="attempt-student">
+              <div class="attempt-name">{{ $item['student']?->name ?? 'Học sinh không xác định' }}</div>
+              <div class="attempt-meta">
+                {{ $item['student']?->email ?? 'Không có email' }} · Gần nhất {{ $formatDateTime($item['latest_at']) }}
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">
+                @foreach($item['events']->take(4) as $event => $count)
+                  <span class="badge badge-warning">{{ $violationLabels[$event] ?? $event }}: {{ $count }}</span>
+                @endforeach
+              </div>
+            </div>
+            <span class="badge badge-danger">{{ $item['total'] }} vi phạm</span>
+          </div>
+        @endforeach
+      @else
+        <div style="text-align:center;padding:2rem;color:var(--muted-foreground);">
+          <span class="empty-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+          </span>
+          <p style="font-size:var(--text-sm);">Chưa ghi nhận vi phạm chống gian lận.</p>
+        </div>
+      @endif
     </div>
   </div>
 

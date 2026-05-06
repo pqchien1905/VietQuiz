@@ -372,7 +372,7 @@
     $submitLabel = $isEdit ? 'Cập nhật & xuất bản' : 'Xuất bản';
     $draftLabel = $isEdit ? 'Lưu nháp' : 'Lưu Nháp';
     $assignmentTypeValue = old('assignment_type', $isEdit
-        ? (!empty($quiz->assigned_students) ? 'specific' : ($quiz->class_id ? 'class' : 'everyone'))
+        ? (!empty($quiz->assigned_students) ? 'specific' : ($quiz->public_to_all_students ? 'everyone' : 'class'))
         : 'class');
     $quizTypeValue = old('quiz_type', $isEdit ? ($quiz->quiz_type ?? 'exam') : 'exam');
     $antiCheatValue = old('anti_cheat_enabled', $isEdit ? (string) (int) $quiz->anti_cheat_enabled : '1');
@@ -600,11 +600,11 @@
                         <div class="assign-tab" id="assign-type-tab">
                             <button type="button" class="assign-tab-btn active" data-value="class" onclick="setAssignType('class')">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                Theo lớp
+                                Theo lớp/khóa học
                             </button>
                             <button type="button" class="assign-tab-btn" data-value="everyone" onclick="setAssignType('everyone')">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                Mọi người
+                                Công khai
                             </button>
                             <button type="button" class="assign-tab-btn" data-value="specific" onclick="setAssignType('specific')">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -612,6 +612,9 @@
                             </button>
                         </div>
                         <input type="hidden" name="assignment_type" id="assignment_type_input" value="{{ $assignmentTypeValue }}" />
+                        <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.35rem;">
+                            Chọn lớp, khóa học, danh sách học sinh hoặc bật công khai rõ ràng trước khi xuất bản.
+                        </div>
 
                         <!-- Student picker (shown when specific is selected) -->
                         <div id="student-picker-section" style="display:none;">

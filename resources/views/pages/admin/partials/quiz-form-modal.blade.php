@@ -70,6 +70,7 @@
               <label class="quiz-check"><input type="hidden" name="shuffle_answers" value="0"><input type="checkbox" name="shuffle_answers" value="1" @checked(old('_form') === $formKey ? old('shuffle_answers') : ($quiz->shuffle_answers ?? false))> Trộn đáp án</label>
               <label class="quiz-check"><input type="hidden" name="show_result" value="0"><input type="checkbox" name="show_result" value="1" @checked(old('_form') === $formKey ? old('show_result', true) : ($quiz->show_result ?? true))> Hiện kết quả</label>
               <label class="quiz-check"><input type="hidden" name="anti_cheat_enabled" value="0"><input type="checkbox" name="anti_cheat_enabled" value="1" @checked(old('_form') === $formKey ? old('anti_cheat_enabled') : ($quiz->anti_cheat_enabled ?? false))> Chống gian lận</label>
+              <label class="quiz-check"><input type="hidden" name="public_to_all_students" value="0"><input type="checkbox" name="public_to_all_students" value="1" @checked(old('_form') === $formKey ? old('public_to_all_students') : ($quiz->public_to_all_students ?? false))> Công khai cho tất cả học sinh</label>
             </div>
           </div>
           <div class="form-group full"><label class="label">Mô tả</label><textarea class="input" name="description" rows="3" maxlength="2000">{{ old('_form') === $formKey ? old('description') : ($quiz->description ?? '') }}</textarea></div>

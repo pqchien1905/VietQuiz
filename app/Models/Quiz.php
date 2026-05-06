@@ -17,7 +17,7 @@ class Quiz extends Model
         'teacher_id', 'folder_id', 'course_id', 'class_id', 'title', 'description',
         'duration_minutes', 'time_limit', 'total_points', 'passing_score', 'max_attempts',
         'status', 'start_at', 'end_at', 'shuffle_questions', 'shuffle_answers', 'is_shuffle', 'show_result',
-        'quiz_type', 'anti_cheat_enabled', 'assigned_students',
+        'quiz_type', 'anti_cheat_enabled', 'assigned_students', 'public_to_all_students',
     ];
 
     protected function casts(): array
@@ -31,6 +31,7 @@ class Quiz extends Model
             'show_result' => 'boolean',
             'anti_cheat_enabled' => 'boolean',
             'assigned_students' => 'array',
+            'public_to_all_students' => 'boolean',
         ];
     }
 
@@ -58,6 +59,11 @@ class Quiz extends Model
     public function questions(): HasMany
     {
         return $this->hasMany(Question::class);
+    }
+
+    public function violations(): HasMany
+    {
+        return $this->hasMany(QuizViolation::class);
     }
 
     public function students(): BelongsToMany
@@ -99,12 +105,24 @@ class Quiz extends Model
             return in_array($user->id, $this->assigned_students);
         }
 
-        $hasClassOrCourse = $this->class_id !== null || $this->course_id !== null;
-        if (!$hasClassOrCourse) {
-            return true;
+        if ($this->class_id === null && $this->course_id === null) {
+            return (bool) $this->public_to_all_students;
         }
 
         return ($this->class_id !== null && $user->classes()->where('classes.id', $this->class_id)->exists())
             || ($this->course_id !== null && $user->courses()->where('courses.id', $this->course_id)->exists());
+    }
+
+    public function hasAssignmentScope(): bool
+    {
+        if ($this->public_to_all_students) {
+            return true;
+        }
+
+        if ($this->class_id !== null || $this->course_id !== null) {
+            return true;
+        }
+
+        return $this->assigned_students !== null && ! empty($this->assigned_students);
     }
 }

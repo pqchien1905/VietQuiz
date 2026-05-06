@@ -53,4 +53,36 @@ class RoleSwitchTest extends TestCase
         ]);
         $this->assertSame(1, User::count());
     }
+
+    public function test_teacher_without_dual_role_is_sent_to_student_registration_before_switching(): void
+    {
+        $teacher = User::factory()->create([
+            'role' => 'teacher',
+            'can_switch_role' => false,
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(\Illuminate\Support\Facades\URL::signedRoute('switch.to.student'))
+            ->assertRedirect(route('register.as.student', [
+                'intended' => route('student.dashboard'),
+            ]));
+
+        $this->assertDatabaseHas('users', [
+            'id' => $teacher->id,
+            'role' => 'teacher',
+            'can_switch_role' => false,
+        ]);
+    }
+
+    public function test_signed_role_switch_rejects_invalid_role(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'student',
+            'can_switch_role' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get(\Illuminate\Support\Facades\URL::signedRoute('switch.role', ['role' => 'admin']))
+            ->assertNotFound();
+    }
 }

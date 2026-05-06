@@ -28,8 +28,8 @@ class AdminPanelTest extends TestCase
         $this->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Đăng nhập quản trị')
-            ->assertSee('admin')
-            ->assertSee('password');
+            ->assertSee('Email admin')
+            ->assertDontSee('Tài khoản mặc định');
     }
 
     public function test_admin_can_login_and_view_users_page(): void
@@ -40,9 +40,11 @@ class AdminPanelTest extends TestCase
             'role' => 'student',
         ]);
 
+        $this->createAdminUser();
+
         $this->post(route('admin.login'), [
-            'username' => 'admin',
-            'password' => 'password',
+            'username' => 'admin@example.test',
+            'password' => 'secure-admin-password',
         ])->assertRedirect(route('admin.dashboard', absolute: false));
 
         $this->get(route('admin.users'))
@@ -53,12 +55,31 @@ class AdminPanelTest extends TestCase
 
     public function test_invalid_admin_login_is_rejected(): void
     {
+        $this->createAdminUser();
+
         $this->from(route('admin.dashboard'))->post(route('admin.login'), [
-            'username' => 'admin',
+            'username' => 'admin@example.test',
             'password' => 'wrong-password',
         ])
             ->assertRedirect(route('admin.dashboard', absolute: false))
             ->assertSessionHasErrors('username');
+    }
+
+    public function test_admin_login_is_rate_limited(): void
+    {
+        $this->createAdminUser();
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.99'])->post(route('admin.login'), [
+                'username' => 'admin@example.test',
+                'password' => 'wrong-password',
+            ])->assertStatus(302);
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.99'])->post(route('admin.login'), [
+            'username' => 'admin@example.test',
+            'password' => 'wrong-password',
+        ])->assertTooManyRequests();
     }
 
     public function test_admin_pages_redirect_to_admin_login_when_session_is_missing(): void
@@ -794,6 +815,19 @@ class AdminPanelTest extends TestCase
             'anti_cheat_enabled' => false,
         ]);
 
+        $outsideStudent = User::factory()->create(['role' => 'student']);
+        $this->withSession(['vietquiz_admin_authenticated' => true])
+            ->patch(route('admin.quizzes.update', $quiz->id), [
+                'class_id' => $class->id,
+                'assigned_students' => [$outsideStudent->id],
+            ])
+            ->assertUnprocessable();
+
+        $this->assertDatabaseMissing('quizzes', [
+            'id' => $quiz->id,
+            'assigned_students' => json_encode([$outsideStudent->id]),
+        ]);
+
         $question = Question::create([
             'teacher_id' => $teacher->id,
             'quiz_id' => $quiz->id,
@@ -1410,6 +1444,16 @@ class AdminPanelTest extends TestCase
         $this->assertDatabaseHas('promotions', [
             'id' => $promotion->id,
             'deleted_at' => null,
+        ]);
+    }
+
+    private function createAdminUser(): User
+    {
+        return User::factory()->create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.test',
+            'password' => 'secure-admin-password',
+            'role' => 'admin',
         ]);
     }
 }

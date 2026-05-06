@@ -4,6 +4,7 @@ namespace Tests\Feature\Student;
 
 use App\Models\Question;
 use App\Models\Quiz;
+use App\Models\QuizViolation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -23,6 +24,7 @@ class QuizTakeTest extends TestCase
             'quiz_type' => 'exam',
             'anti_cheat_enabled' => false,
             'max_attempts' => 1,
+            'public_to_all_students' => true,
         ]);
 
         Question::create([
@@ -40,6 +42,8 @@ class QuizTakeTest extends TestCase
             ->assertOk()
             ->assertSee('quiz-shell')
             ->assertSee('showExitModal')
+            ->assertSee('AUTOSAVE_KEY')
+            ->assertSee('autosave-status')
             ->assertDontSee('main-sidebar')
             ->assertDontSee('main-header');
     }
@@ -55,6 +59,7 @@ class QuizTakeTest extends TestCase
             'quiz_type' => 'exam',
             'anti_cheat_enabled' => false,
             'max_attempts' => 1,
+            'public_to_all_students' => true,
         ]);
 
         Question::create([
@@ -92,6 +97,7 @@ class QuizTakeTest extends TestCase
             'quiz_type' => 'exam',
             'anti_cheat_enabled' => false,
             'max_attempts' => 1,
+            'public_to_all_students' => true,
         ]);
 
         $question = Question::create([
@@ -132,6 +138,7 @@ class QuizTakeTest extends TestCase
             'quiz_type' => 'exam',
             'anti_cheat_enabled' => false,
             'max_attempts' => 1,
+            'public_to_all_students' => true,
         ]);
 
         $question = Question::create([
@@ -165,6 +172,194 @@ class QuizTakeTest extends TestCase
             ->assertJsonPath('redirect_url', route('student.quiz-result', $quiz));
     }
 
+    public function test_student_cannot_start_quiz_after_max_attempts_are_used(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'One attempt only',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+            'anti_cheat_enabled' => false,
+            'max_attempts' => 1,
+            'public_to_all_students' => true,
+        ]);
+
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Already done',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 1,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, [
+            'answers' => json_encode([]),
+            'score' => 0,
+            'total_points' => 1,
+            'started_at' => now()->subHour(),
+            'submitted_at' => now()->subMinutes(30),
+            'is_graded' => true,
+        ]);
+
+        $this->actingAs($student)
+            ->get(route('student.quiz-take', $quiz))
+            ->assertRedirect(route('student.quiz-result', $quiz));
+
+        $this->assertSame(1, $student->quizAttempts()->where('quiz_id', $quiz->id)->count());
+    }
+
+    public function test_student_cannot_submit_after_attempt_time_limit_expires(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Timed backend quiz',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+            'time_limit' => 10,
+            'anti_cheat_enabled' => false,
+            'max_attempts' => 1,
+            'public_to_all_students' => true,
+        ]);
+
+        $question = Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Late answer should not count',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 2,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, ['started_at' => now()->subMinutes(11)]);
+
+        $this->actingAs($student)
+            ->postJson(route('student.quiz-take.submit', $quiz), [
+                'answers' => [(string) $question->id => 'ok'],
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('time_expired', true)
+            ->assertJsonPath('redirect_url', route('student.quiz-result', $quiz));
+
+        $this->assertDatabaseHas('quiz_user', [
+            'quiz_id' => $quiz->id,
+            'user_id' => $student->id,
+            'score' => 0,
+            'total_points' => 2,
+            'is_graded' => true,
+        ]);
+    }
+
+    public function test_student_score_uses_original_answer_when_options_are_shuffled(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Shuffled answers',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+            'shuffle_answers' => true,
+            'anti_cheat_enabled' => false,
+            'max_attempts' => 1,
+            'public_to_all_students' => true,
+        ]);
+
+        $question = Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Correct original answer is B',
+            'type' => 'multiple_choice',
+            'options' => ['A', 'B', 'C', 'D'],
+            'correct_answer' => '1',
+            'points' => 3,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, [
+            'started_at' => now(),
+            'shuffled_options' => json_encode([
+                $question->id => [
+                    'original' => ['A', 'B', 'C', 'D'],
+                    'shuffled' => ['D', 'B', 'A', 'C'],
+                ],
+            ]),
+        ]);
+
+        $this->actingAs($student)
+            ->postJson(route('student.quiz-take.submit', $quiz), [
+                'answers' => [
+                    (string) $question->id => 1,
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('score', 3)
+            ->assertJsonPath('total', 3)
+            ->assertJsonPath('percent', 100);
+    }
+
+    public function test_anti_cheat_violation_logs_and_auto_closes_attempt_at_limit(): void
+    {
+        config(['vietquiz.anti_cheat.max_violations' => 2]);
+
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Guarded exam',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+            'anti_cheat_enabled' => true,
+            'max_attempts' => 1,
+            'public_to_all_students' => true,
+        ]);
+
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Guarded question',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 2,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, ['started_at' => now()]);
+
+        foreach (['tab_hidden', 'focus_lost'] as $index => $eventType) {
+            $response = $this->actingAs($student)
+                ->postJson(route('student.quiz-take.violations', $quiz), [
+                    'event_type' => $eventType,
+                    'metadata' => ['sequence' => $index + 1],
+                ])
+                ->assertOk()
+                ->assertJsonPath('logged', true)
+                ->assertJsonPath('violation_count', $index + 1)
+                ->assertJsonPath('max_violations', 2);
+
+            if ($index < 1) {
+                $response->assertJsonPath('should_auto_submit', false);
+            } else {
+                $response->assertJsonPath('should_auto_submit', true)
+                    ->assertJsonPath('redirect_url', route('student.quiz-result', $quiz));
+            }
+        }
+
+        $this->assertSame(2, QuizViolation::where('quiz_id', $quiz->id)->where('user_id', $student->id)->count());
+        $this->assertDatabaseHas('quiz_user', [
+            'quiz_id' => $quiz->id,
+            'user_id' => $student->id,
+            'score' => 0,
+            'total_points' => 2,
+            'is_graded' => true,
+        ]);
+    }
+
     public function test_student_cannot_submit_unpublished_quiz_directly(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher']);
@@ -176,6 +371,7 @@ class QuizTakeTest extends TestCase
             'quiz_type' => 'exam',
             'anti_cheat_enabled' => false,
             'max_attempts' => 1,
+            'public_to_all_students' => true,
         ]);
         $question = Question::create([
             'quiz_id' => $quiz->id,
@@ -255,6 +451,7 @@ class QuizTakeTest extends TestCase
             'quiz_type' => 'exam',
             'anti_cheat_enabled' => false,
             'max_attempts' => 1,
+            'public_to_all_students' => true,
         ]);
 
         Question::create([

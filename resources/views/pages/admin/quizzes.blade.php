@@ -126,7 +126,8 @@
               <div class="admin-row-meta">Mã #{{ $quiz->id }} · {{ $quiz->teacher?->name ?? 'Không rõ giáo viên' }}</div>
               <div class="quiz-state-tags">
                 @if($quiz->questions_count === 0)<span class="badge badge-warning">Chưa có câu hỏi</span>@endif
-                @if(! $quiz->class_id && ! $quiz->course_id && empty($quiz->assigned_students))<span class="badge badge-outline">Chưa gán phạm vi</span>@endif
+                @if(! $quiz->class_id && ! $quiz->course_id && empty($quiz->assigned_students) && ! $quiz->public_to_all_students)<span class="badge badge-outline">Chưa gán phạm vi</span>@endif
+                @if($quiz->public_to_all_students)<span class="badge badge-warning">Công khai</span>@endif
                 @if($quiz->start_at && $quiz->start_at->isFuture())<span class="badge badge-info">Chưa mở</span>@endif
                 @if($quiz->end_at && $quiz->end_at->isPast())<span class="badge badge-danger">Quá hạn</span>@endif
               </div>

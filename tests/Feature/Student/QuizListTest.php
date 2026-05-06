@@ -3,6 +3,7 @@
 namespace Tests\Feature\Student;
 
 use App\Models\Course;
+use App\Models\ClassModel;
 use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\User;
@@ -118,11 +119,53 @@ class QuizListTest extends TestCase
             });
     }
 
-    private function createQuiz(User $teacher, Course $course, string $title, array $overrides = []): Quiz
+    public function test_student_only_sees_quizzes_assigned_to_them(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $otherStudent = User::factory()->create(['role' => 'student']);
+
+        $class = ClassModel::create([
+            'teacher_id' => $teacher->id,
+            'name' => 'Assigned class',
+            'code' => 'ASSIGN1',
+        ]);
+        $class->students()->attach($student->id, ['joined_at' => now()]);
+
+        $course = Course::create([
+            'teacher_id' => $teacher->id,
+            'name' => 'Assigned course',
+            'status' => 'published',
+        ]);
+        $course->students()->attach($student->id, ['enrolled_at' => now()]);
+
+        $classQuiz = $this->createQuiz($teacher, null, 'Class assigned quiz', ['class_id' => $class->id]);
+        $courseQuiz = $this->createQuiz($teacher, $course, 'Course assigned quiz');
+        $specificQuiz = $this->createQuiz($teacher, null, 'Specific assigned quiz', ['assigned_students' => [$student->id]]);
+        $publicQuiz = $this->createQuiz($teacher, null, 'Public quiz', ['public_to_all_students' => true]);
+
+        $this->createQuiz($teacher, null, 'Other student specific quiz', ['assigned_students' => [$otherStudent->id]]);
+        $this->createQuiz($teacher, null, 'Unassigned quiz');
+
+        $response = $this->actingAs($student)->get(route('student.quizzes'));
+
+        $response->assertOk()
+            ->assertViewHas('summary', fn (array $summary) => $summary['total'] === 4)
+            ->assertViewHas('available', function ($quizzes) use ($classQuiz, $courseQuiz, $specificQuiz, $publicQuiz) {
+                return $quizzes->pluck('id')->sort()->values()->all() === collect([
+                    $classQuiz->id,
+                    $courseQuiz->id,
+                    $specificQuiz->id,
+                    $publicQuiz->id,
+                ])->sort()->values()->all();
+            });
+    }
+
+    private function createQuiz(User $teacher, ?Course $course, string $title, array $overrides = []): Quiz
     {
         $quiz = Quiz::create(array_merge([
             'teacher_id' => $teacher->id,
-            'course_id' => $course->id,
+            'course_id' => $course?->id,
             'title' => $title,
             'status' => 'published',
             'quiz_type' => 'exam',

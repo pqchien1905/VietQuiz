@@ -54,9 +54,4 @@ return [
         'version' => env('VNPAY_VERSION', '2.1.0'),
     ],
 
-    'admin' => [
-        'username' => env('ADMIN_USERNAME', 'admin'),
-        'password' => env('ADMIN_PASSWORD', 'password'),
-    ],
-
 ];

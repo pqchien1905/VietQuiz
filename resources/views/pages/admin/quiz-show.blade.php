@@ -10,7 +10,7 @@
   $statusBadges = ['draft' => 'badge-warning', 'published' => 'badge-success', 'closed' => 'badge-danger'];
   $duration = $quiz->time_limit ?? $quiz->duration_minutes ?? 0;
   $totalPoints = $quiz->total_points ?? $quiz->questions->sum('points');
-  $hasScope = $quiz->class_id || $quiz->course_id || ! empty($quiz->assigned_students);
+  $hasScope = $quiz->class_id || $quiz->course_id || ! empty($quiz->assigned_students) || $quiz->public_to_all_students;
   $hasSchedule = $quiz->start_at || $quiz->end_at;
 @endphp
 
@@ -87,6 +87,7 @@
             <label class="quiz-check"><input type="hidden" name="shuffle_answers" value="0"><input type="checkbox" name="shuffle_answers" value="1" @checked(old('shuffle_answers', $quiz->shuffle_answers))> Trộn đáp án</label>
             <label class="quiz-check"><input type="hidden" name="show_result" value="0"><input type="checkbox" name="show_result" value="1" @checked(old('show_result', $quiz->show_result))> Hiện kết quả</label>
             <label class="quiz-check"><input type="hidden" name="anti_cheat_enabled" value="0"><input type="checkbox" name="anti_cheat_enabled" value="1" @checked(old('anti_cheat_enabled', $quiz->anti_cheat_enabled))> Chống gian lận</label>
+            <label class="quiz-check"><input type="hidden" name="public_to_all_students" value="0"><input type="checkbox" name="public_to_all_students" value="1" @checked(old('public_to_all_students', $quiz->public_to_all_students))> Công khai cho tất cả học sinh</label>
           </div>
         </div>
         <div class="form-group full"><label class="label">Mô tả</label><textarea class="input" name="description" rows="4" maxlength="2000">{{ old('description', $quiz->description) }}</textarea></div>

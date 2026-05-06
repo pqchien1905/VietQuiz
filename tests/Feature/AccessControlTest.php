@@ -56,4 +56,17 @@ class AccessControlTest extends TestCase
             'password' => 'password',
         ])->assertSessionHasErrors('email');
     }
+
+    public function test_admin_user_cannot_access_teacher_or_student_dashboards_via_web_guard(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('teacher.dashboard'))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('student.dashboard'))
+            ->assertForbidden();
+    }
 }

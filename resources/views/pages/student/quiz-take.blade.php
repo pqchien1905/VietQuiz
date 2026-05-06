@@ -251,6 +251,12 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
     border-radius: 2px;
     transition: width 0.3s ease;
 }
+.autosave-status {
+    min-height: 1rem;
+    margin-top: 0.45rem;
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+}
 .submit-modal-overlay {
     position: fixed;
     inset: 0;
@@ -395,6 +401,7 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
             <div class="progress-bar-wrap">
                 <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
             </div>
+            <div class="autosave-status" id="autosave-status" aria-live="polite"></div>
             @if($quiz->quiz_type === 'exam' && ($quiz->anti_cheat_enabled ?? true))
             <div class="exam-guard-banner" id="exam-guard-banner">
                 Bài kiểm tra đang bật giám sát: không mở DevTools, không rời màn hình làm bài và không thoát toàn màn hình.
@@ -423,14 +430,17 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
 @php
     $quizPayload = [
         'id' => $quiz->id,
+        'user_id' => auth()->id(),
         'title' => $quiz->title,
         'time_limit' => $quiz->time_limit,
         'started_at' => $startedAt->toIso8601String(),
         'quiz_type' => $quiz->quiz_type ?? 'exam',
         'anti_cheat_enabled' => (bool) ($quiz->anti_cheat_enabled ?? true),
         'submit_url' => route('student.quiz-take.submit', $quiz),
+        'violation_url' => route('student.quiz-take.violations', $quiz),
         'result_url' => route('student.quiz-result', $quiz),
         'list_url' => route('student.quizzes'),
+        'max_violations' => max(1, (int) config('vietquiz.anti_cheat.max_violations', 3)),
     ];
 
     $questionPayload = $quiz->questions->values()->map(fn($q, $i) => [
@@ -457,12 +467,20 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
     const TOTAL = QUESTIONS.length;
     const IS_EXAM = QUIZ_DATA.quiz_type === 'exam';
     const IS_GUARDED_EXAM = IS_EXAM && QUIZ_DATA.anti_cheat_enabled;
+    const AUTOSAVE_KEY = [
+        'vietquiz',
+        'quiz-draft',
+        QUIZ_DATA.user_id,
+        QUIZ_DATA.id,
+        QUIZ_DATA.started_at,
+    ].join(':');
 
     // ── State ────────────────────────────────
     let currentIdx = 0;
     let answers = {};
     let timerInterval = null;
     let isSubmitting = false;
+    let autosaveStatusTimer = null;
 
     // ── Helpers ───────────────────────────────
     const $ = (sel) => document.querySelector(sel);
@@ -487,6 +505,59 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
 
     function getAnsweredCount() {
         return Object.keys(answers).filter(k => answers[k] !== '' && answers[k] !== null && answers[k] !== undefined).length;
+    }
+
+    function setAutosaveStatus(message) {
+        const el = $('#autosave-status');
+        if (!el) return;
+
+        el.textContent = message;
+        if (autosaveStatusTimer) clearTimeout(autosaveStatusTimer);
+        autosaveStatusTimer = setTimeout(() => {
+            el.textContent = '';
+        }, 2500);
+    }
+
+    function loadAutosavedAnswers() {
+        try {
+            const raw = localStorage.getItem(AUTOSAVE_KEY);
+            if (!raw) return;
+
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed.answers !== 'object' || Array.isArray(parsed.answers)) return;
+
+            const validQuestionIds = new Set(QUESTIONS.map(q => String(q.id)));
+            answers = Object.fromEntries(
+                Object.entries(parsed.answers).filter(([questionId]) => validQuestionIds.has(String(questionId)))
+            );
+
+            if (getAnsweredCount() > 0) {
+                setAutosaveStatus('Đã khôi phục câu trả lời nháp.');
+            }
+        } catch (error) {
+            console.warn('Autosave restore failed:', error);
+        }
+    }
+
+    function saveAnswersDraft() {
+        try {
+            localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+                answers,
+                saved_at: new Date().toISOString(),
+            }));
+            setAutosaveStatus('Đã lưu nháp.');
+        } catch (error) {
+            console.warn('Autosave failed:', error);
+            setAutosaveStatus('Không thể lưu nháp trên trình duyệt này.');
+        }
+    }
+
+    function clearAnswersDraft() {
+        try {
+            localStorage.removeItem(AUTOSAVE_KEY);
+        } catch (error) {
+            console.warn('Autosave cleanup failed:', error);
+        }
     }
 
     // ── Timer ─────────────────────────────────
@@ -653,6 +724,7 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
 
         renderNavGrid();
         updateProgress();
+        saveAnswersDraft();
     }
 
     // ── Navigate ──────────────────────────────
@@ -760,6 +832,7 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
             const data = await response.json().catch(() => ({}));
 
             if (response.ok && data.success) {
+                clearAnswersDraft();
                 window.location.href = options.redirectUrl || data.redirect_url || QUIZ_DATA.result_url;
             } else {
                 throw new Error(data.error || 'Có lỗi xảy ra. Vui lòng thử lại.');
@@ -801,10 +874,40 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
     let lastFocusWarningAt = 0;
     let lastDevtoolsWarningAt = 0;
     let isAutoSubmitting = false;
-    const MAX_VIOLATIONS = 3;
+    let finalWarningShown = false;
+    const MAX_VIOLATIONS = QUIZ_DATA.max_violations || 3;
     const DEVTOOLS_THRESHOLD = 160;
 
-    function showAntiCheatWarning(msg, countViolation = true) {
+    async function logAntiCheatViolation(eventType, metadata = {}) {
+        if (!IS_GUARDED_EXAM || !QUIZ_DATA.violation_url) return null;
+
+        try {
+            const response = await fetch(QUIZ_DATA.violation_url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    event_type: eventType,
+                    metadata: {
+                        ...metadata,
+                        url: window.location.href,
+                        user_agent: navigator.userAgent,
+                        client_time: new Date().toISOString(),
+                    },
+                }),
+            });
+
+            return await response.json().catch(() => null);
+        } catch (error) {
+            console.warn('Anti-cheat log failed:', error);
+            return null;
+        }
+    }
+
+    function showAntiCheatWarning(msg, countViolation = true, eventType = 'focus_lost', metadata = {}) {
         if (!IS_GUARDED_EXAM) return;
         if (countViolation) violationCount++;
 
@@ -821,14 +924,32 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
         document.body.appendChild(toast);
         setTimeout(() => { toast.style.animation = 'slideOutRight 0.3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 4000);
 
-        if (violationCount >= MAX_VIOLATIONS && !isAutoSubmitting) {
-            isAutoSubmitting = true;
+        if (countViolation) {
+            logAntiCheatViolation(eventType, metadata).then(data => {
+                if (!data) return;
+                if (Number.isInteger(data.violation_count)) {
+                    violationCount = data.violation_count;
+                }
+                if ((data.should_auto_submit || data.should_redirect) && !isAutoSubmitting) {
+                    isAutoSubmitting = true;
+                    notifyUser(data.time_expired
+                        ? 'Thời gian làm bài đã kết thúc. Hệ thống đã đóng lượt làm bài.'
+                        : 'Bạn đã vi phạm quá số lần cho phép. Hệ thống đã đóng lượt làm bài.');
+                    window.onbeforeunload = null;
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url || QUIZ_DATA.result_url;
+                    }, 700);
+                }
+            });
+        }
+
+        if (violationCount >= MAX_VIOLATIONS && !finalWarningShown) {
+            finalWarningShown = true;
             const finalToast = document.createElement('div');
             finalToast.id = 'anticheat-final-toast';
             finalToast.style.cssText = 'position:fixed;top:9rem;right:1rem;z-index:99999;background:var(--destructive);color:#fff;padding:0.875rem 1.25rem;border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:700;box-shadow:var(--shadow-lg);max-width:320px;animation:slideInRight 0.3s ease';
             finalToast.textContent = 'Bạn đã vi phạm quá số lần cho phép. Hệ thống sẽ tự động nộp bài.';
             document.body.appendChild(finalToast);
-            setTimeout(() => submitQuiz({ force: true }), 700);
         }
     }
 
@@ -863,13 +984,15 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
         ['copy', 'cut', 'paste'].forEach(eventName => {
             document.addEventListener(eventName, event => {
                 event.preventDefault();
-                showAntiCheatWarning('Không được sao chép, cắt hoặc dán nội dung trong bài kiểm tra.');
+                showAntiCheatWarning('Không được sao chép, cắt hoặc dán nội dung trong bài kiểm tra.', true, eventName, {
+                    target: event.target?.tagName || null,
+                });
             });
         });
 
         document.addEventListener('contextmenu', event => {
             event.preventDefault();
-            showAntiCheatWarning('Không được click chuột phải trong bài kiểm tra.');
+            showAntiCheatWarning('Không được click chuột phải trong bài kiểm tra.', true, 'context_menu');
         });
 
         document.addEventListener('keydown', event => {
@@ -883,29 +1006,35 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
             if (!blocked) return;
             event.preventDefault();
             event.stopPropagation();
-            showAntiCheatWarning('Không được mở DevTools hoặc dùng phím tắt hệ thống trong bài kiểm tra.');
+            showAntiCheatWarning('Không được mở DevTools hoặc dùng phím tắt hệ thống trong bài kiểm tra.', true, 'blocked_shortcut', {
+                key: event.key,
+                ctrl: event.ctrlKey,
+                shift: event.shiftKey,
+                alt: event.altKey,
+                meta: event.metaKey,
+            });
         }, true);
 
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) return;
-            showAntiCheatWarning('Bạn đã rời khỏi tab làm bài. Hành vi này đang được ghi nhận.');
+            showAntiCheatWarning('Bạn đã rời khỏi tab làm bài. Hành vi này đang được ghi nhận.', true, 'tab_hidden');
         });
 
         window.addEventListener('blur', () => {
             const now = Date.now();
             if (now - lastFocusWarningAt < 1200) return;
             lastFocusWarningAt = now;
-            showAntiCheatWarning('Cửa sổ làm bài không còn được focus. Hành vi này đang được ghi nhận.');
+            showAntiCheatWarning('Cửa sổ làm bài không còn được focus. Hành vi này đang được ghi nhận.', true, 'focus_lost');
         });
 
         document.addEventListener('fullscreenchange', () => {
             if (isFullscreen()) return;
-            showAntiCheatWarning('Bạn đã thoát chế độ toàn màn hình trong bài kiểm tra.');
+            showAntiCheatWarning('Bạn đã thoát chế độ toàn màn hình trong bài kiểm tra.', true, 'fullscreen_exit');
         });
 
         document.addEventListener('webkitfullscreenchange', () => {
             if (isFullscreen()) return;
-            showAntiCheatWarning('Bạn đã thoát chế độ toàn màn hình trong bài kiểm tra.');
+            showAntiCheatWarning('Bạn đã thoát chế độ toàn màn hình trong bài kiểm tra.', true, 'fullscreen_exit');
         });
 
         window.setInterval(() => {
@@ -916,12 +1045,16 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
             const now = Date.now();
             if (now - lastDevtoolsWarningAt < 5000) return;
             lastDevtoolsWarningAt = now;
-            showAntiCheatWarning('Hệ thống phát hiện cửa sổ DevTools hoặc vùng hiển thị bất thường.');
+            showAntiCheatWarning('Hệ thống phát hiện cửa sổ DevTools hoặc vùng hiển thị bất thường.', true, 'devtools_detected', {
+                width_gap: widthGap,
+                height_gap: heightGap,
+            });
         }, 1500);
     }
 
     // ── Init ─────────────────────────────────
     function init() {
+        loadAutosavedAnswers();
         renderNavGrid();
         renderQuestion(0);
         initTimer();

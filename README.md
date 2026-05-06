@@ -54,7 +54,7 @@ VietQuiz là ứng dụng quản lý học tập và kiểm tra trực tuyến �
 ### Phân hệ quản trị
 
 - Trang admin riêng tại `/admin`.
-- Đăng nhập admin bằng thông tin trong `.env`.
+- Đăng nhập admin bằng tài khoản `role=admin` trong database.
 - Dashboard hệ thống, tìm kiếm và analytics.
 - Quản lý người dùng, lớp học, khóa học, bài kiểm tra, câu hỏi, bài tập.
 - Quản lý bài nộp, điểm, thông báo, ticket hỗ trợ.
@@ -313,9 +313,11 @@ Với Gmail, nên dùng App Password thay vì mật khẩu tài khoản chính.
 ### Admin
 
 ```env
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=password
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=replace-with-a-strong-unique-password
 ```
+
+`ADMIN_PASSWORD` chi dung khi chay `AdminAccountSeeder` de tao tai khoan admin ban dau. Khong commit hoac trien khai voi mat khau mau/de doan.
 
 Đường dẫn admin:
 
@@ -389,11 +391,11 @@ Password: password
 Vai trò: student
 ```
 
-Tài khoản admin dùng biến `.env`:
+Tài khoản admin dùng user trong database với `role=admin`:
 
 ```text
-Username: admin
-Password: password
+Email: ADMIN_EMAIL khi seed
+Password: ADMIN_PASSWORD manh do ban tu dat khi setup
 URL: /admin
 ```
 
