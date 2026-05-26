@@ -210,9 +210,9 @@
           </div>
 
           @if(!$class)
-            <div class="course-note">Khóa học chưa gắn với lớp nên chưa thể đồng bộ học sinh hoặc tạo bài tập nhanh. Hãy chọn lớp trong phần chỉnh sửa.</div>
+            <div class="course-note">Khóa học chưa gắn với lớp nên chưa thể tạo bài tập nhanh. Hãy chọn lớp trong phần chỉnh sửa.</div>
           @elseif($course->students_count === 0)
-            <div class="course-note">Khóa học đã gắn với {{ $class->name }}. Dùng nút đồng bộ để đưa học sinh của lớp vào khóa học.</div>
+            <div class="course-note">Khóa học đã gắn với {{ $class->name }} nhưng chưa có học sinh tham gia.</div>
           @endif
         </div>
 
@@ -221,10 +221,6 @@
           <a class="btn btn-primary btn-sm" href="{{ route('teacher.quiz-create', ['course_id' => $course->id, 'class_id' => $course->class_id]) }}">Tạo bài kiểm tra</a>
           @if($class)
             <button class="btn btn-outline btn-sm" type="button" onclick="openAssignmentModal({{ $course->id }})">Tạo bài tập</button>
-            <form method="POST" action="{{ route('teacher.courses.sync-students', $course) }}">
-              @csrf
-              <button class="btn btn-ghost btn-sm" type="submit">Đồng bộ học sinh</button>
-            </form>
           @endif
           @if($status === 'published')
             <form method="POST" action="{{ route('teacher.courses.unpublish', $course) }}">
@@ -237,10 +233,6 @@
               <button class="btn btn-ghost btn-sm" type="submit">Xuất bản</button>
             </form>
           @endif
-          <form method="POST" action="{{ route('teacher.courses.duplicate', $course) }}">
-            @csrf
-            <button class="btn btn-ghost btn-sm" type="submit">Nhân bản</button>
-          </form>
           <button class="btn btn-ghost btn-sm" type="button" style="margin-left:auto;color:var(--destructive);" onclick="openDeleteModal({{ $course->id }})">Xóa</button>
         </div>
       </article>
