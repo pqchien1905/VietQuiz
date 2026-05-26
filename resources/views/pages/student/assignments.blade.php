@@ -224,7 +224,7 @@
               @endif
             </div>
             @if($assignment->attachment)
-              <a href="{{ Storage::url($assignment->attachment) }}" target="_blank" class="btn btn-ghost btn-sm">Tài liệu đính kèm</a>
+              <a href="{{ route('student.assignment-detail', $assignment) }}#attachment-preview" class="btn btn-ghost btn-sm">Tài liệu đính kèm</a>
             @endif
           </div>
         </article>

@@ -138,6 +138,14 @@
             @endforeach
           </select>
         </div>
+        <div>
+          <label for="per_page" style="display:block;font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:0.35rem;">Số hàng/trang</label>
+          <select id="per_page" name="per_page" class="input select">
+            @foreach([10, 20, 50, 100] as $pp)
+              <option value="{{ $pp }}" @selected(($filters['per_page'] ?? 10) === $pp)>{{ $pp }}</option>
+            @endforeach
+          </select>
+        </div>
         <div style="display:flex;gap:0.5rem;">
           <button type="submit" class="btn btn-primary">Lọc</button>
           <a href="{{ route('student.grades') }}" class="btn btn-ghost">Xóa</a>
@@ -223,7 +231,7 @@
       </div>
 
       <div class="card-content" style="border-top:1px solid var(--border);">
-        {{ $grades->links() }}
+        {{ $grades->links('components.pagination') }}
       </div>
     @else
       <div class="card-content">
@@ -237,6 +245,7 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (function(){
   const courseData = @json($courseChartData);

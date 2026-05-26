@@ -40,7 +40,7 @@
       'category' => 'grading',
       'category_label' => 'Chấm điểm',
       'question' => 'Bài tự luận và bài tập được chấm ở đâu?',
-      'answer' => 'Vào Chấm điểm để xem bài nộp cần xử lý. Mỗi bài nộp có thể nhập điểm, phản hồi và xem tệp đính kèm nếu học sinh đã nộp file.',
+      'answer' => 'Vào Bài tập, mở bài cần xử lý rồi vào màn chấm theo từng bài nộp. Mỗi bài nộp có thể nhập điểm, phản hồi và xem tệp đính kèm nếu học sinh đã nộp file.',
     ],
     [
       'category' => 'students',
@@ -60,7 +60,7 @@
     ['title' => 'Tạo lớp đầu tiên', 'description' => 'Thiết lập lớp, mã tham gia và danh sách học sinh.', 'route' => route('teacher.classes')],
     ['title' => 'Tạo bài kiểm tra', 'description' => 'Soạn đề, thêm câu hỏi và xuất bản cho lớp.', 'route' => route('teacher.quiz-create')],
     ['title' => 'Quản lý ngân hàng câu hỏi', 'description' => 'Tổ chức thư mục, import câu hỏi và dùng AI.', 'route' => route('teacher.questions')],
-    ['title' => 'Chấm bài nộp', 'description' => 'Xem bài nộp, nhập điểm và gửi phản hồi.', 'route' => route('teacher.grading')],
+    ['title' => 'Chấm bài nộp', 'description' => 'Mở bài tập và vào màn chấm theo từng bài.', 'route' => route('teacher.assignments')],
   ];
 
   $troubleshooting = [

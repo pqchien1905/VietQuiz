@@ -91,7 +91,7 @@ class UserController extends AdminBaseController
 
         User::create($validated);
 
-        return redirect()->route('admin.users')->with('success', 'ÄÃ£ táº¡o tÃ i khoáº£n ngÆ°á»i dÃ¹ng.');
+        return redirect()->route('admin.users')->with('success', 'Đã tạo tài khoản người dùng.');
     }
 
     public function showUser(Request $request, int $id): View|RedirectResponse
@@ -154,21 +154,21 @@ class UserController extends AdminBaseController
 
         User::withTrashed()->findOrFail($id)->forceFill($validated)->save();
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t tÃ i khoáº£n.');
+        return back()->with('success', 'Đã cập nhật tài khoản.');
     }
 
     public function deleteUser(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         User::findOrFail($id)->delete();
-        return back()->with('success', 'ÄÃ£ khÃ³a tÃ i khoáº£n.');
+        return back()->with('success', 'Đã khóa tài khoản.');
     }
 
     public function restoreUser(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         User::withTrashed()->findOrFail($id)->restore();
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c tÃ i khoáº£n.');
+        return back()->with('success', 'Đã khôi phục tài khoản.');
     }
 }
 

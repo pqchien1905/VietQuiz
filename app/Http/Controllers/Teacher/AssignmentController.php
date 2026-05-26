@@ -7,8 +7,15 @@ use App\Models\Assignment;
 use App\Models\ClassModel;
 use App\Models\Course;
 use App\Models\Notification;
+use App\Models\Submission;
+use App\Models\User;
+use App\Services\AssignmentAiGrader;
 use App\Support\CollectionPaginator;
+use App\Support\UploadedFileStorage;
+use App\Support\VipFeature;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -98,7 +105,11 @@ class AssignmentController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules($request));
+        if ($uploadErrorResponse = $this->attachmentUploadErrorResponse($request)) {
+            return $uploadErrorResponse;
+        }
+
+        $validated = $request->validate($this->rules($request), $this->validationMessages());
         $this->authorizeClassAndCourse($request, $validated);
 
         $validated['teacher_id'] = $request->user()->id;
@@ -106,7 +117,7 @@ class AssignmentController extends Controller
         $validated['total_points'] = $validated['total_points'] ?? 100;
 
         if ($request->hasFile('attachment')) {
-            $validated['attachment'] = $request->file('attachment')->store('assignments');
+            $validated['attachment'] = UploadedFileStorage::storeWithOriginalName($request->file('attachment'), 'assignments');
         }
 
         $assignment = Assignment::create($validated);
@@ -115,13 +126,94 @@ class AssignmentController extends Controller
         return back()->with('success', 'Tạo bài tập thành công!');
     }
 
+    public function show(Request $request, Assignment $assignment)
+    {
+        $this->authorizeAssignment($request, $assignment);
+
+        $assignment->load([
+            'course:id,name',
+            'class:id,name,subject',
+            'class.students:id,name,email',
+            'submissions' => fn ($query) => $query
+                ->with([
+                    'student:id,name,email',
+                    'grades' => fn ($gradeQuery) => $gradeQuery->latest('graded_at'),
+                ])
+                ->latest('submitted_at'),
+        ]);
+
+        $students = $assignment->class?->students ?? collect();
+        $submissionsByStudent = $assignment->submissions->keyBy('student_id');
+
+        $allRoster = $students->map(function (User $student) use ($submissionsByStudent) {
+            $submission = $submissionsByStudent->get($student->id);
+            return (object) [
+                'student' => $student,
+                'submission' => $submission,
+                'grade' => $submission?->grades->first(),
+            ];
+        })->values();
+
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'submission_status' => (string) $request->query('submission_status', 'all'),
+            'grading_status' => (string) $request->query('grading_status', 'all'),
+            'sort' => (string) $request->query('sort', 'pending_first'),
+        ];
+
+        $roster = $allRoster
+            ->when($filters['q'] !== '', function ($collection) use ($filters) {
+                $keyword = Str::lower($filters['q']);
+                return $collection->filter(function ($row) use ($keyword) {
+                    $name = Str::lower((string) ($row->student?->name ?? ''));
+                    $email = Str::lower((string) ($row->student?->email ?? ''));
+                    return str_contains($name, $keyword) || str_contains($email, $keyword);
+                });
+            })
+            ->when($filters['submission_status'] === 'submitted', fn ($collection) => $collection->filter(fn ($row) => $row->submission !== null))
+            ->when($filters['submission_status'] === 'not_submitted', fn ($collection) => $collection->filter(fn ($row) => $row->submission === null))
+            ->when($filters['grading_status'] === 'graded', fn ($collection) => $collection->filter(fn ($row) => $row->grade !== null))
+            ->when($filters['grading_status'] === 'pending', fn ($collection) => $collection->filter(fn ($row) => $row->submission !== null && $row->grade === null));
+
+        $roster = (match ($filters['sort']) {
+            'name_asc' => $roster->sortBy(fn ($row) => mb_strtolower((string) ($row->student?->name ?? ''))),
+            'name_desc' => $roster->sortByDesc(fn ($row) => mb_strtolower((string) ($row->student?->name ?? ''))),
+            'submitted_newest' => $roster->sortByDesc(fn ($row) => optional($row->submission?->submitted_at)->timestamp ?? 0),
+            'submitted_oldest' => $roster->sortBy(fn ($row) => optional($row->submission?->submitted_at)->timestamp ?? PHP_INT_MAX),
+            default => $roster->sortBy(fn ($row) => [
+                $row->submission === null ? 2 : ($row->grade === null ? 0 : 1),
+                mb_strtolower((string) ($row->student?->name ?? '')),
+            ]),
+        })->values();
+
+        $submittedCount = $allRoster->filter(fn ($row) => $row->submission !== null)->count();
+        $gradedCount = $allRoster->filter(fn ($row) => $row->grade !== null)->count();
+
+        return view('pages.teacher.assignment-detail', [
+            'assignment' => $assignment,
+            'students' => $students,
+            'roster' => $roster,
+            'allRoster' => $allRoster,
+            'filters' => $filters,
+            'submittedCount' => $submittedCount,
+            'gradedCount' => $gradedCount,
+        ]);
+    }
+
     public function update(Request $request, Assignment $assignment)
     {
         abort_unless($assignment->teacher_id === $request->user()->id, 403);
 
-        $validated = $request->validate($this->rules($request) + [
-            'remove_attachment' => 'nullable|boolean',
-        ]);
+        if ($uploadErrorResponse = $this->attachmentUploadErrorResponse($request)) {
+            return $uploadErrorResponse;
+        }
+
+        $validated = $request->validate(
+            $this->rules($request) + [
+                'remove_attachment' => 'nullable|boolean',
+            ],
+            $this->validationMessages()
+        );
         $this->authorizeClassAndCourse($request, $validated);
 
         $validated['type'] = $this->normalizeType($validated['type'] ?? $assignment->type);
@@ -135,7 +227,7 @@ class AssignmentController extends Controller
             if ($assignment->attachment) {
                 Storage::delete($assignment->attachment);
             }
-            $validated['attachment'] = $request->file('attachment')->store('assignments');
+            $validated['attachment'] = UploadedFileStorage::storeWithOriginalName($request->file('attachment'), 'assignments');
         }
 
         unset($validated['remove_attachment']);
@@ -226,6 +318,155 @@ class AssignmentController extends Controller
         return Storage::download($assignment->attachment, basename($assignment->attachment));
     }
 
+    public function gradingBoard(Request $request, Assignment $assignment)
+    {
+        $this->authorizeAssignment($request, $assignment);
+
+        $assignment->load([
+            'course:id,name',
+            'class:id,name,subject',
+            'class.students:id,name,email',
+            'submissions' => fn ($query) => $query
+                ->with([
+                    'student:id,name,email',
+                    'grades' => fn ($gradeQuery) => $gradeQuery->latest('graded_at'),
+                ])
+                ->latest('submitted_at'),
+        ]);
+
+        $submissionsByStudent = $assignment->submissions->keyBy('student_id');
+        $allRoster = ($assignment->class?->students ?? collect())->map(function (User $student) use ($submissionsByStudent) {
+            $submission = $submissionsByStudent->get($student->id);
+            return (object) [
+                'student' => $student,
+                'submission' => $submission,
+                'grade' => $submission?->grades->first(),
+            ];
+        })->values();
+
+        $filters = [
+            'q' => trim((string) $request->query('q', '')),
+            'submission_status' => (string) $request->query('submission_status', 'all'),
+            'grading_status' => (string) $request->query('grading_status', 'all'),
+            'sort' => (string) $request->query('sort', 'pending_first'),
+        ];
+
+        $roster = $allRoster
+            ->when($filters['q'] !== '', function ($collection) use ($filters) {
+                $keyword = Str::lower($filters['q']);
+                return $collection->filter(function ($row) use ($keyword) {
+                    $name = Str::lower((string) ($row->student?->name ?? ''));
+                    $email = Str::lower((string) ($row->student?->email ?? ''));
+
+                    return str_contains($name, $keyword) || str_contains($email, $keyword);
+                });
+            })
+            ->when($filters['submission_status'] === 'submitted', fn ($collection) => $collection->filter(fn ($row) => $row->submission !== null))
+            ->when($filters['submission_status'] === 'not_submitted', fn ($collection) => $collection->filter(fn ($row) => $row->submission === null))
+            ->when($filters['grading_status'] === 'graded', fn ($collection) => $collection->filter(fn ($row) => $row->grade !== null))
+            ->when($filters['grading_status'] === 'pending', fn ($collection) => $collection->filter(fn ($row) => $row->submission !== null && $row->grade === null));
+
+        $roster = (match ($filters['sort']) {
+            'name_asc' => $roster->sortBy(fn ($row) => mb_strtolower((string) ($row->student?->name ?? ''))),
+            'name_desc' => $roster->sortByDesc(fn ($row) => mb_strtolower((string) ($row->student?->name ?? ''))),
+            'submitted_newest' => $roster->sortByDesc(fn ($row) => optional($row->submission?->submitted_at)->timestamp ?? 0),
+            'submitted_oldest' => $roster->sortBy(fn ($row) => optional($row->submission?->submitted_at)->timestamp ?? PHP_INT_MAX),
+            default => $roster->sortBy(fn ($row) => [
+                $row->submission === null ? 2 : ($row->grade === null ? 0 : 1),
+                mb_strtolower((string) ($row->student?->name ?? '')),
+            ]),
+        })->values();
+
+        $selectedStudentId = (int) $request->query('student_id', 0);
+        $selectedRow = $roster->first(fn ($row) => $row->student->id === $selectedStudentId);
+
+        if (! $selectedRow) {
+            $selectedRow = $roster->first(fn ($row) => $row->submission !== null) ?? $roster->first();
+        }
+
+        $selectedSubmission = $selectedRow?->submission;
+
+        return view('pages.teacher.assignment-grading-board', [
+            'assignment' => $assignment,
+            'roster' => $roster,
+            'allRoster' => $allRoster,
+            'filters' => $filters,
+            'selectedSubmission' => $selectedSubmission,
+            'selectedStudent' => $selectedRow?->student,
+            'selectedGrade' => $selectedRow?->grade,
+        ]);
+    }
+
+    public function gradingSubmission(Request $request, Assignment $assignment, Submission $submission)
+    {
+        $this->authorizeAssignment($request, $assignment);
+        abort_unless((int) $submission->assignment_id === (int) $assignment->id, 404);
+
+        $assignment->load([
+            'course:id,name',
+            'class:id,name,subject',
+        ]);
+        $submission->load([
+            'student:id,name,email',
+            'grades' => fn ($query) => $query->latest('graded_at'),
+        ]);
+
+        return view('pages.teacher.assignment-grading-submission', [
+            'assignment' => $assignment,
+            'submission' => $submission,
+            'grade' => $submission->grades->first(),
+        ]);
+    }
+
+    public function generateAiGrade(
+        Request $request,
+        Assignment $assignment,
+        Submission $submission,
+        AssignmentAiGrader $grader
+    ): JsonResponse {
+        $this->authorizeAssignment($request, $assignment);
+        abort_unless((int) $submission->assignment_id === (int) $assignment->id, 404);
+
+        if (! VipFeature::isVip($request->user())) {
+            return response()->json([
+                'success' => false,
+                'message' => VipFeature::aiGradingMessage(),
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'rubric' => 'nullable|string|max:2000',
+        ], [
+            'rubric.max' => 'Tiêu chí AI không được vượt quá :max ký tự.',
+        ]);
+
+        try {
+            $assignment->loadMissing(['course:id,name', 'class:id,name,subject']);
+            $submission->loadMissing(['student:id,name,email']);
+            $suggestion = $grader->grade($assignment, $submission, $validated['rubric'] ?? null);
+
+            return response()->json([
+                'success' => true,
+                'score' => $suggestion['score'],
+                'feedback' => $suggestion['feedback'],
+                'summary' => $suggestion['summary'],
+                'warnings' => $suggestion['warnings'],
+            ]);
+        } catch (Throwable $exception) {
+            Log::warning('Assignment AI grading failed.', [
+                'assignment_id' => $assignment->id,
+                'submission_id' => $submission->id,
+                'teacher_id' => $request->user()->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tạo được gợi ý chấm bằng AI. Vui lòng thử lại hoặc chấm thủ công.',
+            ], 422);
+        }
+    }
+
     private function rules(Request $request): array
     {
         return [
@@ -233,10 +474,32 @@ class AssignmentController extends Controller
             'description' => 'nullable|string|max:2000',
             'class_id' => ['required', 'integer', Rule::exists('classes', 'id')->where('teacher_id', $request->user()->id)],
             'course_id' => ['nullable', 'integer', Rule::exists('courses', 'id')->where('teacher_id', $request->user()->id)],
-            'due_at' => 'nullable|date',
+            'due_at' => [
+                'nullable',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    try {
+                        if ($value && \Carbon\Carbon::parse($value)->lt(now()->startOfMinute())) {
+                            $fail('Hạn nộp phải là thời điểm hiện tại hoặc sau hiện tại.');
+                        }
+                    } catch (Throwable) {
+                        // The date rule reports invalid date formats.
+                    }
+                },
+            ],
             'total_points' => 'nullable|integer|min:1|max:10000',
             'type' => ['nullable', Rule::in(['file', 'text', 'online', 'essay', 'code', 'project', 'practice'])],
-            'attachment' => 'nullable|file|max:20480|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,png,jpg,jpeg,webp,txt',
+            'attachment' => 'nullable|file|max:102400|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,png,jpg,jpeg,webp,txt',
+        ];
+    }
+
+    private function validationMessages(): array
+    {
+        return [
+            'attachment.uploaded' => 'Tải tệp đính kèm thất bại. Vui lòng kiểm tra lại dung lượng/tên tệp và thử lại.',
+            'attachment.file' => 'Tệp đính kèm không hợp lệ.',
+            'attachment.max' => 'Tệp đính kèm không được vượt quá 100MB.',
+            'attachment.mimes' => 'Định dạng tệp không được hỗ trợ.',
         ];
     }
 
@@ -252,7 +515,7 @@ class AssignmentController extends Controller
 
     private function attachmentPath(Assignment $assignment): string
     {
-        return Storage::path($assignment->attachment);
+        return $this->normalizeFilesystemPath(Storage::path($assignment->attachment));
     }
 
     private function convertedPdfPath(Assignment $assignment): ?string
@@ -276,23 +539,33 @@ class AssignmentController extends Controller
 
     private function convertOfficeFileToPdf(string $sourcePath, string $targetRelativePath): ?string
     {
+        $sourcePath = $this->normalizeFilesystemPath($sourcePath);
         $binary = $this->libreOfficeBinary();
         if ($binary === null) {
+            Log::warning('LibreOffice binary not found for assignment preview conversion.', [
+                'source' => $sourcePath,
+                'target' => $targetRelativePath,
+            ]);
             return null;
         }
 
-        $tempDir = storage_path('app/preview-tmp/'.Str::uuid()->toString());
-        $outputDir = $tempDir.DIRECTORY_SEPARATOR.'out';
+        $tempDir = $this->normalizeFilesystemPath(storage_path('app/preview-tmp/'.Str::uuid()->toString()));
+        $outputDir = $this->normalizeFilesystemPath($tempDir.DIRECTORY_SEPARATOR.'out');
 
         if (! is_dir($outputDir) && ! mkdir($outputDir, 0777, true) && ! is_dir($outputDir)) {
             return null;
         }
 
         try {
+            $profileDir = $this->normalizeFilesystemPath($tempDir.DIRECTORY_SEPARATOR.'profile');
+            if (! is_dir($profileDir)) {
+                mkdir($profileDir, 0777, true);
+            }
+
             $process = new Process([
                 $binary,
                 '--headless',
-                '-env:UserInstallation=file:///'.str_replace('\\', '/', storage_path('app/libreoffice-profile')),
+                '-env:UserInstallation=file:///'.str_replace('\\', '/', $profileDir),
                 '--norestore',
                 '--nofirststartwizard',
                 '--convert-to',
@@ -301,29 +574,114 @@ class AssignmentController extends Controller
                 $outputDir,
                 $sourcePath,
             ]);
+            $process->setWorkingDirectory($this->libreOfficeWorkingDirectory($binary));
             $process->setTimeout(60);
             $process->run();
 
-            $convertedPath = $outputDir.DIRECTORY_SEPARATOR.pathinfo($sourcePath, PATHINFO_FILENAME).'.pdf';
+            $convertedPath = $this->normalizeFilesystemPath($outputDir.DIRECTORY_SEPARATOR.pathinfo($sourcePath, PATHINFO_FILENAME).'.pdf');
             if (! is_file($convertedPath)) {
                 $matches = glob($outputDir.DIRECTORY_SEPARATOR.'*.pdf') ?: [];
                 $convertedPath = $matches[0] ?? null;
             }
 
             if (! $convertedPath || ! is_file($convertedPath)) {
-                return null;
+                Log::warning('LibreOffice conversion did not produce PDF in temp directory.', [
+                    'source' => $sourcePath,
+                    'binary' => $binary,
+                    'stdout' => $process->getOutput(),
+                    'stderr' => $process->getErrorOutput(),
+                ]);
+                return $this->convertOfficeFileToPdfDirect($binary, $sourcePath, $targetRelativePath);
             }
 
             Storage::makeDirectory(dirname($targetRelativePath));
-            if (! copy($convertedPath, Storage::path($targetRelativePath))) {
+            $targetAbsolutePath = $this->normalizeFilesystemPath(Storage::path($targetRelativePath));
+            if (! @copy($convertedPath, $targetAbsolutePath)) {
+                Log::warning('Failed copying converted PDF from temp output. Trying direct conversion fallback.', [
+                    'source' => $sourcePath,
+                    'binary' => $binary,
+                    'temp_pdf' => $convertedPath,
+                    'target' => $targetAbsolutePath,
+                ]);
+                return $this->convertOfficeFileToPdfDirect($binary, $sourcePath, $targetRelativePath);
+            }
+
+            return $targetAbsolutePath;
+        } catch (Throwable $exception) {
+            Log::warning('LibreOffice conversion failed in temp mode. Trying direct conversion fallback.', [
+                'source' => $sourcePath,
+                'binary' => $binary,
+                'target' => $targetRelativePath,
+                'error' => $exception->getMessage(),
+            ]);
+            return $this->convertOfficeFileToPdfDirect($binary, $sourcePath, $targetRelativePath);
+        } finally {
+            $this->deleteDirectory($tempDir);
+        }
+    }
+
+    private function convertOfficeFileToPdfDirect(string $binary, string $sourcePath, string $targetRelativePath): ?string
+    {
+        $sourcePath = $this->normalizeFilesystemPath($sourcePath);
+        Storage::makeDirectory(dirname($targetRelativePath));
+        $targetAbsolutePath = $this->normalizeFilesystemPath(Storage::path($targetRelativePath));
+        $targetDir = $this->normalizeFilesystemPath(dirname($targetAbsolutePath));
+        $profileDir = $this->normalizeFilesystemPath(storage_path('app/preview-tmp/'.Str::uuid()->toString().'/profile'));
+
+        try {
+            if (! is_dir($profileDir)) {
+                mkdir($profileDir, 0777, true);
+            }
+
+            $process = new Process([
+                $binary,
+                '--headless',
+                '-env:UserInstallation=file:///'.str_replace('\\', '/', $profileDir),
+                '--norestore',
+                '--nofirststartwizard',
+                '--convert-to',
+                'pdf',
+                '--outdir',
+                $targetDir,
+                $sourcePath,
+            ]);
+            $process->setWorkingDirectory($this->libreOfficeWorkingDirectory($binary));
+            $process->setTimeout(60);
+            $process->run();
+
+            $directOutput = $this->normalizeFilesystemPath($targetDir.DIRECTORY_SEPARATOR.pathinfo($sourcePath, PATHINFO_FILENAME).'.pdf');
+            if (! is_file($directOutput)) {
+                Log::warning('LibreOffice direct conversion did not produce output file.', [
+                    'source' => $sourcePath,
+                    'binary' => $binary,
+                    'target_dir' => $targetDir,
+                    'stdout' => $process->getOutput(),
+                    'stderr' => $process->getErrorOutput(),
+                ]);
                 return null;
             }
 
-            return Storage::path($targetRelativePath);
-        } catch (Throwable) {
+            if (realpath($directOutput) !== realpath($targetAbsolutePath) && ! @copy($directOutput, $targetAbsolutePath)) {
+                Log::warning('LibreOffice direct conversion created file but failed to copy to hashed target.', [
+                    'source' => $sourcePath,
+                    'binary' => $binary,
+                    'direct_output' => $directOutput,
+                    'target' => $targetAbsolutePath,
+                ]);
+                return null;
+            }
+
+            return $targetAbsolutePath;
+        } catch (Throwable $exception) {
+            Log::warning('LibreOffice direct conversion failed.', [
+                'source' => $sourcePath,
+                'binary' => $binary,
+                'target' => $targetAbsolutePath,
+                'error' => $exception->getMessage(),
+            ]);
             return null;
         } finally {
-            $this->deleteDirectory($tempDir);
+            $this->deleteDirectory(dirname($profileDir));
         }
     }
 
@@ -335,11 +693,14 @@ class AssignmentController extends Controller
             'soffice',
             'libreoffice',
             'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+            'C:\\Program Files\\LibreOffice\\program\\soffice.com',
             'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
+            'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.com',
         ]));
 
         foreach ($candidates as $candidate) {
-            if (str_contains($candidate, DIRECTORY_SEPARATOR) && ! is_file($candidate)) {
+            $candidate = $this->normalizeBinaryPath($candidate);
+            if ($this->looksLikeAbsoluteWindowsPath($candidate) && ! is_file($candidate)) {
                 continue;
             }
 
@@ -361,6 +722,28 @@ class AssignmentController extends Controller
         return null;
     }
 
+    private function looksLikeAbsoluteWindowsPath(string $path): bool
+    {
+        return (bool) preg_match('/^[A-Za-z]:[\\\\\\/]/', $path);
+    }
+
+    private function normalizeBinaryPath(string $path): string
+    {
+        if ($this->looksLikeAbsoluteWindowsPath($path)) {
+            return str_replace('/', DIRECTORY_SEPARATOR, $path);
+        }
+
+        return $path;
+    }
+
+    private function normalizeFilesystemPath(string $path): string
+    {
+        $normalized = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+        $real = realpath($normalized);
+
+        return $real !== false ? $real : $normalized;
+    }
+
     private function consoleLibreOfficeBinary(string $candidate): string
     {
         if (str_ends_with(strtolower($candidate), 'soffice.exe')) {
@@ -371,6 +754,18 @@ class AssignmentController extends Controller
         }
 
         return $candidate;
+    }
+
+    private function libreOfficeWorkingDirectory(string $binary): string
+    {
+        if ($this->looksLikeAbsoluteWindowsPath($binary)) {
+            $dir = dirname($binary);
+            if (is_dir($dir)) {
+                return $dir;
+            }
+        }
+
+        return base_path();
     }
 
     private function deleteDirectory(string $directory): void
@@ -559,6 +954,7 @@ class AssignmentController extends Controller
         foreach ($studentIds->unique() as $studentId) {
             Notification::create([
                 'user_id' => $studentId,
+                'audience_role' => 'student',
                 'type' => 'assignment_assigned',
                 'title' => 'Bài tập mới được giao',
                 'body' => "Giáo viên {$request->user()->name} đã giao bài tập mới: \"{$assignment->title}\".",
@@ -569,5 +965,40 @@ class AssignmentController extends Controller
                 ]),
             ]);
         }
+    }
+
+    private function attachmentUploadErrorResponse(Request $request)
+    {
+        if (! $request->has('attachment') || $request->hasFile('attachment')) {
+            return null;
+        }
+
+        $file = $request->file('attachment');
+        $error = is_object($file) && method_exists($file, 'getError') ? $file->getError() : null;
+
+        Log::warning('Assignment attachment upload failed before validation.', [
+            'error_code' => $error,
+            'content_length' => $request->server('CONTENT_LENGTH'),
+            'post_max_size' => ini_get('post_max_size'),
+            'upload_max_filesize' => ini_get('upload_max_filesize'),
+            'memory_limit' => ini_get('memory_limit'),
+            'max_input_time' => ini_get('max_input_time'),
+        ]);
+
+        return back()
+            ->withErrors(['attachment' => $this->attachmentUploadErrorMessage($error)])
+            ->withInput();
+    }
+
+    private function attachmentUploadErrorMessage(?int $error): string
+    {
+        return match ($error) {
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'File vượt quá giới hạn dung lượng cho phép trên máy chủ.',
+            UPLOAD_ERR_PARTIAL => 'File tải lên chưa hoàn tất, vui lòng thử lại.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Máy chủ thiếu thư mục tạm để nhận file upload.',
+            UPLOAD_ERR_CANT_WRITE => 'Máy chủ không thể ghi file tạm, vui lòng kiểm tra quyền ghi thư mục temp.',
+            UPLOAD_ERR_EXTENSION => 'Upload bị chặn bởi extension của PHP trên máy chủ.',
+            default => 'Tải tệp đính kèm thất bại. Vui lòng kiểm tra lại dung lượng/tên tệp và thử lại.',
+        };
     }
 }

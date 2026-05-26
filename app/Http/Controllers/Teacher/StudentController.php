@@ -191,13 +191,35 @@ class StudentController extends Controller
                 continue;
             }
 
-            if ($class->students()->where('users.id', $student->id)->exists()) {
+            $existingEnrollment = \Illuminate\Support\Facades\DB::table('class_user')
+                ->where('class_id', $class->id)
+                ->where('user_id', $student->id)
+                ->first();
+
+            if ($existingEnrollment && $existingEnrollment->enrollment_status === 'approved') {
                 $alreadyInClass++;
 
                 continue;
             }
 
-            $class->students()->attach($student->id, ['joined_at' => now()]);
+            if ($existingEnrollment) {
+                \Illuminate\Support\Facades\DB::table('class_user')
+                    ->where('class_id', $class->id)
+                    ->where('user_id', $student->id)
+                    ->update([
+                        'enrollment_status' => 'approved',
+                        'enrollment_source' => 'teacher_invite',
+                        'approved_at' => now(),
+                        'joined_at' => now(),
+                    ]);
+            } else {
+                $class->studentEnrollments()->attach($student->id, [
+                    'joined_at' => now(),
+                    'enrollment_status' => 'approved',
+                    'enrollment_source' => 'teacher_invite',
+                    'approved_at' => now(),
+                ]);
+            }
             $added++;
         }
 

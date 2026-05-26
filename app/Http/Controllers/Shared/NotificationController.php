@@ -12,6 +12,7 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $audienceRole = $this->audienceRole($request);
         $filter = $request->query('filter', 'all');
         $search = trim((string) $request->query('q', ''));
         $allowedFilters = ['all', 'unread', 'read', 'assignment', 'quiz', 'grading', 'class', 'system'];
@@ -20,7 +21,9 @@ class NotificationController extends Controller
             $filter = 'all';
         }
 
-        $query = Notification::where('user_id', $user->id)->latest();
+        $query = Notification::where('user_id', $user->id)
+            ->forAudience($audienceRole)
+            ->latest();
 
         if ($filter === 'unread') {
             $query->where('is_read', false);
@@ -39,15 +42,16 @@ class NotificationController extends Controller
         }
 
         $notifications = $query->paginate(10)->withQueryString();
-        $unreadCount = Notification::where('user_id', $user->id)->where('is_read', false)->count();
-        $totalCount = Notification::where('user_id', $user->id)->count();
+        $baseQuery = Notification::where('user_id', $user->id)->forAudience($audienceRole);
+        $unreadCount = (clone $baseQuery)->where('is_read', false)->count();
+        $totalCount = (clone $baseQuery)->count();
         $readCount = max(0, $totalCount - $unreadCount);
-        $typeCounts = Notification::where('user_id', $user->id)
+        $typeCounts = (clone $baseQuery)
             ->selectRaw('type, count(*) as total')
             ->groupBy('type')
             ->pluck('total', 'type');
 
-        $viewPath = $user->isTeacher() ? 'pages.teacher.notifications' : 'pages.student.notifications';
+        $viewPath = $audienceRole === 'teacher' ? 'pages.teacher.notifications' : 'pages.student.notifications';
 
         return view($viewPath, [
             'notifications' => $notifications,
@@ -97,12 +101,13 @@ class NotificationController extends Controller
         $notification->update(['is_read' => true]);
 
         return redirect()->to($this->notificationUrl($request, $notification)
-            ?? route($request->user()->isTeacher() ? 'teacher.notifications' : 'student.notifications'));
+            ?? route($this->audienceRole($request) === 'teacher' ? 'teacher.notifications' : 'student.notifications'));
     }
 
     public function markAllRead(Request $request)
     {
         Notification::where('user_id', $request->user()->id)
+            ->forAudience($this->audienceRole($request))
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
@@ -111,7 +116,9 @@ class NotificationController extends Controller
 
     public function clearAll(Request $request)
     {
-        Notification::where('user_id', $request->user()->id)->delete();
+        Notification::where('user_id', $request->user()->id)
+            ->forAudience($this->audienceRole($request))
+            ->delete();
 
         return back()->with('success', 'Đã xóa tất cả thông báo.');
     }
@@ -127,6 +134,18 @@ class NotificationController extends Controller
     private function authorizeNotification(Request $request, Notification $notification): void
     {
         abort_unless((int) $notification->user_id === (int) $request->user()->id, 403);
+        abort_unless($notification->audience_role === $this->audienceRole($request), 403);
+    }
+
+    private function audienceRole(Request $request): string
+    {
+        $routeName = $request->route()?->getName() ?? '';
+
+        if (Str::startsWith($routeName, 'teacher.')) {
+            return 'teacher';
+        }
+
+        return 'student';
     }
 
     private function categoryTypes(string $category): array
@@ -169,7 +188,7 @@ class NotificationController extends Controller
             return $data['url'];
         }
 
-        if ($user->isTeacher()) {
+        if ($this->audienceRole($request) === 'teacher') {
             if (! empty($data['class_id'])) {
                 return route('teacher.class-detail', $data['class_id']);
             }
@@ -179,7 +198,7 @@ class NotificationController extends Controller
             }
 
             if (Str::contains($notification->type, ['grade', 'grading', 'submission'])) {
-                return route('teacher.grading');
+                return route('teacher.assignments');
             }
 
             if (Str::contains($notification->type, 'assignment')) {

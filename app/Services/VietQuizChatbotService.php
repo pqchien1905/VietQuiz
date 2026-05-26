@@ -196,7 +196,7 @@ PROMPT;
                 'quiz_create' => ['label' => 'Tạo bài kiểm tra', 'url' => route('teacher.quiz-create')],
                 'questions' => ['label' => 'Ngân hàng câu hỏi', 'url' => route('teacher.questions')],
                 'assignments' => ['label' => 'Bài tập', 'url' => route('teacher.assignments')],
-                'grading' => ['label' => 'Chấm điểm', 'url' => route('teacher.grading')],
+                'grading' => ['label' => 'Bài tập', 'url' => route('teacher.assignments')],
                 'analytics' => ['label' => 'Phân tích', 'url' => route('teacher.analytics')],
                 'notifications' => ['label' => 'Thông báo', 'url' => route('teacher.notifications')],
                 'settings' => ['label' => 'Cài đặt', 'url' => route('teacher.settings')],

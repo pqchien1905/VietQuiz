@@ -158,11 +158,10 @@
           @endif
         </div>
         <div class="assignment-actions">
-          @if($submitted > $graded)
-            <a href="{{ route('teacher.grading') }}" class="btn btn-primary btn-sm">Chấm điểm</a>
-          @else
-            <a href="{{ route('teacher.grading') }}" class="btn btn-outline btn-sm">Bài nộp</a>
-          @endif
+          <a href="{{ route('teacher.assignments.show', $assignment) }}" class="btn btn-outline btn-sm">Xem chi tiết</a>
+          <a href="{{ route('teacher.assignments.grading-board', $assignment) }}" class="btn {{ $submitted > $graded ? 'btn-primary' : 'btn-outline' }} btn-sm">
+            {{ $submitted > $graded ? 'Chấm bài' : 'Xem bài nộp' }}
+          </a>
           <button class="btn btn-ghost btn-sm" type="button" onclick="openEditAssignment({{ $assignment->id }})">Sửa</button>
           <form method="POST" action="{{ route('teacher.assignments.destroy', $assignment) }}" data-confirm="Xóa bài tập {{ $assignment->title }}?">
             @csrf
@@ -181,6 +180,7 @@
           <div class="progress" style="height:.4rem;"><div class="progress-bar" style="width:{{ $gradedPct }}%;background:{{ $gradedPct >= 100 ? 'var(--success)' : 'var(--warning)' }};"></div></div>
         </div>
       </div>
+
     </div>
   @empty
     <div class="empty-state">

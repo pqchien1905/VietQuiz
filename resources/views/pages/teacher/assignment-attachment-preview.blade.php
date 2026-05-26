@@ -63,7 +63,7 @@
       @elseif(in_array($previewType, ['word', 'presentation'], true))
         @if($previewText)
           <div class="alert alert-warning" style="margin-bottom:1rem;">
-            Máy chủ chưa cấu hình LibreOffice nên đây chỉ là bản trích nội dung, không giữ nguyên bố cục file gốc.
+            Chế độ xem nhanh nội dung văn bản (không hiển thị đầy đủ bố cục gốc).
           </div>
           <pre class="preview-text">{{ $previewText }}</pre>
         @else
@@ -76,7 +76,7 @@
       @elseif($previewType === 'spreadsheet')
         @if(count($spreadsheetRows))
           <div class="alert alert-warning" style="margin-bottom:1rem;">
-            Máy chủ chưa cấu hình LibreOffice nên đây chỉ là bản xem bảng dữ liệu, không giữ nguyên định dạng Excel.
+            Chế độ xem nhanh dữ liệu bảng tính (không hiển thị đầy đủ định dạng gốc).
           </div>
           <div class="sheet-wrap">
             <table class="sheet-table">

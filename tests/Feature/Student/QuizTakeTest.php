@@ -212,6 +212,63 @@ class QuizTakeTest extends TestCase
         $this->assertSame(1, $student->quizAttempts()->where('quiz_id', $quiz->id)->count());
     }
 
+    public function test_student_best_score_is_kept_across_multiple_attempts(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Best score quiz',
+            'status' => 'published',
+            'quiz_type' => 'practice',
+            'anti_cheat_enabled' => false,
+            'max_attempts' => 3,
+            'public_to_all_students' => true,
+        ]);
+
+        $question = Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Best answer',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 2,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, ['started_at' => now()]);
+
+        $this->actingAs($student)
+            ->postJson(route('student.quiz-take.submit', $quiz), [
+                'answers' => [(string) $question->id => 'ok'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('score', 2)
+            ->assertJsonPath('percent', 100);
+
+        $student->quizAttempts()->updateExistingPivot($quiz->id, [
+            'started_at' => now(),
+            'submitted_at' => null,
+            'is_graded' => false,
+        ]);
+
+        $this->actingAs($student)
+            ->postJson(route('student.quiz-take.submit', $quiz), [
+                'answers' => [(string) $question->id => 'wrong'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('score', 2)
+            ->assertJsonPath('percent', 100);
+
+        $this->assertDatabaseHas('quiz_user', [
+            'quiz_id' => $quiz->id,
+            'user_id' => $student->id,
+            'score' => 2,
+            'total_points' => 2,
+            'attempt_count' => 2,
+        ]);
+    }
+
     public function test_student_cannot_submit_after_attempt_time_limit_expires(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher']);

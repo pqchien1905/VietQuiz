@@ -285,7 +285,7 @@
         <div class="form-group"><label class="label label-required">Tiêu đề bài tập</label><input class="input" name="title" placeholder="VD: Bài tập ôn chương 1" required></div>
         <div class="form-group"><label class="label">Mô tả</label><textarea class="input" name="description" style="min-height:5rem;resize:vertical;"></textarea></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;"><div class="form-group"><label class="label">Loại bài tập</label><select class="input select" name="type"><option value="essay">Tự luận</option><option value="practice">Thực hành</option><option value="project">Dự án</option><option value="code">Lập trình</option></select></div><div class="form-group"><label class="label">Điểm tối đa</label><input class="input" type="number" name="total_points" min="1" max="10000" value="100"></div></div>
-        <div class="form-group"><label class="label">Hạn nộp</label><input class="input" type="datetime-local" name="due_at"></div>
+        <div class="form-group"><label class="label">Hạn nộp</label><input class="input" type="datetime-local" name="due_at" min="{{ now()->format('Y-m-d\TH:i') }}"></div>
       </div>
       <div class="modal-footer"><button class="btn btn-outline" type="button" onclick="closeModal('assignment-modal')">Hủy</button><button class="btn btn-primary" type="submit">Tạo bài tập</button></div>
     </form>

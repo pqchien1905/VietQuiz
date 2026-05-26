@@ -97,7 +97,7 @@ class CourseController extends AdminBaseController
 
         Course::create($validated);
 
-        return redirect()->route('admin.courses')->with('success', 'ÄÃ£ táº¡o khÃ³a há»c.');
+        return redirect()->route('admin.courses')->with('success', 'Đã tạo khóa học.');
     }
 
     public function showCourse(Request $request, int $id): View|RedirectResponse
@@ -135,7 +135,7 @@ class CourseController extends AdminBaseController
         abort_unless(User::whereKey($validated['teacher_id'])->where('role', 'teacher')->exists(), 422);
 
         Course::withTrashed()->findOrFail($id)->update($validated);
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t khÃ³a há»c.');
+        return back()->with('success', 'Đã cập nhật khóa học.');
     }
 
     public function addCourseStudent(Request $request, int $id): RedirectResponse
@@ -148,7 +148,7 @@ class CourseController extends AdminBaseController
             $student->id => ['enrolled_at' => now()],
         ]);
 
-        return back()->with('success', 'ÄÃ£ ghi danh há»c sinh vÃ o khÃ³a há»c.');
+        return back()->with('success', 'Đã ghi danh học sinh vào khóa học.');
     }
 
     public function syncCourseStudents(Request $request, int $id): RedirectResponse
@@ -157,7 +157,7 @@ class CourseController extends AdminBaseController
 
         $course = Course::withTrashed()->with('classModel.students')->findOrFail($id);
         if (! $course->classModel) {
-            return back()->withErrors(['course' => 'KhÃ³a há»c chÆ°a gáº¯n lá»›p Ä‘á»ƒ Ä‘á»“ng bá»™ há»c sinh.']);
+            return back()->withErrors(['course' => 'Khóa học chưa gắn lớp để đồng bộ học sinh.']);
         }
 
         $students = $course->classModel->students
@@ -165,7 +165,7 @@ class CourseController extends AdminBaseController
             ->all();
         $course->students()->syncWithoutDetaching($students);
 
-        return back()->with('success', 'ÄÃ£ Ä‘á»“ng bá»™ há»c sinh tá»« lá»›p sang khÃ³a há»c.');
+        return back()->with('success', 'Đã đồng bộ học sinh từ lớp sang khóa học.');
     }
 
     public function removeCourseStudent(Request $request, int $id, int $studentId): RedirectResponse
@@ -174,21 +174,21 @@ class CourseController extends AdminBaseController
 
         Course::withTrashed()->findOrFail($id)->students()->detach($studentId);
 
-        return back()->with('success', 'ÄÃ£ gá»¡ há»c sinh khá»i khÃ³a há»c.');
+        return back()->with('success', 'Đã gỡ học sinh khỏi khóa học.');
     }
 
     public function deleteCourse(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Course::findOrFail($id)->delete();
-        return back()->with('success', 'ÄÃ£ Ä‘Æ°a khÃ³a há»c vÃ o thÃ¹ng rÃ¡c.');
+        return back()->with('success', 'Đã đưa khóa học vào thùng rác.');
     }
 
     public function restoreCourse(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Course::withTrashed()->findOrFail($id)->restore();
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c khÃ³a há»c.');
+        return back()->with('success', 'Đã khôi phục khóa học.');
     }
 }
 

@@ -85,7 +85,7 @@ class TrashController extends AdminBaseController
 
         $map[$type]['model']::onlyTrashed()->findOrFail($id)->restore();
 
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c dá»¯ liá»‡u.');
+        return back()->with('success', 'Đã khôi phục dữ liệu.');
     }
 
     public function forceDeleteTrashItem(Request $request, string $type, string $id): RedirectResponse
@@ -97,7 +97,7 @@ class TrashController extends AdminBaseController
 
         $map[$type]['model']::onlyTrashed()->findOrFail($id)->forceDelete();
 
-        return back()->with('success', 'Da xoa vinh vien du lieu.');
+        return back()->with('success', 'Đã xóa vĩnh viễn dữ liệu.');
     }
 
     public function restoreAllTrashItems(Request $request): RedirectResponse
@@ -112,7 +112,7 @@ class TrashController extends AdminBaseController
             $config['model']::onlyTrashed()->restore();
         }
 
-        return redirect()->route('admin.trash')->with('success', 'Da khoi phuc tat ca du lieu trong thung rac.');
+        return redirect()->route('admin.trash')->with('success', 'Đã khôi phục tất cả dữ liệu trong thùng rác.');
     }
 
     public function forceDeleteAllTrashItems(Request $request): RedirectResponse
@@ -127,7 +127,7 @@ class TrashController extends AdminBaseController
             $config['model']::onlyTrashed()->forceDelete();
         }
 
-        return redirect()->route('admin.trash')->with('success', 'Da xoa vinh vien tat ca du lieu trong thung rac.');
+        return redirect()->route('admin.trash')->with('success', 'Đã xóa vĩnh viễn tất cả dữ liệu trong thùng rác.');
     }
 
     public function restoreSelectedTrashItems(Request $request): RedirectResponse
@@ -136,7 +136,7 @@ class TrashController extends AdminBaseController
 
         $count = $this->performSelectedTrashAction($request, 'restore');
 
-        return back()->with('success', "Da khoi phuc {$count} muc da chon.");
+        return back()->with('success', "Đã khôi phục {$count} mục đã chọn.");
     }
 
     public function forceDeleteSelectedTrashItems(Request $request): RedirectResponse
@@ -145,7 +145,7 @@ class TrashController extends AdminBaseController
 
         $count = $this->performSelectedTrashAction($request, 'forceDelete');
 
-        return back()->with('success', "Da xoa vinh vien {$count} muc da chon.");
+        return back()->with('success', "Đã xóa vĩnh viễn {$count} mục đã chọn.");
     }
 }
 

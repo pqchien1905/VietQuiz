@@ -7,7 +7,7 @@
   $placeholder = $role === 'teacher'
     ? 'Tìm kiếm bài kiểm tra, bài tập, học sinh...'
     : 'Tìm kiếm khóa học, bài kiểm tra...';
-  $unreadCount = $user ? $user->notifications()->where('is_read', false)->count() : 0;
+  $unreadCount = $user ? $user->notifications()->forAudience($role)->where('is_read', false)->count() : 0;
   $initials = $user ? collect(explode(' ', $user->name))->map(fn($w) => mb_substr($w, 0, 1))->take(2)->implode('') : 'U';
   $isVip = $user && $user->vipSubscription && $user->vipSubscription->is_active;
   $avatarUrl = null;
@@ -44,7 +44,6 @@
     'quizzes' => 'Bài kiểm tra',
     'questions' => 'Ngân hàng câu hỏi',
     'assignments' => 'Bài tập',
-    'grading' => 'Chấm điểm',
     'students' => 'Học sinh',
     'analytics' => 'Phân tích',
   ];
@@ -66,7 +65,6 @@
     'quizzes' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M10 10.3c.2-.4.5-.8.9-1a2.1 2.1 0 0 1 2.6.4c.3.4.5.8.5 1.3 0 1.3-2 2-2 2"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
     'questions' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>',
     'assignments' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
-    'grading' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',
     'students' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     'analytics' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
     'grades' => '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
@@ -184,14 +182,36 @@
     applyTheme(next);
   });
 
+  function setMobileSidebar(open) {
+    const sidebar = document.getElementById('main-sidebar');
+    const overlay = document.getElementById('mobile-overlay');
+    sidebar?.classList.toggle('mobile-open', open);
+    overlay?.classList.toggle('open', open);
+    document.body.classList.toggle('mobile-sidebar-open', open);
+  }
+
   window.toggleMobileSidebar = function() {
-    document.getElementById('main-sidebar')?.classList.toggle('mobile-open');
-    document.getElementById('mobile-overlay')?.classList.toggle('open');
+    const sidebar = document.getElementById('main-sidebar');
+    setMobileSidebar(!sidebar?.classList.contains('mobile-open'));
   };
-  document.getElementById('mobile-overlay')?.addEventListener('click', () => {
-    document.getElementById('main-sidebar')?.classList.remove('mobile-open');
-    document.getElementById('mobile-overlay')?.classList.remove('open');
-  });
+
+  window.closeMobileSidebar = function() {
+    setMobileSidebar(false);
+  };
+
+  function bindMobileSidebarControls() {
+    document.getElementById('mobile-menu-btn')?.addEventListener('click', window.toggleMobileSidebar);
+    document.getElementById('mobile-overlay')?.addEventListener('click', window.closeMobileSidebar);
+    document.querySelectorAll('#main-sidebar a').forEach((link) => {
+      link.addEventListener('click', window.closeMobileSidebar);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindMobileSidebarControls);
+  } else {
+    bindMobileSidebarControls();
+  }
 
   const trigger = document.getElementById('user-menu-trigger');
   const menu = document.getElementById('user-menu');
@@ -264,7 +284,7 @@
 
   <div class="main-container">
     <header class="header" id="main-header">
-      <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Mở menu" onclick="toggleMobileSidebar()">
+      <button class="mobile-menu-btn" id="mobile-menu-btn" type="button" aria-label="M&#7903; menu">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="3" y1="12" x2="21" y2="12"/>
           <line x1="3" y1="6" x2="21" y2="6"/>

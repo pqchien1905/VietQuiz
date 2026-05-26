@@ -136,18 +136,18 @@ class ChatbotController extends Controller
             [
                 'topic' => 'assignment',
                 'keywords' => ['bai tap', 'giao bai', 'nop bai', 'file', 'han nop', 'deadline'],
-                'reply' => 'Bạn tạo bài tập trong mục Bài tập, chọn lớp hoặc khóa học liên quan, đặt hạn nộp và đính kèm tài liệu nếu cần. Học sinh nộp bài sẽ xuất hiện ở khu vực chấm điểm.',
+                'reply' => 'Bạn tạo bài tập trong mục Bài tập, chọn lớp hoặc khóa học liên quan, đặt hạn nộp và đính kèm tài liệu nếu cần. Học sinh nộp bài sẽ xuất hiện trong màn chấm theo từng bài tập.',
                 'actions' => [
                     ['label' => 'Bài tập', 'url' => route('teacher.assignments')],
-                    ['label' => 'Chấm điểm', 'url' => route('teacher.grading')],
+                    ['label' => 'Bài tập', 'url' => route('teacher.assignments')],
                 ],
             ],
             [
                 'topic' => 'grading',
                 'keywords' => ['cham diem', 'diem', 'bai nop', 'phan hoi', 'xuat diem', 'grade'],
-                'reply' => 'Trang Chấm điểm giúp xem bài nộp, nhập điểm, phản hồi cho học sinh và xuất bảng điểm. Với quiz trắc nghiệm, hệ thống có thể tự tính điểm nếu đáp án đã được cấu hình đúng.',
+                'reply' => 'Bạn chấm trực tiếp trong mục Bài tập: mở bài cần chấm, chọn học sinh nộp bài, nhập điểm và phản hồi. Với quiz trắc nghiệm, hệ thống có thể tự tính điểm nếu đáp án đã được cấu hình đúng.',
                 'actions' => [
-                    ['label' => 'Chấm điểm', 'url' => route('teacher.grading')],
+                    ['label' => 'Bài tập', 'url' => route('teacher.assignments')],
                     ['label' => 'Phân tích', 'url' => route('teacher.analytics')],
                 ],
             ],

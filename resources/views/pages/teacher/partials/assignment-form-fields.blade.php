@@ -4,6 +4,7 @@
   $selectedCourseId = old('course_id', $assignment?->course_id);
   $selectedType = old('type', $assignment?->type ?? 'file');
   $dueValue = old('due_at', $assignment?->due_at ? $assignment->due_at->format('Y-m-d\TH:i') : '');
+  $minDueAt = now()->format('Y-m-d\TH:i');
 @endphp
 
 <div class="form-group">
@@ -40,7 +41,7 @@
 <div class="form-grid-2">
   <div class="form-group">
     <label class="label" for="assignment-due-{{ $assignment?->id ?? 'new' }}">Hạn nộp</label>
-    <input id="assignment-due-{{ $assignment?->id ?? 'new' }}" class="input" type="datetime-local" name="due_at" value="{{ $dueValue }}">
+    <input id="assignment-due-{{ $assignment?->id ?? 'new' }}" class="input" type="datetime-local" name="due_at" value="{{ $dueValue }}" min="{{ $minDueAt }}">
   </div>
   <div class="form-group">
     <label class="label" for="assignment-points-{{ $assignment?->id ?? 'new' }}">Điểm tối đa</label>
@@ -60,13 +61,24 @@
   <div class="form-group">
     <label class="label" for="assignment-attachment-{{ $assignment?->id ?? 'new' }}">Tài liệu đính kèm</label>
     <input id="assignment-attachment-{{ $assignment?->id ?? 'new' }}" class="input drop-input" type="file" name="attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.png,.jpg,.jpeg,.webp,.txt">
-    <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.25rem;">Tối đa 20MB. Hỗ trợ tài liệu, ảnh và file nén.</div>
+    <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.25rem;">Tối đa 100MB. Hỗ trợ tài liệu, ảnh và file nén.</div>
   </div>
 </div>
 
 @if($assignment?->attachment)
-  <label style="display:flex;align-items:center;gap:.5rem;font-size:var(--text-sm);cursor:pointer;">
-    <input type="checkbox" name="remove_attachment" value="1" style="accent-color:var(--destructive);">
-    Xóa tài liệu hiện tại: {{ basename($assignment->attachment) }}
-  </label>
+  <input type="hidden" name="remove_attachment" id="remove-attachment-{{ $assignment->id }}" value="0">
+  <div id="current-attachment-{{ $assignment->id }}" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.55rem .65rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--background);font-size:var(--text-sm);">
+    <div style="min-width:0;">
+      <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:.15rem;">Tài liệu hiện tại</div>
+      <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ basename($assignment->attachment) }}</div>
+    </div>
+    <button
+      type="button"
+      class="btn btn-ghost btn-sm"
+      style="color:var(--destructive);font-weight:700;padding:.2rem .45rem;line-height:1;"
+      onclick="(function(){ document.getElementById('remove-attachment-{{ $assignment->id }}').value='1'; var box=document.getElementById('current-attachment-{{ $assignment->id }}'); if (box) box.style.display='none'; })();"
+      aria-label="Xóa tài liệu hiện tại"
+      title="Xóa tài liệu hiện tại"
+    >×</button>
+  </div>
 @endif

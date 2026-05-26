@@ -28,7 +28,21 @@ class ClassModel extends Model
     public function students(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'class_user', 'class_id', 'user_id')
-            ->withPivot('joined_at');
+            ->withPivot(['joined_at', 'enrollment_status', 'enrollment_source', 'requested_at', 'approved_at'])
+            ->wherePivot('enrollment_status', 'approved');
+    }
+
+    public function pendingStudents(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'class_user', 'class_id', 'user_id')
+            ->withPivot(['joined_at', 'enrollment_status', 'enrollment_source', 'requested_at', 'approved_at'])
+            ->wherePivot('enrollment_status', 'pending');
+    }
+
+    public function studentEnrollments(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'class_user', 'class_id', 'user_id')
+            ->withPivot(['joined_at', 'enrollment_status', 'enrollment_source', 'requested_at', 'approved_at']);
     }
 
     public function courses(): HasMany

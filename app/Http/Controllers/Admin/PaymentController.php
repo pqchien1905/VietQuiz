@@ -108,7 +108,7 @@ class PaymentController extends AdminBaseController
 
         $plan->update($validated);
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t giÃ¡ gÃ³i VIP.');
+        return back()->with('success', 'Đã cập nhật giá gói VIP.');
     }
 
     public function storeSubscription(Request $request): RedirectResponse
@@ -136,7 +136,7 @@ class PaymentController extends AdminBaseController
             ]
         );
 
-        return back()->with('success', 'ÄÃ£ cáº¥p quyá»n VIP.');
+        return back()->with('success', 'Đã cấp quyền VIP.');
     }
 
     public function updateSubscription(Request $request, int $id): RedirectResponse
@@ -158,7 +158,7 @@ class PaymentController extends AdminBaseController
             'started_at' => $startedAt,
             'expires_at' => $this->vipSubscriptionExpiresAt($validated['plan'], $startedAt, $validated['expires_at'] ?? null),
         ]);
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t gÃ³i VIP.');
+        return back()->with('success', 'Đã cập nhật gói VIP.');
     }
 
     public function updatePayment(Request $request, int $id): RedirectResponse
@@ -173,7 +173,7 @@ class PaymentController extends AdminBaseController
             $payment->update(['status' => $validated['status']]);
         }
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t thanh toÃ¡n.');
+        return back()->with('success', 'Đã cập nhật thanh toán.');
     }
 
     public function promotions(Request $request): View|RedirectResponse
@@ -238,7 +238,7 @@ class PaymentController extends AdminBaseController
 
         Promotion::create($this->validatePromotion($request));
 
-        return back()->with('success', 'ÄÃ£ táº¡o khuyáº¿n mÃ£i.');
+        return back()->with('success', 'Đã tạo khuyến mãi.');
     }
 
     public function updatePromotion(Request $request, int $id): RedirectResponse
@@ -247,7 +247,7 @@ class PaymentController extends AdminBaseController
 
         Promotion::withTrashed()->findOrFail($id)->update($this->validatePromotion($request, $id));
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t khuyáº¿n mÃ£i.');
+        return back()->with('success', 'Đã cập nhật khuyến mãi.');
     }
 
     public function deletePromotion(Request $request, int $id): RedirectResponse
@@ -256,7 +256,7 @@ class PaymentController extends AdminBaseController
 
         Promotion::findOrFail($id)->delete();
 
-        return back()->with('success', 'ÄÃ£ Ä‘Æ°a khuyáº¿n mÃ£i vÃ o thÃ¹ng rÃ¡c.');
+        return back()->with('success', 'Đã đưa khuyến mãi vào thùng rác.');
     }
 
     public function restorePromotion(Request $request, int $id): RedirectResponse
@@ -265,7 +265,7 @@ class PaymentController extends AdminBaseController
 
         Promotion::withTrashed()->findOrFail($id)->restore();
 
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c khuyáº¿n mÃ£i.');
+        return back()->with('success', 'Đã khôi phục khuyến mãi.');
     }
 }
 

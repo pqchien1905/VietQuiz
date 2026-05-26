@@ -28,7 +28,7 @@ class QuestionFileImporter
             'xlsx', 'xls' => $this->importSpreadsheet($file->getRealPath()),
             'docx' => $this->importDocx($file->getRealPath()),
             'pdf' => $this->importText($this->textExtractor->extract($file)),
-            'doc' => throw new RuntimeException('File .doc cu khong duoc ho tro truc tiep. Vui long luu lai thanh .docx hoac PDF.'),
+            'doc' => throw new RuntimeException('File .doc cũ không được hỗ trợ trực tiếp. Vui lòng lưu lại thành .docx hoặc PDF.'),
             default => throw new RuntimeException('Dinh dang file khong duoc ho tro. Hay dung Excel, PDF hoac DOCX.'),
         };
 
@@ -200,14 +200,14 @@ class QuestionFileImporter
     {
         $zip = new ZipArchive();
         if ($zip->open($path) !== true) {
-            throw new RuntimeException('Khong mo duoc file Word.');
+            throw new RuntimeException('Không mở được file Word.');
         }
 
         $xml = $zip->getFromName('word/document.xml');
         $zip->close();
 
         if (!is_string($xml) || trim($xml) === '') {
-            throw new RuntimeException('Khong doc duoc noi dung file Word.');
+            throw new RuntimeException('Không đọc được nội dung file Word.');
         }
 
         $dom = new DOMDocument();

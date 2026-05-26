@@ -3,7 +3,6 @@
 
 @php
   $initialCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', old('code', $prefillCode ?? '')));
-  $availableJson = $availableClasses->keyBy('code')->toJson(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
 @endphp
 
 @push('styles')
@@ -12,7 +11,6 @@
   .code-input{display:grid;grid-template-columns:repeat(6,minmax(2.25rem,3rem));gap:.5rem;justify-content:center;margin:1.25rem 0}
   .code-digit{height:3.4rem;border:2px solid var(--border);border-radius:var(--radius-md);font-size:var(--text-2xl);font-weight:700;text-align:center;background:var(--background);color:var(--foreground);text-transform:uppercase}
   .code-digit:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 15%,transparent)}
-  .class-preview{border:1px solid color-mix(in srgb,var(--primary) 45%,var(--border));border-radius:var(--radius-lg);padding:1rem;background:color-mix(in srgb,var(--primary) 5%,transparent);text-align:left;margin-top:1rem}
   .join-class-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.875rem;align-items:center;padding:1rem 0;border-top:1px solid var(--border)}
   .join-class-row:first-child{border-top:none;padding-top:0}
   .join-dot{width:2.6rem;height:2.6rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex-shrink:0}
@@ -42,7 +40,7 @@
   <div class="alert alert-warning" style="margin-bottom:1rem;"><span>{{ session('warning') }}</span></div>
 @endif
 
-<div class="stats-grid stats-grid-4 stagger-children" style="margin-bottom:1.5rem;">
+<div class="stats-grid stats-grid-3 stagger-children" style="margin-bottom:1.5rem;">
   <div class="stat-card">
     <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Lớp đang học</div>
     <div class="stat-card__value">{{ $summary['enrolled'] }}</div>
@@ -51,7 +49,7 @@
   <div class="stat-card">
     <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Khóa học</div>
     <div class="stat-card__value">{{ $summary['courses'] }}</div>
-    <div class="stat-card__label">tự đồng bộ khi vào lớp</div>
+    <div class="stat-card__label">tự động đồng bộ khi vào lớp</div>
   </div>
   <div class="stat-card">
     <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Nội dung được giao</div>
@@ -59,9 +57,9 @@
     <div class="stat-card__label">quiz và bài tập trong lớp</div>
   </div>
   <div class="stat-card">
-    <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Lớp có thể tham gia</div>
-    <div class="stat-card__value">{{ $summary['available'] }}</div>
-    <div class="stat-card__label">lớp đang hoạt động</div>
+    <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Yêu cầu chờ duyệt</div>
+    <div class="stat-card__value">{{ $summary['pending_requests'] ?? 0 }}</div>
+    <div class="stat-card__label">có thể hủy trực tiếp tại trang này</div>
   </div>
 </div>
 
@@ -111,21 +109,6 @@
           <button type="submit" class="btn btn-primary" style="margin-top:1.65rem;">Tham gia</button>
         </div>
 
-        <div class="class-preview" id="class-preview" hidden>
-          <div style="display:flex;align-items:flex-start;gap:.875rem;">
-            <div class="join-dot" id="preview-dot" style="background:var(--primary);">L</div>
-            <div style="min-width:0;flex:1;">
-              <h3 style="font-size:var(--text-lg);font-weight:700;margin:0;" id="preview-name">Tên lớp</h3>
-              <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin:.2rem 0 0;" id="preview-teacher">Giáo viên</p>
-              <div class="join-meta">
-                <span class="badge badge-primary" id="preview-subject">Môn học</span>
-                <span class="badge badge-outline" id="preview-students">0 học sinh</span>
-                <span class="badge badge-outline" id="preview-courses">0 khóa học</span>
-              </div>
-              <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin:.65rem 0 0;" id="preview-description"></p>
-            </div>
-          </div>
-        </div>
       </form>
 
       <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);">
@@ -144,41 +127,31 @@
   <div style="display:flex;flex-direction:column;gap:1rem;">
     <div class="card">
       <div class="card-header">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h3 class="card-title">Lớp có sẵn</h3>
-            <p class="card-description">Các lớp đang hoạt động mà bạn chưa tham gia.</p>
-          </div>
-          <a href="{{ route('student.classes') }}" class="btn btn-ghost btn-sm">Đang học</a>
-        </div>
+        <h3 class="card-title">Yêu cầu đang chờ duyệt</h3>
+        <p class="card-description">Danh sách lớp bạn đã gửi yêu cầu tham gia và chưa được phê duyệt.</p>
       </div>
       <div class="card-content" style="padding-top:0;">
-        @forelse($availableClasses as $class)
+        @forelse(($pendingEnrollments ?? []) as $pending)
           <div class="join-class-row">
-            <div class="join-dot" style="background:{{ $class['color'] }};">{{ mb_substr($class['name'], 0, 1) }}</div>
+            <div class="join-dot" style="background:{{ $pending['color'] }};">{{ mb_substr($pending['name'], 0, 1) }}</div>
             <div style="min-width:0;">
-              <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $class['name'] }}</div>
-              <div style="font-size:var(--text-sm);color:var(--muted-foreground);">{{ $class['teacher'] }} · Mã {{ $class['code'] }}</div>
+              <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $pending['name'] }}</div>
+              <div style="font-size:var(--text-sm);color:var(--muted-foreground);">
+                {{ $pending['teacher'] }} · {{ $pending['requested_at'] ? 'Gửi lúc ' . $pending['requested_at'] : 'Đang chờ duyệt' }}
+              </div>
               <div class="join-meta">
-                <span class="badge badge-primary">{{ $class['subject'] }}</span>
-                <span class="badge badge-outline">{{ $class['students'] }} học sinh</span>
-                <span class="badge badge-outline">{{ $class['courses'] }} khóa học</span>
+                <span class="badge badge-outline">Mã {{ $pending['code'] }}</span>
+                <span class="badge badge-outline">{{ $pending['source'] }}</span>
               </div>
             </div>
-            <div style="display:flex;gap:.5rem;align-items:center;">
-              <button type="button" class="btn btn-outline btn-sm" data-preview-code="{{ $class['code'] }}">Xem</button>
-              <form method="POST" action="{{ route('student.join-class.submit') }}">
-                @csrf
-                <input type="hidden" name="code" value="{{ $class['code'] }}">
-                <button type="submit" class="btn btn-primary btn-sm">Tham gia</button>
-              </form>
-            </div>
+            <form method="POST" action="{{ route('student.join-class.cancel', $pending['id']) }}" onsubmit="return confirm('Bạn muốn hủy yêu cầu tham gia lớp {{ addslashes($pending['name']) }}?');">
+              @csrf
+              @method('DELETE')
+              <button type="submit" class="btn btn-outline btn-sm">Hủy yêu cầu</button>
+            </form>
           </div>
         @empty
-          <div style="padding:2rem 1rem;text-align:center;color:var(--muted-foreground);">
-            <div style="font-weight:600;color:var(--foreground);margin-bottom:.35rem;">Chưa có lớp mới phù hợp</div>
-            <div>Hãy nhập mã lớp từ giáo viên hoặc quay lại khi lớp mới được mở.</div>
-          </div>
+          <div style="padding:1rem 0;color:var(--muted-foreground);font-size:var(--text-sm);">Bạn không có yêu cầu nào đang chờ duyệt.</div>
         @endforelse
       </div>
     </div>
@@ -216,11 +189,9 @@
 @push('scripts')
 <script>
 (function(){
-  const classesByCode = {!! $availableJson ?: '{}' !!};
   const form = document.getElementById('join-form');
   const codeInput = document.getElementById('code');
   const digits = Array.from(document.querySelectorAll('[data-code-digit]'));
-  const preview = document.getElementById('class-preview');
 
   function normalize(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
@@ -232,31 +203,12 @@
     digits.forEach(function(input, index) {
       input.value = code[index] || '';
     });
-    renderPreview(code);
   }
 
   function syncCodeFromDigits() {
     codeInput.value = normalize(digits.map(input => input.value).join(''));
-    renderPreview(codeInput.value);
   }
 
-  function renderPreview(code) {
-    const cls = classesByCode[code];
-    if (!cls) {
-      preview.hidden = true;
-      return;
-    }
-
-    document.getElementById('preview-dot').textContent = (cls.name || 'L').slice(0, 1);
-    document.getElementById('preview-dot').style.background = cls.color || 'var(--primary)';
-    document.getElementById('preview-name').textContent = cls.name || 'Tên lớp';
-    document.getElementById('preview-teacher').textContent = cls.teacher || 'Giáo viên';
-    document.getElementById('preview-subject').textContent = cls.subject || 'Chưa phân môn';
-    document.getElementById('preview-students').textContent = (cls.students || 0) + ' học sinh';
-    document.getElementById('preview-courses').textContent = (cls.courses || 0) + ' khóa học';
-    document.getElementById('preview-description').textContent = cls.description || 'Sau khi tham gia, các khóa học thuộc lớp sẽ tự động xuất hiện trong tài khoản của bạn.';
-    preview.hidden = false;
-  }
 
   codeInput?.addEventListener('input', syncDigitsFromCode);
   digits.forEach(function(input, index) {
@@ -279,13 +231,6 @@
     });
   });
 
-  document.querySelectorAll('[data-preview-code]').forEach(function(button) {
-    button.addEventListener('click', function() {
-      codeInput.value = normalize(button.dataset.previewCode);
-      syncDigitsFromCode();
-      form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  });
 
   form?.addEventListener('submit', function() {
     codeInput.value = normalize(codeInput.value);
@@ -333,3 +278,5 @@
 })();
 </script>
 @endpush
+
+

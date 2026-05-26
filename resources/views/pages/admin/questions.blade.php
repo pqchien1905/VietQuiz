@@ -153,7 +153,7 @@
                 <span class="badge badge-info">{{ number_format($question->points) }} điểm</span>
                 @if($question->trashed())<span class="badge badge-danger">Đã xóa</span>@endif
                 @if(empty($question->explanation))<span class="badge badge-warning">Thiếu giải thích</span>@endif
-                @if($question->type === 'multiple_choice' && count($question->options ?? []) < 2)<span class="badge badge-danger">Thiếu lựa chọn</span>@endif
+                @if($question->type === 'multiple_choice' && count($question->getOptionsArray()) < 2)<span class="badge badge-danger">Thiếu lựa chọn</span>@endif
               </div>
             </div>
           </td>

@@ -103,7 +103,7 @@ class ClassController extends AdminBaseController
 
         ClassModel::create($validated);
 
-        return redirect()->route('admin.classes')->with('success', 'ÄÃ£ táº¡o lá»›p há»c.');
+        return redirect()->route('admin.classes')->with('success', 'Đã tạo lớp học.');
     }
 
     public function showClass(Request $request, int $id): View|RedirectResponse
@@ -143,7 +143,7 @@ class ClassController extends AdminBaseController
         $validated['code'] = Str::upper($validated['code']);
 
         ClassModel::withTrashed()->findOrFail($id)->update($validated);
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t lá»›p há»c.');
+        return back()->with('success', 'Đã cập nhật lớp học.');
     }
 
     public function addClassStudent(Request $request, int $id): RedirectResponse
@@ -156,7 +156,7 @@ class ClassController extends AdminBaseController
             $student->id => ['joined_at' => now()],
         ]);
 
-        return back()->with('success', 'ÄÃ£ thÃªm há»c sinh vÃ o lá»›p.');
+        return back()->with('success', 'Đã thêm học sinh vào lớp.');
     }
 
     public function removeClassStudent(Request $request, int $id, int $studentId): RedirectResponse
@@ -165,21 +165,21 @@ class ClassController extends AdminBaseController
 
         ClassModel::withTrashed()->findOrFail($id)->students()->detach($studentId);
 
-        return back()->with('success', 'ÄÃ£ gá»¡ há»c sinh khá»i lá»›p.');
+        return back()->with('success', 'Đã gỡ học sinh khỏi lớp.');
     }
 
     public function deleteClass(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         ClassModel::findOrFail($id)->delete();
-        return back()->with('success', 'ÄÃ£ Ä‘Æ°a lá»›p há»c vÃ o thÃ¹ng rÃ¡c.');
+        return back()->with('success', 'Đã đưa lớp học vào thùng rác.');
     }
 
     public function restoreClass(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         ClassModel::withTrashed()->findOrFail($id)->restore();
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c lá»›p há»c.');
+        return back()->with('success', 'Đã khôi phục lớp học.');
     }
 }
 

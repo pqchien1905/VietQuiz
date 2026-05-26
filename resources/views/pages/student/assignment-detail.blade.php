@@ -3,21 +3,17 @@
 
 @push('styles')
 <style>
-.file-drop-zone {
+.drop-input {
     border: 2px dashed var(--border);
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    border-radius: var(--radius-md);
+    padding: 1rem;
     background: var(--muted);
 }
-.file-drop-zone:hover, .file-drop-zone.drag-over {
-    border-color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 5%, transparent);
-}
-.file-drop-zone input[type="file"] {
-    display: none;
+input[type="file"].drop-input {
+    display: block;
+    height: auto;
+    min-height: 3.75rem;
+    line-height: 1.5;
 }
 .uploaded-file-item {
     display: flex;
@@ -39,6 +35,21 @@
     justify-content: center;
     flex-shrink: 0;
 }
+.attachment-preview {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--card);
+    margin-bottom: 1.5rem;
+}
+.attachment-preview__bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    background: var(--muted);
+    border-bottom: 1px solid var(--border);
+}
 </style>
 @endpush
 
@@ -54,6 +65,16 @@
     <div class="alert alert-success" style="margin-bottom:1rem;">
       <svg class="alert-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       {{ session('success') }}
+    </div>
+  @endif
+  @if(session('info'))
+    <div class="alert alert-info" style="margin-bottom:1rem;">
+      {{ session('info') }}
+    </div>
+  @endif
+  @if($errors->any())
+    <div class="alert alert-danger" style="margin-bottom:1rem;">
+      {{ $errors->first() }}
     </div>
   @endif
 
@@ -148,13 +169,23 @@
           @endif
 
           @if($assignment->attachment)
-            <h3 style="font-size:var(--text-lg);font-weight:600;margin-bottom:0.75rem;">Tài liệu đính kèm</h3>
-            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.875rem;background:var(--muted);border-radius:var(--radius-md);margin-bottom:1.5rem;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <div style="flex:1;">
-                <div style="font-weight:500;font-size:var(--text-sm);">{{ basename($assignment->attachment) }}</div>
+            <h3 id="attachment-preview" style="font-size:var(--text-lg);font-weight:600;margin-bottom:0.75rem;">Tài liệu đính kèm</h3>
+            <div class="attachment-preview">
+              <div class="attachment-preview__bar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:500;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $attachmentPreview['filename'] ?? basename($assignment->attachment) }}</div>
+                  @if($attachmentPreview)
+                    <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.15rem;">{{ strtoupper($attachmentPreview['extension'] ?: 'FILE') }} · {{ $attachmentPreview['mime'] }}</div>
+                  @endif
+                </div>
+                @if($attachmentPreview)
+                  <a href="{{ $attachmentPreview['preview_url'] }}" target="_blank" class="btn btn-ghost btn-sm">Xem</a>
+                  <a href="{{ $attachmentPreview['download_url'] }}" class="btn btn-outline btn-sm">Tải xuống</a>
+                @else
+                  <a href="{{ Storage::url($assignment->attachment) }}" target="_blank" class="btn btn-outline btn-sm">Tải xuống</a>
+                @endif
               </div>
-              <a href="{{ Storage::url($assignment->attachment) }}" target="_blank" class="btn btn-outline btn-sm">Tải về</a>
             </div>
           @endif
 
@@ -188,7 +219,7 @@
               <div style="margin-bottom:1rem;">
                 <label style="display:block;font-size:var(--text-sm);font-weight:500;margin-bottom:0.5rem;">
                   Đính kèm file
-                  <span style="font-weight:400;color:var(--muted-foreground);">(PDF, DOCX, ZIP, ảnh - tối đa 10MB)</span>
+                  <span style="font-weight:400;color:var(--muted-foreground);">(PDF, DOCX, XLSX, ZIP, ảnh - tối đa {{ $submissionAttachmentMaxLabel ?? '100MB' }})</span>
                 </label>
 
                 @if($submission?->attachment)
@@ -197,21 +228,29 @@
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     </div>
                     <div style="flex:1;min-width:0;">
-                      <div style="font-weight:500;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ basename($submission->attachment) }}</div>
+                      <div style="font-weight:500;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $submissionAttachmentPreview['filename'] ?? basename($submission->attachment) }}</div>
+                      @if($submissionAttachmentPreview)
+                        <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.15rem;">{{ strtoupper($submissionAttachmentPreview['extension'] ?: 'FILE') }} · {{ $submissionAttachmentPreview['mime'] }}</div>
+                      @endif
                     </div>
-                    <a href="{{ Storage::url($submission->attachment) }}" target="_blank" class="btn btn-ghost btn-sm">Xem</a>
+                    @if($submissionAttachmentPreview)
+                      <a href="{{ $submissionAttachmentPreview['preview_url'] }}" target="_blank" class="btn btn-ghost btn-sm">Xem</a>
+                      <a href="{{ $submissionAttachmentPreview['download_url'] }}" class="btn btn-outline btn-sm">Tải xuống</a>
+                    @endif
                   </div>
                   <p style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.5rem;">Tải file mới sẽ thay thế file cũ.</p>
                 @endif
 
-                <div class="file-drop-zone" id="file-drop-zone" onclick="document.getElementById('file-input').click()">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 0.5rem;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <div style="font-weight:500;margin-bottom:0.25rem;">Kéo thả file vào đây hoặc click để chọn</div>
-                  <div style="font-size:var(--text-xs);color:var(--muted-foreground);">PDF, DOCX, ZIP, PNG, JPG (tối đa 10MB)</div>
-                  <input type="file" name="attachment" id="file-input" accept=".pdf,.doc,.docx,.zip,.png,.jpg,.jpeg" onchange="handleFileSelect(this)">
+                <input
+                  id="file-input"
+                  class="input drop-input"
+                  type="file"
+                  name="attachment"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.png,.jpg,.jpeg,.gif,.webp"
+                >
+                <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.25rem;">
+                  Tối đa {{ $submissionAttachmentMaxLabel ?? '100MB' }}. Hỗ trợ PDF, DOC, DOCX, XLS, XLSX, ZIP và ảnh.
                 </div>
-
-                <div id="file-preview" style="display:none;margin-top:0.75rem;"></div>
                 @error('attachment')
                   <p style="color:var(--destructive);font-size:var(--text-xs);margin-top:0.25rem;">{{ $message }}</p>
                 @enderror
@@ -293,59 +332,3 @@
   </div>
   <div id="toast-container"></div>
 @endsection
-
-@push('scripts')
-<script>
-  // File drop zone drag-over effect
-  const dropZone = document.getElementById('file-drop-zone');
-  if (dropZone) {
-    dropZone.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      this.classList.add('drag-over');
-    });
-    dropZone.addEventListener('dragleave', function(e) {
-      e.preventDefault();
-      this.classList.remove('drag-over');
-    });
-    dropZone.addEventListener('drop', function(e) {
-      e.preventDefault();
-      this.classList.remove('drag-over');
-      const input = document.getElementById('file-input');
-      if (e.dataTransfer.files.length) {
-        input.files = e.dataTransfer.files;
-        handleFileSelect(input);
-      }
-    });
-  }
-
-  function handleFileSelect(input) {
-    const file = input.files[0];
-    const preview = document.getElementById('file-preview');
-    if (!file) return;
-
-    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-    const ext = file.name.split('.').pop().toUpperCase();
-    const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext.toLowerCase());
-
-    let html = `<div class="uploaded-file-item">
-      <div class="file-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:500;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${file.name}</div>
-        <div style="font-size:var(--text-xs);color:var(--muted-foreground);">${ext} · ${sizeMB} MB</div>
-      </div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="removeFile()">✕</button>
-    </div>`;
-
-    preview.innerHTML = html;
-    preview.style.display = 'block';
-  }
-
-  function removeFile() {
-    const input = document.getElementById('file-input');
-    input.value = '';
-    document.getElementById('file-preview').style.display = 'none';
-  }
-</script>
-@endpush

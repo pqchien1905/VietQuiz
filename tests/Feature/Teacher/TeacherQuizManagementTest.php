@@ -269,19 +269,18 @@ class TeacherQuizManagementTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    public function test_teacher_cannot_configure_multiple_quiz_attempts_with_current_schema(): void
+    public function test_teacher_can_configure_multiple_quiz_attempts(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher']);
 
-        $this->actingAs($teacher)
-            ->from(route('teacher.quiz-create'))
+        $response = $this->actingAs($teacher)
             ->post(route('teacher.quizzes.store'), $this->validQuizPayload([
                 'max_attempts' => 2,
-            ]))
-            ->assertRedirect(route('teacher.quiz-create'))
-            ->assertSessionHasErrors('max_attempts');
+            ]));
 
-        $this->assertDatabaseCount('quizzes', 0);
+        $quiz = Quiz::firstOrFail();
+        $response->assertRedirect(route('teacher.quiz-detail', $quiz));
+        $this->assertSame(2, (int) $quiz->max_attempts);
     }
 
     private function validQuizPayload(array $overrides = []): array

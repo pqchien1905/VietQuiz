@@ -527,9 +527,6 @@
 </style>
 
 <div class="landing-page">
-  <button class="landing-theme-toggle icon-btn" data-theme-toggle aria-label="Chuyển chủ đề">
-    <span data-theme-icon></span>
-  </button>
 
   <header class="landing-topbar">
     <div class="landing-shell landing-topbar__inner">

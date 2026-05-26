@@ -789,7 +789,7 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
         overlay.onclick = (e) => { if (e.target === overlay) closeExitModal(); };
         document.body.appendChild(overlay);
         document.getElementById('exit-submit-btn')?.addEventListener('click', () => {
-            submitQuiz({ redirectUrl: QUIZ_DATA.list_url });
+            submitQuiz({ redirectUrl: QUIZ_DATA.result_url });
         });
     }
 
@@ -1052,8 +1052,41 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
         }, 1500);
     }
 
+    function showStartModal() {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.id = 'start-quiz-modal';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.48);z-index:100000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+            overlay.innerHTML = `
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-xl);width:min(100%,540px);padding:1rem 1rem 1.1rem;">
+                    <div style="font-weight:800;font-size:var(--text-lg);margin-bottom:.35rem;">Sẵn sàng làm bài?</div>
+                    <div style="color:var(--muted-foreground);font-size:var(--text-sm);line-height:1.55;">
+                        Bạn đang mở bài: <strong>${QUIZ_DATA.title || 'Bài kiểm tra'}</strong>.<br>
+                        Nhấn <strong>Bắt đầu làm bài</strong> để vào màn hình làm bài, hoặc <strong>Thoát</strong> để quay lại.
+                    </div>
+                    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem;flex-wrap:wrap;">
+                        <button type="button" id="start-quiz-exit" class="btn btn-outline">Thoát</button>
+                        <button type="button" id="start-quiz-go" class="btn btn-primary">Bắt đầu làm bài</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            document.getElementById('start-quiz-go')?.addEventListener('click', () => {
+                overlay.remove();
+                resolve(true);
+            });
+
+            document.getElementById('start-quiz-exit')?.addEventListener('click', () => {
+                window.onbeforeunload = null;
+                window.location.href = QUIZ_DATA.list_url;
+            });
+        });
+    }
+
     // ── Init ─────────────────────────────────
-    function init() {
+    async function init() {
+        await showStartModal();
         loadAutosavedAnswers();
         renderNavGrid();
         renderQuestion(0);

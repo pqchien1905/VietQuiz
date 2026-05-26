@@ -9,6 +9,7 @@ use App\Models\Quiz;
 use App\Services\AiQuestionGenerator;
 use App\Services\DocumentTextExtractor;
 use App\Services\QuestionFileImporter;
+use App\Support\AiQuestionIntentGuard;
 use App\Support\VipFeature;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -248,6 +249,11 @@ class QuestionController extends Controller
             'extra_context' => 'nullable|string|max:1000',
             'source_file' => 'nullable|file|max:15360|mimes:pdf,doc,docx,jpg,jpeg,png,webp',
         ]);
+
+        AiQuestionIntentGuard::ensureMeaningfulRequest(
+            $validated,
+            $request->hasFile('source_file')
+        );
 
         $quiz = isset($validated['quiz_id']) ? $this->ownedQuiz($request, (int) $validated['quiz_id']) : null;
 

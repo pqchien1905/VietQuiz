@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\ClassModel;
 use App\Models\Notification;
+use App\Models\Course;
 use App\Models\Quiz;
 use App\Support\VipFeature;
 use Illuminate\Http\Request;
@@ -104,9 +105,10 @@ class ClassController extends Controller
     {
         $this->authorizeTeacher($request, $class);
 
-        $class->load(['students', 'assignments']);
+        $class->load(['students', 'pendingStudents', 'assignments']);
 
         $studentCount = $class->students()->count();
+        $pendingStudents = $class->pendingStudents()->orderByPivot('requested_at', 'desc')->get();
 
         // Per-student grade data
         $studentGrades = $class->students()
@@ -166,7 +168,7 @@ class ClassController extends Controller
         return view('pages.teacher.class-detail', compact(
             'class', 'studentCount', 'studentGrades',
             'quizzes', 'classAvg', 'completionRate',
-            'topStudents', 'weakStudents', 'dist'
+            'topStudents', 'weakStudents', 'dist', 'pendingStudents'
         ));
     }
 
@@ -280,12 +282,55 @@ class ClassController extends Controller
     public function removeStudent(Request $request, ClassModel $class, $studentId)
     {
         $this->authorizeTeacher($request, $class);
-        $class->students()->detach($studentId);
+        $class->studentEnrollments()->detach($studentId);
 
         return redirect()->route('teacher.class-detail', $class)
             ->with('success', 'Đã xóa học sinh khỏi lớp!');
     }
 
+
+    public function approveJoinRequest(Request $request, ClassModel $class, $studentId)
+    {
+        $this->authorizeTeacher($request, $class);
+
+        $updated = DB::table('class_user')
+            ->where('class_id', $class->id)
+            ->where('user_id', $studentId)
+            ->where('enrollment_status', 'pending')
+            ->update([
+                'enrollment_status' => 'approved',
+                'approved_at' => now(),
+                'joined_at' => now(),
+            ]);
+
+        if ($updated > 0) {
+            $this->syncClassCoursesForStudent((int) $studentId, $class);
+            $this->notifyEnrollmentDecision((int) $studentId, $class, true);
+        }
+
+        return redirect()
+            ->route('teacher.class-detail', $class)
+            ->with($updated > 0 ? 'success' : 'info', $updated > 0 ? 'Đã phê duyệt học sinh vào lớp.' : 'Yêu cầu này không còn chờ duyệt.');
+    }
+
+    public function rejectJoinRequest(Request $request, ClassModel $class, $studentId)
+    {
+        $this->authorizeTeacher($request, $class);
+
+        $deleted = DB::table('class_user')
+            ->where('class_id', $class->id)
+            ->where('user_id', $studentId)
+            ->where('enrollment_status', 'pending')
+            ->delete();
+
+        if ($deleted > 0) {
+            $this->notifyEnrollmentDecision((int) $studentId, $class, false);
+        }
+
+        return redirect()
+            ->route('teacher.class-detail', $class)
+            ->with($deleted > 0 ? 'success' : 'info', $deleted > 0 ? 'Đã từ chối yêu cầu tham gia lớp.' : 'Yêu cầu này không còn chờ duyệt.');
+    }
     public function sendNotification(Request $request, ClassModel $class)
     {
         $this->authorizeTeacher($request, $class);
@@ -309,6 +354,7 @@ class ClassController extends Controller
         foreach ($students as $student) {
             Notification::create([
                 'user_id' => $student->id,
+                'audience_role' => 'student',
                 'type'    => 'class_announcement',
                 'title'   => $validated['title'],
                 'body'    => $validated['body'],
@@ -407,7 +453,7 @@ class ClassController extends Controller
                 $sheet = IOFactory::load($file->getRealPath())->getActiveSheet();
                 $rows = array_slice($sheet->toArray(null, true, true, false), 1);
             } catch (\Throwable) {
-                return back()->with('error', 'Khong the doc file Excel. Vui long kiem tra lai dinh dang file.');
+                return back()->with('error', 'Không thể đọc file Excel. Vui lòng kiểm tra lại định dạng file.');
             }
 
             [$imported, $notFound, $skipped] = $this->importStudentRows($class, $rows);
@@ -450,8 +496,7 @@ class ClassController extends Controller
                 continue;
             }
 
-            if (!$class->students()->where('users.id', $user->id)->exists()) {
-                $class->students()->attach($user->id, ['joined_at' => now()]);
+            if ($this->approveOrAttachStudent($class, (int) $user->id)) {
                 $imported++;
             } else {
                 $skipped++;
@@ -499,8 +544,7 @@ class ClassController extends Controller
                 continue;
             }
 
-            if (!$class->students()->where('users.id', $user->id)->exists()) {
-                $class->students()->attach($user->id, ['joined_at' => now()]);
+            if ($this->approveOrAttachStudent($class, (int) $user->id)) {
                 $imported++;
             } else {
                 $skipped++;
@@ -512,15 +556,50 @@ class ClassController extends Controller
 
     private function importStudentsMessage(ClassModel $class, int $imported, int $notFound, int $skipped): string
     {
-        $msg = "Da them {$imported} hoc sinh vao lop {$class->name}.";
+        $msg = "Đã thêm {$imported} học sinh vào lớp {$class->name}.";
         if ($notFound > 0) {
-            $msg .= " {$notFound} tai khoan khong tim thay hoac khong phai hoc sinh.";
+            $msg .= " {$notFound} tài khoản không tìm thấy hoặc không phải học sinh.";
         }
         if ($skipped > 0) {
-            $msg .= " {$skipped} tai khoan da co trong lop.";
+            $msg .= " {$skipped} tài khoản đã có trong lớp.";
         }
 
         return $msg;
+    }
+
+    private function approveOrAttachStudent(ClassModel $class, int $studentId): bool
+    {
+        $existing = DB::table('class_user')
+            ->where('class_id', $class->id)
+            ->where('user_id', $studentId)
+            ->first();
+
+        if ($existing && $existing->enrollment_status === 'approved') {
+            return false;
+        }
+
+        if ($existing) {
+            DB::table('class_user')
+                ->where('class_id', $class->id)
+                ->where('user_id', $studentId)
+                ->update([
+                    'enrollment_status' => 'approved',
+                    'enrollment_source' => 'teacher_invite',
+                    'approved_at' => now(),
+                    'joined_at' => now(),
+                ]);
+
+            return true;
+        }
+
+        $class->studentEnrollments()->attach($studentId, [
+            'joined_at' => now(),
+            'enrollment_status' => 'approved',
+            'enrollment_source' => 'teacher_invite',
+            'approved_at' => now(),
+        ]);
+
+        return true;
     }
 
     private function pctToGrade(?float $pct): string
@@ -531,6 +610,47 @@ class ClassController extends Controller
         if ($pct >= 70) return 'C';
         if ($pct >= 60) return 'D';
         return 'F';
+    }
+
+    private function syncClassCoursesForStudent(int $studentId, ClassModel $class): void
+    {
+        $courseIds = Course::where('class_id', $class->id)->pluck('id');
+        if ($courseIds->isEmpty()) {
+            return;
+        }
+
+        $payload = $courseIds
+            ->mapWithKeys(fn ($courseId) => [$courseId => [
+                'user_id' => $studentId,
+                'course_id' => $courseId,
+                'enrolled_at' => now(),
+            ]])
+            ->values()
+            ->all();
+
+        foreach ($payload as $row) {
+            DB::table('course_user')->updateOrInsert(
+                ['user_id' => $row['user_id'], 'course_id' => $row['course_id']],
+                ['enrolled_at' => $row['enrolled_at']]
+            );
+        }
+    }
+
+    private function notifyEnrollmentDecision(int $studentId, ClassModel $class, bool $approved): void
+    {
+        Notification::create([
+            'user_id' => $studentId,
+            'audience_role' => 'student',
+            'type' => $approved ? 'class_join_approved' : 'class_join_rejected',
+            'title' => $approved ? 'Yêu cầu tham gia lớp đã được phê duyệt' : 'Yêu cầu tham gia lớp bị từ chối',
+            'body' => $approved
+                ? "Giáo viên đã phê duyệt bạn vào lớp \"{$class->name}\"."
+                : "Giáo viên đã từ chối yêu cầu tham gia lớp \"{$class->name}\".",
+            'data' => [
+                'class_id' => $class->id,
+            ],
+            'is_read' => false,
+        ]);
     }
 
     private function authorizeTeacher(Request $request, ClassModel $class): void

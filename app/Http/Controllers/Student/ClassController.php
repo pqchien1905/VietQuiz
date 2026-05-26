@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Assignment;
+use App\Models\Notification;
 use App\Models\ClassModel;
 use App\Models\Course;
 use App\Models\Quiz;
@@ -201,43 +202,58 @@ class ClassController extends Controller
             ])
             ->values();
 
-        $availableClasses = ClassModel::where('status', 'active')
-            ->where('teacher_id', '!=', $user->id)
-            ->whereDoesntHave('students', fn ($query) => $query->where('class_user.user_id', $user->id))
-            ->with('teacher')
-            ->withCount(['students', 'courses', 'quizzes', 'assignments'])
-            ->orderBy('name')
+        $pendingEnrollments = $user->classEnrollments()
+            ->wherePivot('enrollment_status', 'pending')
+            ->with(['teacher:id,name,email'])
+            ->orderByPivot('requested_at', 'desc')
             ->get()
             ->map(fn ($class) => [
                 'id' => $class->id,
                 'name' => $class->name,
                 'code' => $class->code,
                 'teacher' => $class->teacher?->name ?? 'Giáo viên',
-                'subject' => $class->subject ?? 'Chưa phân môn',
-                'grade_level' => $class->grade_level,
-                'description' => $class->description,
-                'color' => $class->color ?? '#3b82f6',
-                'students' => $class->students_count,
-                'courses' => $class->courses_count,
-                'quizzes' => $class->quizzes_count,
-                'assignments' => $class->assignments_count,
-                'join_url' => route('student.join.code', ['code' => Str::lower($class->code)]),
+                'requested_at' => $class->pivot?->requested_at
+                    ? \Carbon\Carbon::parse($class->pivot->requested_at)->format('d/m/Y H:i')
+                    : null,
+                'source' => $class->pivot?->enrollment_source === 'link' ? 'Link mời' : 'Mã lớp',
+                'color' => $class->color ?? '#f59e0b',
             ])
             ->values();
 
         $summary = [
             'enrolled' => $enrolledClasses->count(),
-            'available' => $availableClasses->count(),
             'courses' => $enrolledClasses->sum('courses'),
             'pending_items' => $enrolledClasses->sum('quizzes') + $enrolledClasses->sum('assignments'),
+            'pending_requests' => $pendingEnrollments->count(),
         ];
 
         return view('pages.student.join-class', [
             'enrolledClasses' => $enrolledClasses,
-            'availableClasses' => $availableClasses,
+            'pendingEnrollments' => $pendingEnrollments,
             'summary' => $summary,
             'prefillCode' => $prefillCode,
         ]);
+    }
+
+    public function cancelJoinRequest(Request $request, ClassModel $class)
+    {
+        $user = $request->user();
+
+        $deleted = $user->classEnrollments()
+            ->newPivotStatement()
+            ->where('user_id', $user->id)
+            ->where('class_id', $class->id)
+            ->where('enrollment_status', 'pending')
+            ->delete();
+
+        return redirect()
+            ->route('student.join-class')
+            ->with(
+                $deleted > 0 ? 'success' : 'info',
+                $deleted > 0
+                    ? "Đã hủy yêu cầu tham gia lớp '{$class->name}'."
+                    : "Yêu cầu tham gia lớp '{$class->name}' không còn ở trạng thái chờ duyệt."
+            );
     }
 
     public function joinByCode(Request $request)
@@ -283,12 +299,17 @@ class ClassController extends Controller
                 ->with('info', "Bạn đã tham gia lớp '{$class->name}' rồi.");
         }
 
-        $user->classes()->attach($class->id, ['joined_at' => now()]);
-        $this->syncClassCourses($user, $class);
+        if ($this->hasPendingEnrollment($user, $class)) {
+            return back()
+                ->with('info', "Yêu cầu tham gia lớp '{$class->name}' đang chờ giáo viên phê duyệt.")
+                ->withInput(['code' => $code]);
+        }
+
+        $this->createPendingEnrollment($user, $class, 'code');
 
         return redirect()
-            ->route('student.classes.show', $class)
-            ->with('success', "Tham gia lớp '{$class->name}' thành công!");
+            ->route('student.join-class')
+            ->with('success', "Đã gửi yêu cầu tham gia lớp '{$class->name}'. Vui lòng chờ giáo viên phê duyệt.");
     }
 
     public function joinByLink(Request $request, string $code)
@@ -338,12 +359,17 @@ class ClassController extends Controller
                 ->with('info', "Bạn đã tham gia lớp '{$class->name}' rồi.");
         }
 
-        $user->classes()->attach($class->id, ['joined_at' => now()]);
-        $this->syncClassCourses($user, $class);
+        if ($this->hasPendingEnrollment($user, $class)) {
+            return redirect()
+                ->route('student.join-class')
+                ->with('info', "Yêu cầu tham gia lớp '{$class->name}' đang chờ giáo viên phê duyệt.");
+        }
+
+        $this->createPendingEnrollment($user, $class, 'link');
 
         return redirect()
             ->route('student.join-class')
-            ->with('success', "Tham gia lớp '{$class->name}' thành công!");
+            ->with('success', "Đã gửi yêu cầu tham gia lớp '{$class->name}'. Vui lòng chờ giáo viên phê duyệt.");
     }
 
     private function normalizeClassCode(string $code): string
@@ -363,6 +389,38 @@ class ClassController extends Controller
             ->all();
 
         $user->courses()->syncWithoutDetaching($payload);
+    }
+
+    private function hasPendingEnrollment($user, ClassModel $class): bool
+    {
+        return $user->classEnrollments()
+            ->where('classes.id', $class->id)
+            ->wherePivot('enrollment_status', 'pending')
+            ->exists();
+    }
+
+    private function createPendingEnrollment($user, ClassModel $class, string $source): void
+    {
+        $user->classEnrollments()->attach($class->id, [
+            'joined_at' => now(),
+            'enrollment_status' => 'pending',
+            'enrollment_source' => $source,
+            'requested_at' => now(),
+        ]);
+
+        Notification::create([
+            'user_id' => $class->teacher_id,
+            'audience_role' => 'teacher',
+            'type' => 'class_join_request',
+            'title' => 'Yêu cầu tham gia lớp mới',
+            'body' => "{$user->name} muốn tham gia lớp \"{$class->name}\".",
+            'data' => [
+                'class_id' => $class->id,
+                'student_id' => $user->id,
+                'source' => $source,
+            ],
+            'is_read' => false,
+        ]);
     }
 
     private function attachLearningMetrics(Collection $classes, int $studentId): Collection
@@ -457,3 +515,4 @@ class ClassController extends Controller
         });
     }
 }
+

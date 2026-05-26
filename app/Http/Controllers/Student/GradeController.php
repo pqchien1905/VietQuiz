@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Assignment;
-use App\Models\Grade;
 use App\Models\Quiz;
 use App\Models\Submission;
 use App\Support\CollectionPaginator;
@@ -24,7 +23,9 @@ class GradeController extends Controller
             'status' => $request->query('status', 'all'),
             'course_id' => $request->integer('course_id') ?: null,
             'class_id' => $request->integer('class_id') ?: null,
+            'per_page' => $request->integer('per_page') ?: 10,
         ];
+        $filters['per_page'] = in_array($filters['per_page'], [10, 20, 50, 100], true) ? $filters['per_page'] : 10;
 
         if ($filters['course_id']) {
             abort_unless($user->courses()->where('courses.id', $filters['course_id'])->exists(), 404);
@@ -48,7 +49,7 @@ class GradeController extends Controller
             ->sortByDesc(fn ($item) => $item->sort_at?->timestamp ?? 0)
             ->values();
 
-        $grades = CollectionPaginator::make($items, $request, 10);
+        $grades = CollectionPaginator::make($items, $request, $filters['per_page']);
 
         return view('pages.student.grades', compact(
             'grades',

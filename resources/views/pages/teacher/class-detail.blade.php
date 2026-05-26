@@ -444,6 +444,43 @@
                 </form>
             </div>
 
+            <div class="card" style="margin:1rem 0;border-color:color-mix(in srgb,var(--warning) 35%,var(--border));">
+                <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                    <div>
+                        <h3 style="font-size:var(--text-base);font-weight:800;">Yêu cầu chờ duyệt</h3>
+                        <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-top:.25rem;">Học sinh tự tham gia bằng mã/link sẽ nằm ở đây trước khi được vào lớp.</p>
+                    </div>
+                    <span class="badge {{ ($pendingStudents ?? collect())->isNotEmpty() ? 'badge-warning' : 'badge-outline' }}">{{ ($pendingStudents ?? collect())->count() }} chờ duyệt</span>
+                </div>
+                <div style="padding:0 1.25rem;">
+                    @forelse(($pendingStudents ?? collect()) as $pendingStudent)
+                        <div class="join-class-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;padding:.875rem 0;border-top:1px solid var(--border);">
+                            <div style="min-width:0;">
+                                <div style="font-weight:700;">{{ $pendingStudent->name }}</div>
+                                <div style="font-size:var(--text-sm);color:var(--muted-foreground);">
+                                    {{ $pendingStudent->email }} · Gửi lúc {{ $pendingStudent->pivot->requested_at ? \Illuminate\Support\Carbon::parse($pendingStudent->pivot->requested_at)->format('d/m/Y H:i') : 'N/A' }}
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:.5rem;align-items:center;">
+                                <form method="POST" action="{{ route('teacher.classes.join-requests.approve', [$class, $pendingStudent->id]) }}">
+                                    @csrf
+                                    <button class="btn btn-primary btn-sm" type="submit">Phê duyệt</button>
+                                </form>
+                                <form method="POST" action="{{ route('teacher.classes.join-requests.reject', [$class, $pendingStudent->id]) }}" data-confirm="Từ chối yêu cầu tham gia lớp của {{ $pendingStudent->name }}?">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-ghost btn-sm" style="color:var(--destructive);" type="submit">Từ chối</button>
+                                </form>
+                            </div>
+                        </div>
+                    @empty
+                        <div style="padding:1rem 0;color:var(--muted-foreground);font-size:var(--text-sm);">
+                            Chưa có yêu cầu nào. Khi học sinh nhập mã lớp hoặc mở link mời, yêu cầu sẽ xuất hiện tại đây để giáo viên duyệt.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
             <!-- Table -->
             <div class="cd-table-wrap">
                 <table class="cd-table">

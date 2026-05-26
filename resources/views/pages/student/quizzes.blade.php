@@ -1,55 +1,159 @@
 {{-- Student: quizzes --}}
 @extends('layouts.dashboard', ['role' => 'student'])
 
+@php
+  $tabUrl = function (string $status) use ($filters) {
+    $params = ['status' => $status];
+    if (($filters['q'] ?? '') !== '') {
+      $params['q'] = $filters['q'];
+    }
+    if (!empty($filters['course_id'])) {
+      $params['course_id'] = $filters['course_id'];
+    }
+    if (($filters['type'] ?? 'all') !== 'all') {
+      $params['type'] = $filters['type'];
+    }
+
+    return route('student.quizzes', $params);
+  };
+
+  $hasActiveFilters = ($filters['q'] ?? '') !== ''
+    || !empty($filters['course_id'])
+    || ($filters['type'] ?? 'all') !== 'all';
+
+  $tabs = [
+    'available' => ['label' => 'Cần làm', 'count' => $available->count(), 'tone' => 'primary'],
+    'scheduled' => ['label' => 'Chưa mở', 'count' => $scheduled->count(), 'tone' => 'info'],
+    'completed' => ['label' => 'Đã làm', 'count' => $completed->count(), 'tone' => 'success'],
+    'missed' => ['label' => 'Quá hạn', 'count' => $missed->count(), 'tone' => 'danger'],
+  ];
+
+  $activeItems = match ($activeTab) {
+    'scheduled' => $scheduled,
+    'completed' => $completed,
+    'missed' => $missed,
+    default => $available,
+  };
+
+  $activeTitle = $tabs[$activeTab]['label'] ?? 'Cần làm';
+  $avgScore = $summary['avg_score'] !== null ? round($summary['avg_score']) : null;
+@endphp
+
 @push('styles')
 <style>
-  .quiz-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem}
-  .quiz-tabs{display:flex;gap:.25rem;padding:.25rem;background:var(--muted);border-radius:var(--radius-md);margin-bottom:1.25rem;max-width:44rem}
-  .quiz-tab{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:.375rem;padding:.5rem .75rem;border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;color:var(--muted-foreground);font-size:var(--text-sm);font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap}
-  .quiz-tab:hover{background:color-mix(in srgb,var(--background) 70%,transparent);color:var(--foreground);text-decoration:none}
-  .quiz-tab.active{background:var(--background);color:var(--foreground);border-color:var(--border);box-shadow:var(--shadow-sm)}
-  .quiz-card{position:relative;display:flex;flex-direction:column;min-height:100%}
-  .quiz-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.875rem}
-  .quiz-icon{width:2.5rem;height:2.5rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .quiz-title{font-size:var(--text-base);font-weight:800;line-height:1.35;margin:0 0 .25rem}
-  .quiz-meta{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;font-size:var(--text-xs);color:var(--muted-foreground)}
-  .quiz-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;margin:1rem 0}
-  .quiz-fact{border:1px solid var(--border);border-radius:var(--radius-md);padding:.625rem .5rem;text-align:center;background:color-mix(in srgb,var(--muted) 35%,transparent)}
-  .quiz-fact strong{display:block;font-size:var(--text-base);line-height:1;color:var(--foreground)}
-  .quiz-fact span{display:block;font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.25rem}
-  .quiz-description{font-size:var(--text-sm);color:var(--muted-foreground);line-height:1.55;margin:.75rem 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-  .quiz-filter-form .search-input-wrapper{min-width:17rem}
-  .quiz-panel{display:none}
-  .quiz-panel.active{display:block}
-  .score-pill{display:inline-flex;align-items:center;gap:.375rem;font-weight:800}
-  @media (max-width:1100px){.quiz-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-  @media (max-width:900px){.quiz-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.quiz-tabs{max-width:none;overflow-x:auto}.quiz-tab{min-width:9rem}.quiz-filter-form .search-input-wrapper{min-width:0}}
-  @media (max-width:520px){.quiz-summary-grid{grid-template-columns:1fr}.quiz-facts{grid-template-columns:1fr}.quiz-card-top{align-items:flex-start}.quiz-meta{gap:.5rem}}
+  .quiz-page { display:grid; gap:1.25rem; min-width:0; }
+  .quiz-hero {
+    position:relative;
+    overflow:hidden;
+    border:1px solid var(--border);
+    border-radius:var(--radius-2xl);
+    padding:1.4rem;
+    background:
+      radial-gradient(circle at 12% 8%, color-mix(in srgb,var(--primary) 22%,transparent), transparent 22rem),
+      linear-gradient(135deg, color-mix(in srgb,var(--primary) 9%,var(--card)), var(--card) 52%, color-mix(in srgb,var(--info) 8%,var(--card)));
+    box-shadow:var(--shadow-sm);
+  }
+  .quiz-hero::after {
+    content:"";
+    position:absolute;
+    width:18rem;
+    height:18rem;
+    right:-7rem;
+    top:-8rem;
+    border-radius:999px;
+    background:color-mix(in srgb,var(--primary) 14%,transparent);
+    pointer-events:none;
+  }
+  .quiz-hero-inner { position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1rem; align-items:end; }
+  .quiz-eyebrow { display:inline-flex; align-items:center; gap:.45rem; width:max-content; padding:.35rem .65rem; border-radius:999px; background:color-mix(in srgb,var(--primary) 12%,transparent); color:var(--primary); font-size:var(--text-xs); font-weight:900; margin-bottom:.75rem; }
+  .quiz-hero h1 { margin:0; font-size:clamp(1.8rem,3vw,2.6rem); letter-spacing:-.05em; line-height:1.05; }
+  .quiz-hero p { margin:.55rem 0 0; color:var(--muted-foreground); max-width:46rem; font-size:var(--text-sm); }
+  .quiz-hero-action { align-self:center; }
+  .quiz-summary-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.85rem; }
+  .quiz-stat {
+    position:relative;
+    overflow:hidden;
+    min-height:8.1rem;
+    border:1px solid var(--border);
+    border-radius:var(--radius-xl);
+    padding:1rem;
+    background:var(--card);
+    box-shadow:var(--shadow-sm);
+  }
+  .quiz-stat::after { content:""; position:absolute; width:5.5rem; height:5.5rem; right:-2.8rem; top:-2.8rem; border-radius:999px; background:color-mix(in srgb,var(--stat-color,var(--primary)) 13%,transparent); }
+  .quiz-stat-label { color:var(--muted-foreground); font-size:var(--text-xs); font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+  .quiz-stat-value { margin-top:.65rem; font-size:2rem; line-height:1; font-weight:950; color:var(--stat-color,var(--foreground)); letter-spacing:-.04em; }
+  .quiz-stat-sub { margin-top:.45rem; color:var(--muted-foreground); font-size:var(--text-xs); }
+  .quiz-filter-card { border:1px solid var(--border); border-radius:var(--radius-xl); padding:1rem; background:color-mix(in srgb,var(--card) 88%,var(--background)); box-shadow:var(--shadow-sm); }
+  .quiz-filter-form { display:grid; grid-template-columns:minmax(220px,1fr) minmax(150px,14rem) minmax(140px,13rem) auto auto; gap:.75rem; align-items:center; }
+  .quiz-filter-form .search-input-wrapper { min-width:0; }
+  .quiz-filter-form .btn { height:2.5rem; }
+  .quiz-tabs { display:flex; gap:.45rem; padding:.35rem; background:var(--muted); border-radius:var(--radius-lg); overflow-x:auto; }
+  .quiz-tab { flex:0 0 auto; min-width:9.5rem; display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.65rem .9rem; border:1px solid transparent; border-radius:var(--radius-md); background:transparent; color:var(--muted-foreground); font-size:var(--text-sm); font-weight:900; cursor:pointer; text-decoration:none; white-space:nowrap; }
+  .quiz-tab:hover { background:color-mix(in srgb,var(--card) 78%,transparent); color:var(--foreground); text-decoration:none; }
+  .quiz-tab.active { background:var(--card); color:var(--foreground); border-color:var(--border); box-shadow:var(--shadow-sm); }
+  .quiz-section-head { display:flex; align-items:end; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .quiz-section-head h2 { margin:0; font-size:var(--text-xl); letter-spacing:-.03em; }
+  .quiz-section-head p { margin:.2rem 0 0; color:var(--muted-foreground); font-size:var(--text-sm); }
+  .quiz-list-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:1rem; }
+  .quiz-card {
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    min-height:100%;
+    border:1px solid var(--border);
+    border-radius:var(--radius-xl);
+    background:var(--card);
+    box-shadow:var(--shadow-sm);
+    transition:transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  }
+  .quiz-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); border-color:color-mix(in srgb,var(--primary) 35%,var(--border)); }
+  .quiz-card::before { content:""; position:absolute; inset:0 0 auto; height:.35rem; background:linear-gradient(90deg,var(--quiz-tone,var(--primary)),color-mix(in srgb,var(--quiz-tone,var(--primary)) 40%,transparent)); }
+  .quiz-card-body { padding:1.1rem; flex:1; display:grid; gap:.95rem; }
+  .quiz-card-top { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:.85rem; align-items:start; }
+  .quiz-icon { width:2.85rem; height:2.85rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:color-mix(in srgb,var(--quiz-tone,var(--primary)) 12%,transparent); color:var(--quiz-tone,var(--primary)); }
+  .quiz-title { margin:0; font-size:var(--text-lg); font-weight:950; line-height:1.28; letter-spacing:-.03em; }
+  .quiz-meta { display:flex; align-items:center; gap:.45rem .7rem; flex-wrap:wrap; color:var(--muted-foreground); font-size:var(--text-xs); margin-top:.35rem; }
+  .quiz-meta-item { display:inline-flex; align-items:center; gap:.3rem; min-width:0; }
+  .quiz-desc { color:var(--muted-foreground); font-size:var(--text-sm); line-height:1.6; margin:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .quiz-due { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.75rem; border-radius:var(--radius-lg); background:color-mix(in srgb,var(--quiz-tone,var(--primary)) 8%,transparent); color:var(--quiz-tone,var(--primary)); font-size:var(--text-sm); font-weight:800; }
+  .quiz-facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.55rem; }
+  .quiz-fact { border:1px solid var(--border); border-radius:var(--radius-lg); padding:.7rem .55rem; text-align:center; background:color-mix(in srgb,var(--muted) 28%,transparent); min-width:0; }
+  .quiz-fact strong { display:block; font-size:var(--text-base); line-height:1.05; font-weight:950; color:var(--foreground); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .quiz-fact span { display:block; color:var(--muted-foreground); font-size:var(--text-xs); margin-top:.25rem; }
+  .quiz-card-footer { padding:.9rem 1.1rem 1.1rem; border-top:1px solid var(--border); background:color-mix(in srgb,var(--muted) 22%,transparent); }
+  .quiz-empty { border:1px dashed var(--border); border-radius:var(--radius-xl); background:color-mix(in srgb,var(--muted) 25%,transparent); padding:3rem 1.25rem; text-align:center; display:grid; justify-items:center; gap:.75rem; }
+  .quiz-empty-icon { width:4rem; height:4rem; border-radius:1.35rem; display:grid; place-items:center; background:color-mix(in srgb,var(--primary) 11%,transparent); color:var(--primary); }
+  .quiz-empty h3 { margin:0; font-size:var(--text-xl); }
+  .quiz-empty p { margin:0; max-width:32rem; color:var(--muted-foreground); font-size:var(--text-sm); }
+  .quiz-completed-list { display:grid; gap:.8rem; }
+  .quiz-result-card { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:1rem; align-items:center; border:1px solid var(--border); border-radius:var(--radius-xl); padding:1rem; background:var(--card); box-shadow:var(--shadow-sm); }
+  .quiz-score-ring { width:4.2rem; height:4.2rem; border-radius:999px; display:grid; place-items:center; background:conic-gradient(var(--score-color) calc(var(--score-pct) * 1%), color-mix(in srgb,var(--muted) 70%,transparent) 0); }
+  .quiz-score-ring span { width:3.15rem; height:3.15rem; border-radius:999px; display:grid; place-items:center; background:var(--card); font-weight:950; font-size:var(--text-sm); color:var(--score-color); }
+  @media (max-width:1180px) {
+    .quiz-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .quiz-filter-form { grid-template-columns:1fr 1fr; }
+    .quiz-filter-form .search-input-wrapper { grid-column:1 / -1; }
+  }
+  @media (max-width:760px) {
+    .quiz-hero-inner { grid-template-columns:1fr; }
+    .quiz-hero-action { justify-self:start; }
+    .quiz-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .quiz-list-grid { grid-template-columns:1fr; }
+    .quiz-result-card { grid-template-columns:1fr; }
+    .quiz-filter-form { grid-template-columns:1fr; }
+  }
+  @media (max-width:520px) {
+    .quiz-summary-grid { grid-template-columns:1fr; }
+    .quiz-card-top { grid-template-columns:auto minmax(0,1fr); }
+    .quiz-card-top > .badge { grid-column:1 / -1; width:max-content; }
+    .quiz-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
 </style>
 @endpush
 
 @section('content')
-  @php
-    $tabUrl = function (string $status) use ($filters) {
-      $params = ['status' => $status];
-      if (($filters['q'] ?? '') !== '') {
-        $params['q'] = $filters['q'];
-      }
-      if (!empty($filters['course_id'])) {
-        $params['course_id'] = $filters['course_id'];
-      }
-      if (($filters['type'] ?? 'all') !== 'all') {
-        $params['type'] = $filters['type'];
-      }
-
-      return route('student.quizzes', $params);
-    };
-
-    $hasActiveFilters = ($filters['q'] ?? '') !== ''
-      || !empty($filters['course_id'])
-      || ($filters['type'] ?? 'all') !== 'all';
-  @endphp
-
   @if(session('info') || session('success') || session('warning') || session('error'))
     <div style="margin-bottom:1rem;">
       @if(session('info'))
@@ -64,143 +168,189 @@
     </div>
   @endif
 
-  <div class="page-header stagger-children">
-    <div class="flex items-center justify-between flex-wrap gap-4">
-      <div>
-        <h1>Bài kiểm tra của tôi</h1>
-        <p>Theo dõi bài cần làm, bài đã hoàn thành và các hạn kiểm tra trong khóa học.</p>
-      </div>
-      <a href="{{ route('student.courses') }}" class="btn btn-outline gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m5 10 7 4 7-4"/><path d="m5 15 7 4 7-4"/></svg>
-        Khóa học
-      </a>
-    </div>
-  </div>
-
-  <div class="quiz-summary-grid stagger-children">
-    <div class="stat-card">
-      <div class="stat-card__value">{{ number_format($summary['total']) }}</div>
-      <div class="stat-card__label">Tổng bài giao</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card__value" style="color:var(--primary);">{{ number_format($summary['available']) }}</div>
-      <div class="stat-card__label">Cần làm</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card__value" style="color:var(--info);">{{ number_format($summary['scheduled']) }}</div>
-      <div class="stat-card__label">Chưa mở</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card__value" style="color:var(--success);">{{ number_format($summary['completed']) }}</div>
-      <div class="stat-card__label">Đã hoàn thành</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card__value" style="color:{{ $summary['missed'] > 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }};">{{ number_format($summary['missed']) }}</div>
-      <div class="stat-card__label">Quá hạn</div>
-    </div>
-  </div>
-
-  <form class="toolbar quiz-filter-form stagger-children" method="GET" action="{{ route('student.quizzes') }}">
-    <input type="hidden" name="status" value="{{ $activeTab }}">
-    <div class="toolbar-left">
-      <div class="search-input-wrapper">
-        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input class="input" name="q" value="{{ $filters['q'] }}" placeholder="Tìm bài kiểm tra, giáo viên, khóa học..." />
-      </div>
-      <select class="input select" name="course_id" style="max-width:13rem;">
-        <option value="">Tất cả khóa học</option>
-        @foreach($courses as $course)
-          <option value="{{ $course->id }}" @selected((string) $filters['course_id'] === (string) $course->id)>{{ $course->name }}</option>
-        @endforeach
-      </select>
-      <select class="input select" name="type" style="max-width:12rem;">
-        <option value="all" @selected($filters['type'] === 'all')>Tất cả loại bài</option>
-        <option value="exam" @selected($filters['type'] === 'exam')>Kiểm tra</option>
-        <option value="practice" @selected($filters['type'] === 'practice')>Luyện tập</option>
-      </select>
-    </div>
-    <div class="toolbar-right">
-      <button class="btn btn-primary btn-sm" type="submit">Lọc</button>
-      @if($hasActiveFilters)
-        <a class="btn btn-ghost btn-sm" href="{{ route('student.quizzes', ['status' => $activeTab]) }}">Xóa lọc</a>
-      @endif
-      <span class="text-sm text-muted">{{ $summary['total'] }} bài</span>
-    </div>
-  </form>
-
-  <div class="quiz-tabs" role="tablist" aria-label="Trạng thái bài kiểm tra">
-    <a class="quiz-tab {{ $activeTab === 'available' ? 'active' : '' }}" href="{{ $tabUrl('available') }}" role="tab" aria-selected="{{ $activeTab === 'available' ? 'true' : 'false' }}">
-      Cần làm <span class="badge badge-primary">{{ $available->count() }}</span>
-    </a>
-    <a class="quiz-tab {{ $activeTab === 'scheduled' ? 'active' : '' }}" href="{{ $tabUrl('scheduled') }}" role="tab" aria-selected="{{ $activeTab === 'scheduled' ? 'true' : 'false' }}">
-      Chưa mở <span class="badge badge-info">{{ $scheduled->count() }}</span>
-    </a>
-    <a class="quiz-tab {{ $activeTab === 'completed' ? 'active' : '' }}" href="{{ $tabUrl('completed') }}" role="tab" aria-selected="{{ $activeTab === 'completed' ? 'true' : 'false' }}">
-      Đã làm <span class="badge badge-success">{{ $completed->count() }}</span>
-    </a>
-    <a class="quiz-tab {{ $activeTab === 'missed' ? 'active' : '' }}" href="{{ $tabUrl('missed') }}" role="tab" aria-selected="{{ $activeTab === 'missed' ? 'true' : 'false' }}">
-      Quá hạn <span class="badge badge-danger">{{ $missed->count() }}</span>
-    </a>
-  </div>
-
-  <div class="quiz-panel {{ $activeTab === 'available' ? 'active' : '' }}" id="quiz-panel-available">
-    @if($available->isEmpty())
-      <div class="empty-state card">
-        <div class="empty-state-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+  <div class="quiz-page">
+    <section class="quiz-hero">
+      <div class="quiz-hero-inner">
+        <div>
+          <div class="quiz-eyebrow">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11h6"/><path d="M9 15h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+            Trung tâm bài kiểm tra
+          </div>
+          <h1>Bài kiểm tra của tôi</h1>
+          <p>Theo dõi bài cần làm, bài đang chờ mở, kết quả đã hoàn thành và các hạn kiểm tra trong khóa học của bạn.</p>
         </div>
-        <h3>Không có bài cần làm</h3>
-        <p>Các bài kiểm tra đang mở hoặc bài đang làm dở sẽ xuất hiện tại đây.</p>
+        <a href="{{ route('student.courses') }}" class="btn btn-outline gap-2 quiz-hero-action">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m5 10 7 4 7-4"/><path d="m5 15 7 4 7-4"/></svg>
+          Xem khóa học
+        </a>
       </div>
+    </section>
+
+    <section class="quiz-summary-grid">
+      <div class="quiz-stat" style="--stat-color:var(--foreground);">
+        <div class="quiz-stat-label">Tổng bài giao</div>
+        <div class="quiz-stat-value">{{ number_format($summary['total']) }}</div>
+        <div class="quiz-stat-sub">Trong các lớp/khóa đang học</div>
+      </div>
+      <div class="quiz-stat" style="--stat-color:var(--primary);">
+        <div class="quiz-stat-label">Cần làm</div>
+        <div class="quiz-stat-value">{{ number_format($summary['available']) }}</div>
+        <div class="quiz-stat-sub">Đang mở hoặc đang làm dở</div>
+      </div>
+      <div class="quiz-stat" style="--stat-color:var(--info);">
+        <div class="quiz-stat-label">Chưa mở</div>
+        <div class="quiz-stat-value">{{ number_format($summary['scheduled']) }}</div>
+        <div class="quiz-stat-sub">Đã giao, chờ đến giờ</div>
+      </div>
+      <div class="quiz-stat" style="--stat-color:var(--success);">
+        <div class="quiz-stat-label">Đã hoàn thành</div>
+        <div class="quiz-stat-value">{{ number_format($summary['completed']) }}</div>
+        <div class="quiz-stat-sub">Điểm TB: {{ $avgScore !== null ? $avgScore . '%' : 'chưa có' }}</div>
+      </div>
+      <div class="quiz-stat" style="--stat-color:{{ $summary['missed'] > 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }};">
+        <div class="quiz-stat-label">Quá hạn</div>
+        <div class="quiz-stat-value">{{ number_format($summary['missed']) }}</div>
+        <div class="quiz-stat-sub">Cần theo dõi hạn làm bài</div>
+      </div>
+    </section>
+
+    <section class="quiz-filter-card">
+      <form class="quiz-filter-form" method="GET" action="{{ route('student.quizzes') }}">
+        <input type="hidden" name="status" value="{{ $activeTab }}">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="input" name="q" value="{{ $filters['q'] }}" placeholder="Tìm bài kiểm tra, giáo viên, khóa học..." />
+        </div>
+        <select class="input select" name="course_id">
+          <option value="">Tất cả khóa học</option>
+          @foreach($courses as $course)
+            <option value="{{ $course->id }}" @selected((string) $filters['course_id'] === (string) $course->id)>{{ $course->name }}</option>
+          @endforeach
+        </select>
+        <select class="input select" name="type">
+          <option value="all" @selected($filters['type'] === 'all')>Tất cả loại bài</option>
+          <option value="exam" @selected($filters['type'] === 'exam')>Kiểm tra</option>
+          <option value="practice" @selected($filters['type'] === 'practice')>Luyện tập</option>
+        </select>
+        <button class="btn btn-primary" type="submit">Lọc</button>
+        @if($hasActiveFilters)
+          <a class="btn btn-ghost" href="{{ route('student.quizzes', ['status' => $activeTab]) }}">Xóa lọc</a>
+        @else
+          <span class="text-sm text-muted" style="white-space:nowrap;">{{ $summary['total'] }} bài</span>
+        @endif
+      </form>
+    </section>
+
+    <nav class="quiz-tabs" role="tablist" aria-label="Trạng thái bài kiểm tra">
+      @foreach($tabs as $key => $tab)
+        <a class="quiz-tab {{ $activeTab === $key ? 'active' : '' }}" href="{{ $tabUrl($key) }}" role="tab" aria-selected="{{ $activeTab === $key ? 'true' : 'false' }}">
+          {{ $tab['label'] }}
+          <span class="badge badge-{{ $tab['tone'] }}">{{ $tab['count'] }}</span>
+        </a>
+      @endforeach
+    </nav>
+
+    <section class="quiz-section-head">
+      <div>
+        <h2>{{ $activeTitle }}</h2>
+        <p>{{ $activeItems->count() }} bài phù hợp với bộ lọc hiện tại.</p>
+      </div>
+    </section>
+
+    @if($activeItems->isEmpty())
+      <section class="quiz-empty">
+        <div class="quiz-empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <h3>Không có bài trong mục này</h3>
+        <p>Thử đổi bộ lọc, chọn khóa học khác hoặc quay lại sau khi giáo viên giao thêm bài.</p>
+      </section>
+    @elseif($activeTab === 'completed')
+      <section class="quiz-completed-list">
+        @foreach($activeItems as $quiz)
+          @php
+            $pct = $quiz->score_pct ?? 0;
+            $passed = $pct >= ($quiz->passing_score ?? 50);
+            $scoreColor = $pct >= 85 ? 'var(--success)' : ($pct >= 60 ? 'var(--info)' : 'var(--destructive)');
+          @endphp
+          <article class="quiz-result-card" style="--score-color:{{ $scoreColor }};--score-pct:{{ max(0, min(100, $pct)) }};">
+            <div style="min-width:0;">
+              <h3 class="quiz-title">{{ $quiz->title }}</h3>
+              <div class="quiz-meta">
+                <span>{{ $quiz->context_name }}</span>
+                <span>{{ ($quiz->quiz_type ?? 'exam') === 'practice' ? 'Luyện tập' : 'Kiểm tra' }}</span>
+                <span>{{ $quiz->submitted_at_display?->format('d/m/Y H:i') ?? 'Chưa có thời gian nộp' }}</span>
+              </div>
+              <div class="quiz-meta">
+                <span>{{ $quiz->questions_count }} câu</span>
+                <span>{{ $quiz->duration_label }}</span>
+                @if(!empty($quiz->is_unlimited_attempts))
+                  <span>Không giới hạn lượt làm</span>
+                @else
+                  <span>{{ $quiz->submitted_attempts ?? 0 }}/{{ $quiz->max_attempts_display ?? 1 }} lượt đã dùng</span>
+                @endif
+              </div>
+            </div>
+            <div class="quiz-score-ring">
+              <span>{{ $quiz->score_pct !== null ? $quiz->score_pct . '%' : '--' }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;justify-content:flex-end;flex-wrap:wrap;">
+              <span class="badge {{ $passed ? 'badge-success' : 'badge-danger' }}">{{ $passed ? 'Đạt' : 'Chưa đạt' }}</span>
+              <a href="{{ route('student.quiz-result', $quiz) }}" class="btn btn-outline btn-sm">Xem kết quả</a>
+            </div>
+          </article>
+        @endforeach
+      </section>
     @else
-      <div class="cards-grid stagger-children">
-        @foreach($available as $quiz)
+      <section class="quiz-list-grid">
+        @foreach($activeItems as $quiz)
           @php
             $isPractice = ($quiz->quiz_type ?? 'exam') === 'practice';
             $isScheduled = $quiz->learning_status === 'scheduled';
             $isInProgress = $quiz->learning_status === 'in_progress';
-            $toneColor = $isPractice ? 'var(--info)' : 'var(--warning)';
-            $dueTone = $quiz->due_state['tone'] ?? 'muted';
-            $dueColor = match($dueTone) {
-                'danger' => 'var(--destructive)',
-                'warning' => 'var(--warning)',
-                'info' => 'var(--info)',
-                default => 'var(--muted-foreground)',
-            };
+            $isMissed = $quiz->learning_status === 'missed';
+            $toneColor = $isMissed ? 'var(--destructive)' : ($isScheduled ? 'var(--info)' : ($isPractice ? 'var(--info)' : 'var(--warning)'));
+            $badgeClass = $isPractice ? 'badge-info' : 'badge-warning';
           @endphp
-          <article class="card hover-lift quiz-card">
-            <div class="card-content" style="flex:1;">
+          <article class="quiz-card" style="--quiz-tone:{{ $toneColor }};">
+            <div class="quiz-card-body">
               <div class="quiz-card-top">
-                <div style="display:flex;align-items:flex-start;gap:.875rem;min-width:0;">
-                  <div class="quiz-icon" style="background:color-mix(in srgb,{{ $toneColor }} 13%,transparent);color:{{ $toneColor }};">
-                    @if($isPractice)
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                    @else
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11h6"/><path d="M9 15h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
-                    @endif
-                  </div>
-                  <div style="min-width:0;">
-                    <h2 class="quiz-title">{{ $quiz->title }}</h2>
-                    <div class="quiz-meta">
-                      <span>{{ $quiz->context_name }}</span>
-                      <span>{{ $quiz->teacher?->name ?? 'Chưa có giáo viên' }}</span>
-                    </div>
+                <div class="quiz-icon">
+                  @if($isMissed)
+                    <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg>
+                  @elseif($isScheduled)
+                    <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                  @elseif($isPractice)
+                    <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  @else
+                    <svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11h6"/><path d="M9 15h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+                  @endif
+                </div>
+                <div style="min-width:0;">
+                  <h3 class="quiz-title">{{ $quiz->title }}</h3>
+                  <div class="quiz-meta">
+                    <span class="quiz-meta-item">{{ $quiz->context_name }}</span>
+                    <span class="quiz-meta-item">{{ $quiz->teacher?->name ?? 'Chưa có giáo viên' }}</span>
                   </div>
                 </div>
-                <span class="badge {{ $isPractice ? 'badge-info' : 'badge-warning' }}">{{ $isPractice ? 'Luyện tập' : 'Kiểm tra' }}</span>
+                <span class="badge {{ $badgeClass }}">{{ $isPractice ? 'Luyện tập' : 'Kiểm tra' }}</span>
               </div>
 
-              <div class="quiz-meta" style="color:{{ $dueColor }};">
+              <div class="quiz-due">
                 <span>{{ $quiz->due_state['label'] }}</span>
                 @if($isInProgress)
                   <span class="badge badge-primary">Đang làm dở</span>
                 @elseif($isScheduled)
-                  <span class="badge badge-outline">Chưa mở</span>
+                  <span class="badge badge-info">Chờ mở</span>
+                @elseif($isMissed)
+                  <span class="badge badge-danger">Quá hạn</span>
                 @endif
               </div>
 
               @if($quiz->description)
-                <p class="quiz-description">{{ $quiz->description }}</p>
+                <p class="quiz-desc">{{ $quiz->description }}</p>
+              @else
+                <p class="quiz-desc">Giáo viên chưa thêm mô tả cho bài này. Hãy kiểm tra số câu, thời lượng và lượt làm trước khi bắt đầu.</p>
               @endif
 
               <div class="quiz-facts">
@@ -216,10 +366,22 @@
                   <strong>{{ $quiz->passing_score ?? 50 }}%</strong>
                   <span>Điểm đạt</span>
                 </div>
+                <div class="quiz-fact">
+                  <strong>
+                    @if(!empty($quiz->is_unlimited_attempts))
+                      Vô hạn
+                    @else
+                      {{ $quiz->remaining_attempts ?? 0 }}/{{ $quiz->max_attempts_display ?? 1 }}
+                    @endif
+                  </strong>
+                  <span>Lượt còn</span>
+                </div>
               </div>
             </div>
-            <div class="card-footer">
-              @if($isScheduled)
+            <div class="quiz-card-footer">
+              @if($isMissed)
+                <button class="btn btn-outline btn-sm w-full" type="button" disabled>Đã quá hạn làm bài</button>
+              @elseif($isScheduled)
                 <button class="btn btn-outline btn-sm w-full" type="button" disabled>Chưa đến giờ mở bài</button>
               @else
                 <a href="{{ route('student.quiz-take', $quiz) }}" class="btn btn-primary btn-sm w-full">{{ $isInProgress ? 'Tiếp tục làm bài' : 'Bắt đầu làm bài' }}</a>
@@ -227,168 +389,7 @@
             </div>
           </article>
         @endforeach
-      </div>
+      </section>
     @endif
   </div>
-
-  <div class="quiz-panel {{ $activeTab === 'scheduled' ? 'active' : '' }}" id="quiz-panel-scheduled">
-    @if($scheduled->isEmpty())
-      <div class="empty-state card">
-        <div class="empty-state-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        </div>
-        <h3>Không có bài chưa mở</h3>
-        <p>Các bài kiểm tra đã được giao nhưng chưa đến giờ làm sẽ hiển thị tại đây.</p>
-      </div>
-    @else
-      <div class="cards-grid stagger-children">
-        @foreach($scheduled as $quiz)
-          @php
-            $isPractice = ($quiz->quiz_type ?? 'exam') === 'practice';
-            $toneColor = $isPractice ? 'var(--info)' : 'var(--warning)';
-          @endphp
-          <article class="card hover-lift quiz-card">
-            <div class="card-content" style="flex:1;">
-              <div class="quiz-card-top">
-                <div style="display:flex;align-items:flex-start;gap:.875rem;min-width:0;">
-                  <div class="quiz-icon" style="background:color-mix(in srgb,{{ $toneColor }} 13%,transparent);color:{{ $toneColor }};">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                  </div>
-                  <div style="min-width:0;">
-                    <h2 class="quiz-title">{{ $quiz->title }}</h2>
-                    <div class="quiz-meta">
-                      <span>{{ $quiz->context_name }}</span>
-                      <span>{{ $quiz->teacher?->name ?? 'Chưa có giáo viên' }}</span>
-                    </div>
-                  </div>
-                </div>
-                <span class="badge {{ $isPractice ? 'badge-info' : 'badge-warning' }}">{{ $isPractice ? 'Luyện tập' : 'Kiểm tra' }}</span>
-              </div>
-
-              <div class="quiz-meta" style="color:var(--info);">
-                <span>{{ $quiz->due_state['label'] }}</span>
-                <span class="badge badge-outline">Chưa mở</span>
-              </div>
-
-              @if($quiz->description)
-                <p class="quiz-description">{{ $quiz->description }}</p>
-              @endif
-
-              <div class="quiz-facts">
-                <div class="quiz-fact">
-                  <strong>{{ $quiz->questions_count }}</strong>
-                  <span>Câu hỏi</span>
-                </div>
-                <div class="quiz-fact">
-                  <strong>{{ $quiz->duration_label }}</strong>
-                  <span>Thời lượng</span>
-                </div>
-                <div class="quiz-fact">
-                  <strong>{{ $quiz->passing_score ?? 50 }}%</strong>
-                  <span>Điểm đạt</span>
-                </div>
-              </div>
-            </div>
-            <div class="card-footer">
-              <button class="btn btn-outline btn-sm w-full" type="button" disabled>Chưa đến giờ mở bài</button>
-            </div>
-          </article>
-        @endforeach
-      </div>
-    @endif
-  </div>
-
-  <div class="quiz-panel {{ $activeTab === 'completed' ? 'active' : '' }}" id="quiz-panel-completed">
-    @if($completed->isEmpty())
-      <div class="empty-state card">
-        <div class="empty-state-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
-        </div>
-        <h3>Chưa có bài hoàn thành</h3>
-        <p>Sau khi nộp bài, kết quả và lịch sử làm bài sẽ hiển thị ở đây.</p>
-      </div>
-    @else
-      <div class="card">
-        <div class="table-wrapper" style="border:none;border-radius:0;">
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Bài kiểm tra</th>
-                  <th>Khóa học/Lớp</th>
-                  <th>Ngày nộp</th>
-                  <th>Điểm</th>
-                  <th>Trạng thái</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach($completed as $quiz)
-                  @php
-                    $pct = $quiz->score_pct ?? 0;
-                    $passed = $pct >= ($quiz->passing_score ?? 50);
-                    $scoreColor = $pct >= 85 ? 'var(--success)' : ($pct >= 60 ? 'var(--info)' : 'var(--destructive)');
-                  @endphp
-                  <tr>
-                    <td>
-                      <div style="font-weight:700;">{{ $quiz->title }}</div>
-                      <div class="text-xs text-muted">{{ ($quiz->quiz_type ?? 'exam') === 'practice' ? 'Luyện tập' : 'Kiểm tra' }} · {{ $quiz->questions_count }} câu · {{ $quiz->duration_label }}</div>
-                    </td>
-                    <td class="text-sm text-muted">{{ $quiz->context_name }}</td>
-                    <td class="text-sm text-muted">{{ $quiz->submitted_at_display?->format('d/m/Y H:i') ?? '--' }}</td>
-                    <td>
-                      <span class="score-pill" style="color:{{ $scoreColor }};">
-                        {{ $quiz->score_pct !== null ? $quiz->score_pct . '%' : '--' }}
-                      </span>
-                      @if($quiz->score_value !== null && $quiz->score_max > 0)
-                        <div class="text-xs text-muted">{{ $quiz->score_value }}/{{ $quiz->score_max }} điểm</div>
-                      @endif
-                    </td>
-                    <td>
-                      <span class="badge {{ $passed ? 'badge-success' : 'badge-danger' }}">{{ $passed ? 'Đạt' : 'Chưa đạt' }}</span>
-                    </td>
-                    <td>
-                      <a href="{{ route('student.quiz-result', $quiz) }}" class="btn btn-outline btn-sm">Xem kết quả</a>
-                    </td>
-                  </tr>
-                @endforeach
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    @endif
-  </div>
-
-  <div class="quiz-panel {{ $activeTab === 'missed' ? 'active' : '' }}" id="quiz-panel-missed">
-    @if($missed->isEmpty())
-      <div class="empty-state card">
-        <div class="empty-state-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
-        </div>
-        <h3>Không có bài quá hạn</h3>
-        <p>Bạn chưa bỏ lỡ bài kiểm tra nào trong bộ lọc hiện tại.</p>
-      </div>
-    @else
-      <div class="stagger-children" style="display:flex;flex-direction:column;gap:.875rem;">
-        @foreach($missed as $quiz)
-          <article class="card" style="border-color:color-mix(in srgb,var(--destructive) 45%,var(--border));">
-            <div class="card-content" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-              <div class="quiz-icon" style="background:color-mix(in srgb,var(--destructive) 12%,transparent);color:var(--destructive);">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg>
-              </div>
-              <div style="flex:1;min-width:16rem;">
-                <div style="font-weight:800;">{{ $quiz->title }}</div>
-                <div class="text-sm text-muted">{{ $quiz->context_name }} · {{ $quiz->questions_count }} câu · {{ $quiz->duration_label }}</div>
-                <div class="text-sm" style="color:var(--destructive);margin-top:.25rem;">{{ $quiz->due_state['label'] }}</div>
-              </div>
-              <span class="badge badge-danger">Không thể làm bài</span>
-            </div>
-          </article>
-        @endforeach
-      </div>
-    @endif
-  </div>
-
-  <div id="toast-container"></div>
 @endsection

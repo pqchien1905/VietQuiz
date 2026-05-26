@@ -8,13 +8,58 @@
     align-items: center;
     gap: 0.5rem;
     font-size: var(--text-sm);
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
     flex-wrap: wrap;
 }
 .breadcrumb-detail a { color: var(--primary); text-decoration: none; font-weight: 500; }
 .breadcrumb-detail a:hover { text-decoration: underline; }
 .breadcrumb-sep { color: var(--muted-foreground); }
 .breadcrumb-current { color: var(--muted-foreground); }
+.quiz-detail-page {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+.quiz-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.quiz-hero-title {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+.quiz-hero-meta {
+    display: flex;
+    gap: .5rem;
+    margin-top: .5rem;
+    flex-wrap: wrap;
+}
+.quiz-hero-actions {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.section-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+    padding: 0.72rem 0.9rem;
+}
+.section-title {
+    font-size: var(--text-base);
+    font-weight: 700;
+    margin: 0 0 0.4rem 0;
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
 .grade-a { background: var(--success); color: #fff; }
 .grade-b { background: var(--info); color: #fff; }
 .grade-c { background: var(--warning); color: #000; }
@@ -30,7 +75,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: 0.375rem 0.5rem 0.375rem 0.75rem;
-    max-width: 360px;
+    width: min(100%, 560px);
     flex-wrap: wrap;
 }
 .share-link-box input {
@@ -62,23 +107,35 @@
 .copy-btn.copied {
     background: var(--success);
 }
+.quiz-detail-page .card-header {
+    padding: 0.8rem 1rem;
+}
+.quiz-detail-page .card-content {
+    padding: 0.8rem 1rem;
+}
+.quiz-detail-page .card-title {
+    font-size: var(--text-xl);
+}
+.quiz-detail-page .card-description {
+    margin-top: 0.15rem;
+}
 
 /* Question management */
-.questions-section { margin-top: 1.5rem; }
+.questions-section { margin-top: 0.4rem; }
 .questions-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.65rem;
 }
 .questions-header h3 { font-size: var(--text-lg); font-weight: 700; margin: 0; }
 .question-item {
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--card);
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.55rem;
     overflow: hidden;
     transition: box-shadow var(--transition-fast);
 }
@@ -87,7 +144,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.875rem 1rem;
+    padding: 0.62rem 0.82rem;
     background: var(--muted);
     border-bottom: 1px solid var(--border);
 }
@@ -109,10 +166,10 @@
     color: var(--primary);
 }
 .question-item-actions { display: flex; gap: 0.375rem; align-items: center; }
-.question-item-body { padding: 0.875rem 1rem; }
-.question-item-content { font-weight: 500; margin-bottom: 0.5rem; }
+.question-item-body { padding: 0.62rem 0.82rem; }
+.question-item-content { font-weight: 600; margin-bottom: 0.35rem; font-size: var(--text-sm); }
 .question-item-answer {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     padding: 0.375rem 0.625rem;
     background: color-mix(in srgb, var(--success) 10%, transparent);
     color: var(--success);
@@ -127,8 +184,8 @@
     color: var(--destructive);
 }
 .option-list-item {
-    padding: 0.375rem 0;
-    font-size: var(--text-sm);
+    padding: 0.22rem 0;
+    font-size: var(--text-xs);
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -211,36 +268,79 @@
 .quiz-detail-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.quiz-detail-wide {
+    grid-column: 1 / -1;
 }
 .quiz-main-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 .detail-list {
     display: grid;
-    gap: 0.875rem;
+    gap: 0.55rem;
+}
+.detail-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.detail-quick-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--muted) 55%, transparent);
+    padding: 0.75rem 0.875rem;
+}
+.detail-quick-label {
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    margin-bottom: 0.35rem;
+}
+.detail-quick-value {
+    font-size: var(--text-sm);
+    font-weight: 700;
+}
+.detail-quick-sub {
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
+    margin-top: 0.2rem;
 }
 .detail-row {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    padding-bottom: 0.875rem;
+    padding-bottom: 0.55rem;
     border-bottom: 1px solid var(--border);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
+}
+.detail-row--stack {
+    flex-direction: column;
+    gap: 0.35rem;
 }
 .detail-row:last-child { border-bottom: none; padding-bottom: 0; }
 .detail-label { color: var(--muted-foreground); }
-.detail-value { font-weight: 600; text-align: right; }
+.detail-value {
+    font-weight: 600;
+    text-align: right;
+    max-width: 68%;
+    word-break: break-word;
+}
+.violation-list {
+    max-height: 18.5rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
 .attempt-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 0.75rem;
     align-items: center;
-    padding: 0.75rem 0;
+    padding: 0.55rem 0;
     border-bottom: 1px solid var(--border);
     font-size: var(--text-sm);
 }
@@ -248,6 +348,22 @@
 .attempt-student { min-width: 0; }
 .attempt-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attempt-meta { color: var(--muted-foreground); font-size: var(--text-xs); margin-top: 0.125rem; }
+.attempt-score {
+    font-weight: 700;
+    min-width: 2.8rem;
+    text-align: right;
+}
+.attempt-duration {
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+    min-width: 3rem;
+    text-align: right;
+}
+.attempts-list {
+    max-height: 25rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
 .empty-icon {
     width: 2.5rem;
     height: 2.5rem;
@@ -262,11 +378,22 @@
 @media (max-width: 1024px) {
     .quiz-detail-grid,
     .quiz-main-grid { grid-template-columns: 1fr; }
+    .stats-grid.stats-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
+    .quiz-hero-title { font-size: var(--text-xl); }
+    .detail-quick-grid { grid-template-columns: 1fr; }
     .attempt-row { grid-template-columns: 1fr; gap: 0.35rem; }
     .detail-row { flex-direction: column; gap: 0.25rem; }
     .detail-value { text-align: left; }
+    .quiz-hero-actions { width: 100%; }
+    .quiz-hero-actions .btn,
+    .quiz-hero-actions form { flex: 1; }
+    .quiz-hero-actions .btn { justify-content: center; width: 100%; }
+    .stats-grid.stats-grid-4 { grid-template-columns: 1fr; }
+    .share-link-box { width: 100%; }
+    .share-link-box input { min-width: 100%; }
+    .copy-btn { width: 100%; justify-content: center; }
 }
 </style>
 @endpush
@@ -281,6 +408,10 @@
   $attempts = $quiz->attempts ?? collect();
   $submittedAttempts = $attempts->filter(fn($attempt) => $attempt->pivot->submitted_at !== null)->values();
   $submittedCount = $submittedAttempts->count();
+  $totalAttemptCount = $submittedAttempts->sum(fn($attempt) => max(
+    (int) ($attempt->pivot->attempt_count ?? 0),
+    $attempt->pivot->submitted_at ? 1 : 0
+  ));
   $inProgressCount = max(0, $attempts->count() - $submittedCount);
   $unsubmittedCount = max(0, $totalStudents - $submittedCount - $inProgressCount);
   $questions = $quiz->questions ?? collect();
@@ -352,11 +483,12 @@
   <span class="breadcrumb-current">{{ $quiz->title ?? 'Chi tiết' }}</span>
 </nav>
 
+<div class="quiz-detail-page">
 <!-- Header -->
-<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;" class="stagger-children">
+<div class="quiz-hero stagger-children">
   <div>
-    <h1 style="font-size:var(--text-2xl);font-weight:800;">{{ $quiz->title }}</h1>
-    <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;">
+    <h1 class="quiz-hero-title">{{ $quiz->title }}</h1>
+    <div class="quiz-hero-meta">
       @if($quiz->status === 'published')
         <span class="badge badge-success">Hoạt động</span>
       @elseif($quiz->status === 'draft')
@@ -380,7 +512,7 @@
       @endif
     </div>
   </div>
-  <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+  <div class="quiz-hero-actions">
     <a href="{{ route('teacher.quizzes') }}" class="btn btn-outline btn-sm gap-1">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
       Quay lại
@@ -403,13 +535,11 @@
 </div>
 
 <!-- Share link -->
-<div style="margin-bottom:1.5rem;" class="stagger-children">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.5rem;">
-    <h3 style="font-size:var(--text-base);font-weight:600;color:var(--muted-foreground);display:flex;align-items:center;gap:0.375rem;">
+<div class="section-card stagger-children">
+  <h3 class="section-title">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       Chia sẻ liên kết
-    </h3>
-  </div>
+  </h3>
   <div class="share-link-box">
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted-foreground);flex-shrink:0;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
     <input type="text" id="share-link-input" value="{{ route('student.quiz-take', $quiz) }}" readonly />
@@ -424,10 +554,10 @@
 </div>
 
 <!-- Stats -->
-<div class="stats-grid stats-grid-4 stagger-children" style="margin-bottom:1.5rem;">
+<div class="stats-grid stats-grid-4 stagger-children">
   <div class="stat-card">
     <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Tổng lượt làm</div>
-    <div class="stat-card__value">{{ $submittedCount }}</div>
+    <div class="stat-card__value">{{ $totalAttemptCount }}</div>
     @if($totalStudents > 0)
     <div class="stat-card__label">/ {{ $totalStudents }} học sinh</div>
     @endif
@@ -451,14 +581,26 @@
 
 <!-- Quiz Info -->
 <div class="quiz-detail-grid stagger-children">
-  <div class="card">
+  <div class="card quiz-detail-wide">
     <div class="card-header">
       <h3 class="card-title">Thông tin bài kiểm tra</h3>
       <p class="card-description">Cấu hình đang áp dụng cho học sinh</p>
     </div>
     <div class="card-content">
+      <div class="detail-quick-grid">
+        <div class="detail-quick-item">
+          <div class="detail-quick-label">Số lần làm tối đa</div>
+          <div class="detail-quick-value">{{ $quiz->max_attempts ? $quiz->max_attempts . ' lần' : 'Không giới hạn' }}</div>
+          <div class="detail-quick-sub">Đã nộp: {{ $totalAttemptCount }} lượt</div>
+        </div>
+        <div class="detail-quick-item">
+          <div class="detail-quick-label">Hạn nộp</div>
+          <div class="detail-quick-value">{{ $formatDateTime($quiz->end_at) }}</div>
+          <div class="detail-quick-sub">Mở bài: {{ $formatDateTime($quiz->start_at) }}</div>
+        </div>
+      </div>
       <div class="detail-list">
-        <div class="detail-row">
+        <div class="detail-row detail-row--stack">
           <span class="detail-label">Mô tả</span>
           <span class="detail-value">{{ $quiz->description ?: 'Chưa có mô tả' }}</span>
         </div>
@@ -479,10 +621,6 @@
           <span class="detail-value">{{ $quiz->passing_score ?? 50 }}%</span>
         </div>
         <div class="detail-row">
-          <span class="detail-label">Số lần làm</span>
-          <span class="detail-value">{{ $quiz->max_attempts ?? 1 }} lần</span>
-        </div>
-        <div class="detail-row">
           <span class="detail-label">Trộn câu hỏi</span>
           <span class="detail-value">{{ $quiz->is_shuffle || $quiz->shuffle_questions ? 'Bật' : 'Tắt' }}</span>
         </div>
@@ -493,10 +631,6 @@
         <div class="detail-row">
           <span class="detail-label">Mở bài</span>
           <span class="detail-value">{{ $formatDateTime($quiz->start_at) }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Hạn nộp</span>
-          <span class="detail-value">{{ $formatDateTime($quiz->end_at) }}</span>
         </div>
       </div>
     </div>
@@ -509,22 +643,24 @@
     </div>
     <div class="card-content">
       @if($violationSummary->count() > 0)
-        @foreach($violationSummary->take(8) as $item)
-          <div class="attempt-row">
-            <div class="attempt-student">
-              <div class="attempt-name">{{ $item['student']?->name ?? 'Học sinh không xác định' }}</div>
-              <div class="attempt-meta">
-                {{ $item['student']?->email ?? 'Không có email' }} · Gần nhất {{ $formatDateTime($item['latest_at']) }}
+        <div class="violation-list">
+          @foreach($violationSummary->take(8) as $item)
+            <div class="attempt-row">
+              <div class="attempt-student">
+                <div class="attempt-name">{{ $item['student']?->name ?? 'Học sinh không xác định' }}</div>
+                <div class="attempt-meta">
+                  {{ $item['student']?->email ?? 'Không có email' }} · Gần nhất {{ $formatDateTime($item['latest_at']) }}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">
+                  @foreach($item['events']->take(4) as $event => $count)
+                    <span class="badge badge-warning">{{ $violationLabels[$event] ?? $event }}: {{ $count }}</span>
+                  @endforeach
+                </div>
               </div>
-              <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">
-                @foreach($item['events']->take(4) as $event => $count)
-                  <span class="badge badge-warning">{{ $violationLabels[$event] ?? $event }}: {{ $count }}</span>
-                @endforeach
-              </div>
+              <span class="badge badge-danger">{{ $item['total'] }} vi phạm</span>
             </div>
-            <span class="badge badge-danger">{{ $item['total'] }} vi phạm</span>
-          </div>
-        @endforeach
+          @endforeach
+        </div>
       @else
         <div style="text-align:center;padding:2rem;color:var(--muted-foreground);">
           <span class="empty-icon">
@@ -543,20 +679,22 @@
     </div>
     <div class="card-content">
       @if($submittedAttempts->count() > 0)
-        @foreach($submittedAttempts->take(8) as $attempt)
-          @php
-            $pct = $attempt->pivot->total_points > 0 ? round(($attempt->pivot->score / $attempt->pivot->total_points) * 100) : 0;
-          @endphp
-          <div class="attempt-row">
-            <div class="attempt-student">
-              <div class="attempt-name">{{ $attempt->name }}</div>
-              <div class="attempt-meta">{{ $attempt->email }} · Nộp lúc {{ $formatDateTime($attempt->pivot->submitted_at) }}</div>
+        <div class="attempts-list">
+          @foreach($submittedAttempts->take(8) as $attempt)
+            @php
+              $pct = $attempt->pivot->total_points > 0 ? round(($attempt->pivot->score / $attempt->pivot->total_points) * 100) : 0;
+            @endphp
+            <div class="attempt-row">
+              <div class="attempt-student">
+                <div class="attempt-name">{{ $attempt->name }}</div>
+                <div class="attempt-meta">{{ $attempt->email }} · Nộp lúc {{ $formatDateTime($attempt->pivot->submitted_at) }}</div>
+              </div>
+              <span class="badge {{ $pct >= ($quiz->passing_score ?? 50) ? 'badge-success' : 'badge-danger' }}">{{ $pct >= ($quiz->passing_score ?? 50) ? 'Đạt' : 'Chưa đạt' }}</span>
+              <span class="attempt-score" style="color:{{ gradeColor($pct) }};">{{ $pct }}%</span>
+              <span class="attempt-duration">{{ timeSpent($attempt->pivot->started_at, $attempt->pivot->submitted_at) }}</span>
             </div>
-            <span class="badge {{ $pct >= ($quiz->passing_score ?? 50) ? 'badge-success' : 'badge-danger' }}">{{ $pct >= ($quiz->passing_score ?? 50) ? 'Đạt' : 'Chưa đạt' }}</span>
-            <span style="font-weight:700;color:{{ gradeColor($pct) }};">{{ $pct }}%</span>
-            <span style="color:var(--muted-foreground);font-size:var(--text-xs);">{{ timeSpent($attempt->pivot->started_at, $attempt->pivot->submitted_at) }}</span>
-          </div>
-        @endforeach
+          @endforeach
+        </div>
       @else
         <div style="text-align:center;padding:2rem;color:var(--muted-foreground);">
           <span class="empty-icon">
@@ -671,6 +809,8 @@
       @endif
     </div>
   </div>
+</div>
+<!-- /quiz-detail-page -->
 </div>
 
 <!-- Question Management -->

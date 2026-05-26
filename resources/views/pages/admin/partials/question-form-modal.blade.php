@@ -3,7 +3,7 @@
   $formKey = $isEdit ? 'edit-question-'.$question->id : 'create-question';
   $action = $isEdit ? route('admin.questions.update', $question->id) : route('admin.questions.store');
   $selectedType = old('_form') === $formKey ? old('type', 'multiple_choice') : ($question->type ?? 'multiple_choice');
-  $options = old('_form') === $formKey ? old('options', []) : ($question->options ?? []);
+  $options = old('_form') === $formKey ? old('options', []) : ($question?->getOptionsArray() ?? []);
   $options = array_pad(array_values($options), 4, '');
 @endphp
 

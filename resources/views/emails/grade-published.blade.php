@@ -55,7 +55,7 @@
           <tr>
             <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:1.5rem;text-align:center;">
               <p style="margin:0;font-size:0.75rem;color:#9ca3af;">
-                Email nay duoc gui tu dong tu VietQuiz. Vui long khong reply email nay.
+                Email này được gửi tự động từ VietQuiz. Vui lòng không reply email này.
               </p>
               <p style="margin:0.5rem 0 0;font-size:0.75rem;color:#9ca3af;">
                 Copyright {{ date('Y') }} VietQuiz

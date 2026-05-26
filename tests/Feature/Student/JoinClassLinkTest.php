@@ -11,7 +11,7 @@ class JoinClassLinkTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_student_can_join_class_from_invite_link(): void
+    public function test_student_join_from_invite_link_requires_teacher_approval(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher']);
         $student = User::factory()->create(['role' => 'student']);
@@ -31,7 +31,41 @@ class JoinClassLinkTest extends TestCase
         $this->assertDatabaseHas('class_user', [
             'class_id' => $class->id,
             'user_id' => $student->id,
+            'enrollment_status' => 'pending',
         ]);
+
+        $this->assertFalse($student->fresh()->classes()->where('classes.id', $class->id)->exists());
+    }
+
+    public function test_teacher_can_approve_student_join_request(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $class = ClassModel::create([
+            'teacher_id' => $teacher->id,
+            'name' => 'Lop Toan 10A',
+            'code' => 'ABC123',
+            'status' => 'active',
+        ]);
+
+        $student->classEnrollments()->attach($class->id, [
+            'joined_at' => now(),
+            'enrollment_status' => 'pending',
+            'enrollment_source' => 'link',
+            'requested_at' => now(),
+        ]);
+
+        $this->actingAs($teacher)
+            ->post(route('teacher.classes.join-requests.approve', [$class, $student->id]))
+            ->assertRedirect(route('teacher.class-detail', $class));
+
+        $this->assertDatabaseHas('class_user', [
+            'class_id' => $class->id,
+            'user_id' => $student->id,
+            'enrollment_status' => 'approved',
+        ]);
+
+        $this->assertTrue($student->fresh()->classes()->where('classes.id', $class->id)->exists());
     }
 
     public function test_non_student_sees_join_link_explanation_instead_of_dashboard_redirect(): void

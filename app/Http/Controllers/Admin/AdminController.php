@@ -112,11 +112,11 @@ class AdminController extends AdminBaseController
 
         $systemChecks = [
             ['label' => 'Storage', 'ok' => is_writable(storage_path()), 'detail' => storage_path()],
-            ['label' => 'Mail', 'ok' => filled(config('mail.default')), 'detail' => config('mail.default') ?: 'ChÆ°a cáº¥u hÃ¬nh'],
-            ['label' => 'Queue', 'ok' => filled(config('queue.default')), 'detail' => config('queue.default') ?: 'ChÆ°a cáº¥u hÃ¬nh'],
-            ['label' => 'Cache', 'ok' => filled(config('cache.default')), 'detail' => config('cache.default') ?: 'ChÆ°a cáº¥u hÃ¬nh'],
-            ['label' => 'VNPay', 'ok' => filled(config('services.vnpay.tmn_code')) && filled(config('services.vnpay.hash_secret')), 'detail' => filled(config('services.vnpay.tmn_code')) ? 'ÄÃ£ cÃ³ mÃ£ merchant' : 'Thiáº¿u mÃ£ merchant'],
-            ['label' => 'AI', 'ok' => filled(config('services.openai.api_key')), 'detail' => filled(config('services.openai.api_key')) ? 'ÄÃ£ cáº¥u hÃ¬nh API key' : 'ChÆ°a cáº¥u hÃ¬nh API key'],
+            ['label' => 'Mail', 'ok' => filled(config('mail.default')), 'detail' => config('mail.default') ?: 'Chưa cấu hình'],
+            ['label' => 'Queue', 'ok' => filled(config('queue.default')), 'detail' => config('queue.default') ?: 'Chưa cấu hình'],
+            ['label' => 'Cache', 'ok' => filled(config('cache.default')), 'detail' => config('cache.default') ?: 'Chưa cấu hình'],
+            ['label' => 'VNPay', 'ok' => filled(config('services.vnpay.tmn_code')) && filled(config('services.vnpay.hash_secret')), 'detail' => filled(config('services.vnpay.tmn_code')) ? 'Đã có mã merchant' : 'Thiếu mã merchant'],
+            ['label' => 'AI', 'ok' => filled(config('services.openai.api_key')), 'detail' => filled(config('services.openai.api_key')) ? 'Đã cấu hình API key' : 'Chưa cấu hình API key'],
         ];
 
         return view('pages.admin.dashboard', compact(
@@ -176,7 +176,7 @@ class AdminController extends AdminBaseController
         if ($queryText !== '') {
             $groups = collect([
                 [
-                    'label' => 'NgÆ°á»i dÃ¹ng',
+                    'label' => 'Người dùng',
                     'route' => route('admin.users', ['q' => $queryText, 'state' => 'all']),
                     'items' => User::withTrashed()
                         ->where(fn ($query) => $query->where('name', 'like', $like)
@@ -187,13 +187,13 @@ class AdminController extends AdminBaseController
                         ->get()
                         ->map(fn ($user) => [
                             'title' => $user->name,
-                            'description' => trim(implode(' Â· ', array_filter([$user->email, $user->role, $user->phone]))),
+                            'description' => trim(implode(' · ', array_filter([$user->email, $user->role, $user->phone]))),
                             'href' => route('admin.users.show', $user->id),
-                            'badge' => $user->trashed() ? 'ÄÃ£ khÃ³a' : 'Hoáº¡t Ä‘á»™ng',
+                            'badge' => $user->trashed() ? 'Đã khóa' : 'Hoạt động',
                         ]),
                 ],
                 [
-                    'label' => 'Lá»›p há»c',
+                    'label' => 'Lớp học',
                     'route' => route('admin.classes', ['q' => $queryText, 'state' => 'all']),
                     'items' => ClassModel::withTrashed()
                         ->with('teacher')
@@ -206,13 +206,13 @@ class AdminController extends AdminBaseController
                         ->get()
                         ->map(fn ($class) => [
                             'title' => $class->name,
-                            'description' => trim(implode(' Â· ', array_filter([$class->code, $class->teacher?->name, $class->subject]))),
+                            'description' => trim(implode(' · ', array_filter([$class->code, $class->teacher?->name, $class->subject]))),
                             'href' => route('admin.classes.show', $class->id),
                             'badge' => $class->status,
                         ]),
                 ],
                 [
-                    'label' => 'KhÃ³a há»c',
+                    'label' => 'Khóa học',
                     'route' => route('admin.courses', ['q' => $queryText, 'state' => 'all']),
                     'items' => Course::withTrashed()
                         ->with(['teacher', 'classModel'])
@@ -223,13 +223,13 @@ class AdminController extends AdminBaseController
                         ->get()
                         ->map(fn ($course) => [
                             'title' => $course->name,
-                            'description' => trim(implode(' Â· ', array_filter([$course->teacher?->name, $course->classModel?->name]))),
+                            'description' => trim(implode(' · ', array_filter([$course->teacher?->name, $course->classModel?->name]))),
                             'href' => route('admin.courses.show', $course->id),
                             'badge' => $course->status,
                         ]),
                 ],
                 [
-                    'label' => 'BÃ i kiá»ƒm tra',
+                    'label' => 'Bài kiểm tra',
                     'route' => route('admin.quizzes', ['q' => $queryText, 'state' => 'all']),
                     'items' => Quiz::withTrashed()
                         ->with('teacher')
@@ -240,13 +240,13 @@ class AdminController extends AdminBaseController
                         ->get()
                         ->map(fn ($quiz) => [
                             'title' => $quiz->title,
-                            'description' => trim(implode(' Â· ', array_filter([$quiz->teacher?->name, $quiz->duration_minutes ? $quiz->duration_minutes.' phÃºt' : null]))),
+                            'description' => trim(implode(' · ', array_filter([$quiz->teacher?->name, $quiz->duration_minutes ? $quiz->duration_minutes.' phút' : null]))),
                             'href' => route('admin.quizzes.show', $quiz->id),
                             'badge' => $quiz->status,
                         ]),
                 ],
                 [
-                    'label' => 'BÃ i táº­p',
+                    'label' => 'Bài tập',
                     'route' => route('admin.assignments', ['q' => $queryText, 'state' => 'all']),
                     'items' => Assignment::withTrashed()
                         ->with(['teacher', 'class', 'course'])
@@ -257,13 +257,13 @@ class AdminController extends AdminBaseController
                         ->get()
                         ->map(fn ($assignment) => [
                             'title' => $assignment->title,
-                            'description' => trim(implode(' Â· ', array_filter([$assignment->teacher?->name, $assignment->class?->name, $assignment->course?->name]))),
+                            'description' => trim(implode(' · ', array_filter([$assignment->teacher?->name, $assignment->class?->name, $assignment->course?->name]))),
                             'href' => route('admin.assignments.show', $assignment->id),
                             'badge' => $assignment->type,
                         ]),
                 ],
                 [
-                    'label' => 'CÃ¢u há»i',
+                    'label' => 'Câu hỏi',
                     'route' => route('admin.questions', ['q' => $queryText, 'state' => 'all']),
                     'items' => Question::withTrashed()
                         ->with(['teacher', 'quiz'])
@@ -275,13 +275,13 @@ class AdminController extends AdminBaseController
                         ->get()
                         ->map(fn ($question) => [
                             'title' => Str::limit($question->content, 90),
-                            'description' => trim(implode(' Â· ', array_filter([$question->teacher?->name, $question->quiz?->title, $question->subject]))),
+                            'description' => trim(implode(' · ', array_filter([$question->teacher?->name, $question->quiz?->title, $question->subject]))),
                             'href' => route('admin.questions', ['q' => $queryText]),
                             'badge' => $question->type,
                         ]),
                 ],
                 [
-                    'label' => 'Há»— trá»£',
+                    'label' => 'Hỗ trợ',
                     'route' => route('admin.tickets', ['q' => $queryText]),
                     'items' => Ticket::with('user')
                         ->where(fn ($query) => $query->where('subject', 'like', $like)
@@ -292,13 +292,13 @@ class AdminController extends AdminBaseController
                         ->get()
                         ->map(fn ($ticket) => [
                             'title' => $ticket->subject,
-                            'description' => trim(implode(' Â· ', array_filter([$ticket->user?->email, $ticket->category, $ticket->priority]))),
+                            'description' => trim(implode(' · ', array_filter([$ticket->user?->email, $ticket->category, $ticket->priority]))),
                             'href' => route('admin.tickets', ['q' => $queryText]),
                             'badge' => $ticket->status,
                         ]),
                 ],
                 [
-                    'label' => 'Khuyáº¿n mÃ£i',
+                    'label' => 'Khuyến mãi',
                     'route' => route('admin.promotions', ['q' => $queryText, 'state' => 'all']),
                     'items' => Promotion::withTrashed()
                         ->where(fn ($query) => $query->where('code', 'like', $like)

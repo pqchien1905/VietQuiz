@@ -311,6 +311,10 @@
 }
 .mobile-menu-btn:hover { background-color: var(--muted); }
 
+body.mobile-sidebar-open {
+  overflow: hidden;
+}
+
 /* ========================
    RESPONSIVE BREAKPOINTS
    ======================== */
@@ -332,8 +336,11 @@
     left: 0;
     top: 0;
     bottom: 0;
+    width: min(18rem, 86vw);
+    max-width: calc(100vw - 3rem);
     transform: translateX(-100%);
     z-index: 30;
+    box-shadow: var(--shadow-lg);
   }
   .sidebar.mobile-open {
     transform: translateX(0);

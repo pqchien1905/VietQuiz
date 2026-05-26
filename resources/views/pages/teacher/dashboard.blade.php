@@ -184,7 +184,7 @@
               <h3 class="card-title">Việc cần xử lý</h3>
               <p class="card-description">Bài tập sắp đến hạn, bài thi đang mở và bài nộp mới nhất.</p>
             </div>
-            <a href="{{ route('teacher.grading') }}" class="btn btn-outline btn-sm">Vào chấm điểm</a>
+            <a href="{{ route('teacher.assignments') }}" class="btn btn-outline btn-sm">Vào bài tập</a>
           </div>
         </div>
         <div class="card-content">
@@ -203,7 +203,7 @@
                 </div>
               </div>
               <div class="row-actions">
-                <a href="{{ route('teacher.grading', ['q' => $submission->student?->email]) }}" class="btn btn-ghost btn-sm">Mở</a>
+                <a href="{{ route('teacher.assignments') }}" class="btn btn-ghost btn-sm">Mở</a>
               </div>
             </div>
           @empty
@@ -408,7 +408,7 @@
         </div>
       </div>
       <div class="form-grid">
-        <div class="field"><label for="assignment-due">Hạn nộp</label><input id="assignment-due" class="input" type="datetime-local" name="due_at"></div>
+        <div class="field"><label for="assignment-due">Hạn nộp</label><input id="assignment-due" class="input" type="datetime-local" name="due_at" min="{{ now()->format('Y-m-d\TH:i') }}"></div>
         <div class="field"><label for="assignment-points">Điểm tối đa</label><input id="assignment-points" class="input" type="number" name="total_points" min="1" max="10000" value="100"></div>
       </div>
       <input type="hidden" name="type" value="file">

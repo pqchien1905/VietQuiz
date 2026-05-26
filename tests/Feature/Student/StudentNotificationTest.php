@@ -63,4 +63,44 @@ class StudentNotificationTest extends TestCase
             ->assertOk()
             ->assertSee('Thông báo hệ thống');
     }
+
+    public function test_notifications_are_scoped_by_current_role(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'teacher',
+            'can_switch_role' => true,
+        ]);
+
+        Notification::create([
+            'user_id' => $user->id,
+            'audience_role' => 'teacher',
+            'type' => 'system',
+            'title' => 'Teacher scoped notification',
+            'body' => 'Only for teacher dashboard.',
+            'is_read' => false,
+        ]);
+
+        Notification::create([
+            'user_id' => $user->id,
+            'audience_role' => 'student',
+            'type' => 'quiz_assigned',
+            'title' => 'Student scoped notification',
+            'body' => 'Only for student dashboard.',
+            'is_read' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('teacher.notifications'))
+            ->assertOk()
+            ->assertSee('Teacher scoped notification')
+            ->assertDontSee('Student scoped notification');
+
+        $user->update(['role' => 'student']);
+
+        $this->actingAs($user->fresh())
+            ->get(route('student.notifications'))
+            ->assertOk()
+            ->assertSee('Student scoped notification')
+            ->assertDontSee('Teacher scoped notification');
+    }
 }

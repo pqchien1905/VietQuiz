@@ -15,6 +15,7 @@ use App\Services\AiQuestionGenerator;
 use App\Services\DocumentTextExtractor;
 use App\Services\QuestionFileImporter;
 use App\Services\QuizAssignmentScopeValidator;
+use App\Support\AiQuestionIntentGuard;
 use App\Support\VipFeature;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -194,6 +195,11 @@ class QuizController extends Controller
             'source_file.mimes' => 'File nguồn phải là PDF, Word hoặc ảnh.',
         ]);
 
+        AiQuestionIntentGuard::ensureMeaningfulRequest(
+            $validated,
+            $request->hasFile('source_file')
+        );
+
         try {
             if ($request->hasFile('source_file')) {
                 $sourceFile = $request->file('source_file');
@@ -204,7 +210,7 @@ class QuizController extends Controller
                 if (in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)) {
                     $contents = file_get_contents($sourceFile->getRealPath());
                     if ($contents === false || $contents === '') {
-                        throw new \RuntimeException('Khong doc duoc file anh.');
+                        throw new \RuntimeException('Không đọc được file ảnh.');
                     }
 
                     $validated['image_data_url'] = sprintf(
@@ -251,7 +257,7 @@ class QuizController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => $exception->getMessage() ?: 'Khong import duoc cau hoi tu file.',
+                'message' => $exception->getMessage() ?: 'Không import được câu hỏi từ file.',
             ], 422);
         }
     }
@@ -265,7 +271,9 @@ class QuizController extends Controller
             'course_id' => ['nullable', 'integer', Rule::exists('courses', 'id')->where('teacher_id', $request->user()->id)],
             'class_id' => ['nullable', 'integer', Rule::exists('classes', 'id')->where('teacher_id', $request->user()->id)],
             'time_limit' => 'nullable|integer|min:1',
-            'max_attempts' => 'nullable|integer|min:1|max:1',
+            'max_attempts' => 'nullable|integer|min:1|max:20',
+            'unlimited_attempts' => 'nullable|boolean',
+            'end_at' => 'nullable|date',
             'passing_score' => 'nullable|integer|min:0|max:100',
             'is_shuffle' => 'boolean',
             'show_result' => 'boolean',
@@ -306,7 +314,10 @@ class QuizController extends Controller
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'time_limit' => $validated['time_limit'] ?? null,
-            'max_attempts' => 1,
+            'max_attempts' => ($validated['unlimited_attempts'] ?? false)
+                ? null
+                : ($validated['max_attempts'] ?? 1),
+            'end_at' => $validated['end_at'] ?? null,
             'passing_score' => $validated['passing_score'] ?? 50,
             'is_shuffle' => $validated['is_shuffle'] ?? false,
             'show_result' => $validated['show_result'] ?? false,
@@ -435,7 +446,9 @@ class QuizController extends Controller
             'course_id' => ['nullable', 'integer', Rule::exists('courses', 'id')->where('teacher_id', $request->user()->id)],
             'class_id' => ['nullable', 'integer', Rule::exists('classes', 'id')->where('teacher_id', $request->user()->id)],
             'time_limit' => 'nullable|integer|min:1',
-            'max_attempts' => 'nullable|integer|min:1|max:1',
+            'max_attempts' => 'nullable|integer|min:1|max:20',
+            'unlimited_attempts' => 'nullable|boolean',
+            'end_at' => 'nullable|date',
             'passing_score' => 'nullable|integer|min:0|max:100',
             'is_shuffle' => 'boolean',
             'show_result' => 'boolean',
@@ -477,7 +490,10 @@ class QuizController extends Controller
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'time_limit' => $validated['time_limit'] ?? null,
-            'max_attempts' => 1,
+            'max_attempts' => ($validated['unlimited_attempts'] ?? false)
+                ? null
+                : ($validated['max_attempts'] ?? 1),
+            'end_at' => $validated['end_at'] ?? null,
             'passing_score' => $validated['passing_score'] ?? 50,
             'is_shuffle' => $validated['is_shuffle'] ?? false,
             'show_result' => $validated['show_result'] ?? false,
@@ -639,6 +655,7 @@ class QuizController extends Controller
         foreach ($students as $student) {
             Notification::create([
                 'user_id' => $student->id,
+                'audience_role' => 'student',
                 'type' => 'quiz_assigned',
                 'title' => $quiz->quiz_type === 'practice' ? 'Bài luyện tập mới' : 'Bài kiểm tra mới',
                 'body' => "Giáo viên {$teacher->name} đã giao ".($quiz->quiz_type === 'practice' ? 'bài luyện tập' : 'bài kiểm tra').": \"{$quiz->title}\".",

@@ -69,7 +69,7 @@ class Quiz extends Model
     public function students(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'quiz_user')
-            ->withPivot(['score', 'total_points', 'answers', 'started_at', 'submitted_at', 'is_graded', 'shuffled_options']);
+            ->withPivot(['score', 'total_points', 'answers', 'started_at', 'submitted_at', 'is_graded', 'attempt_count', 'shuffled_options']);
     }
 
     /**

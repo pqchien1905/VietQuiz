@@ -196,7 +196,7 @@ class TrashController extends Controller
         }
 
         return match ($type) {
-            'notification' => $query->where('user_id', $user->id),
+            'notification' => $query->where('user_id', $user->id)->forAudience('student'),
             default => abort(404),
         };
     }

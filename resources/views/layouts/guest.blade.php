@@ -7,8 +7,7 @@
     <title>@yield('title', 'VietQuiz')</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <meta name="theme-color" content="#2563eb">
-    <link rel="stylesheet" href="{{ asset('build/assets/app-i6Rajjet.css') }}" />
-    <script type="module" src="{{ asset('build/assets/app-CDytjvPd.js') }}"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
     @yield('body')

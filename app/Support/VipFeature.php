@@ -56,6 +56,11 @@ class VipFeature
         return 'Tạo câu hỏi bằng AI là tính năng Pro. Vui lòng nâng cấp để sử dụng.';
     }
 
+    public static function aiGradingMessage(): string
+    {
+        return 'Chấm điểm bằng AI là tính năng Pro. Vui lòng nâng cấp để sử dụng.';
+    }
+
     public static function exportMessage(): string
     {
         return 'Xuất báo cáo Excel/PDF là tính năng Pro. Vui lòng nâng cấp để sử dụng.';

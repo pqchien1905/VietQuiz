@@ -69,7 +69,7 @@ class AiQuestionGenerator
 
         $decoded = json_decode($this->extractJson($content), true);
         if (!is_array($decoded)) {
-            throw new RuntimeException('Khong doc duoc JSON tu AI.');
+            throw new RuntimeException('Không đọc được JSON từ AI.');
         }
 
         $questions = $decoded['questions'] ?? $decoded;
@@ -83,25 +83,25 @@ class AiQuestionGenerator
     private function systemPrompt(): string
     {
         return <<<'PROMPT'
-You are an assistant that creates Vietnamese quiz questions for teachers.
-Return valid JSON only. Do not use markdown.
-The JSON shape must be:
+Bạn là trợ lý tạo câu hỏi trắc nghiệm tiếng Việt cho giáo viên.
+Chỉ trả về JSON hợp lệ, không dùng markdown.
+Cấu trúc JSON bắt buộc:
 {
   "questions": [
     {
       "type": "multiple_choice" | "true_false" | "short_answer",
-      "content": "question text in Vietnamese",
+      "content": "nội dung câu hỏi bằng tiếng Việt",
       "options": ["A", "B", "C", "D"],
       "correct_answer": "0",
-      "explanation": "short explanation in Vietnamese"
+      "explanation": "giải thích ngắn gọn bằng tiếng Việt"
     }
   ]
 }
-Rules:
-- multiple_choice must have exactly 4 options and correct_answer must be the zero-based option index as a string: "0", "1", "2", or "3".
-- true_false must have options as [] and correct_answer must be "true" or "false".
-- short_answer must have options as [] and correct_answer must be a concise expected answer or grading key.
-- Keep content age-appropriate, clear, and factually correct.
+Quy tắc:
+- Với "multiple_choice": bắt buộc có đúng 4 lựa chọn trong "options"; "correct_answer" phải là chỉ số dạng chuỗi theo thứ tự từ 0: "0", "1", "2", hoặc "3".
+- Với "true_false": "options" phải là []; "correct_answer" chỉ được là "true" hoặc "false".
+- Với "short_answer": "options" phải là []; "correct_answer" phải là đáp án ngắn gọn hoặc ý chính để chấm.
+- Nội dung phải rõ ràng, phù hợp lứa tuổi học sinh, đúng kiến thức và dùng tiếng Việt tự nhiên.
 PROMPT;
     }
 
@@ -222,7 +222,7 @@ PROMPT;
         $statusLine = $http_response_header[0] ?? '';
 
         if ($body === false) {
-            throw new RuntimeException('Khong ket noi duoc AI API.');
+            throw new RuntimeException('Không kết nối được AI API.');
         }
 
         if (!preg_match('/\s2\d\d\s/', $statusLine)) {

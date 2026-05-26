@@ -103,6 +103,7 @@ class TicketController extends AdminBaseController
             foreach ($users as $user) {
                 Notification::create([
                     'user_id' => $user->id,
+                    'audience_role' => in_array($user->role, ['teacher', 'student'], true) ? $user->role : null,
                     'type' => $validated['type'] ?: 'admin_broadcast',
                     'title' => $validated['title'],
                     'body' => $validated['body'] ?? null,
@@ -117,7 +118,7 @@ class TicketController extends AdminBaseController
             }
         });
 
-        return back()->with('success', "ÄÃ£ gá»­i {$count} thÃ´ng bÃ¡o.");
+        return back()->with('success', "Đã gửi {$count} thông báo.");
     }
 
     public function deleteNotification(Request $request, string $id): RedirectResponse
@@ -126,7 +127,7 @@ class TicketController extends AdminBaseController
 
         Notification::findOrFail($id)->delete();
 
-        return back()->with('success', 'ÄÃ£ Ä‘Æ°a thÃ´ng bÃ¡o vÃ o thÃ¹ng rÃ¡c.');
+        return back()->with('success', 'Đã đưa thông báo vào thùng rác.');
     }
 
     public function updateNotificationReadState(Request $request, string $id): RedirectResponse
@@ -139,7 +140,7 @@ class TicketController extends AdminBaseController
 
         Notification::withTrashed()->findOrFail($id)->update(['is_read' => $validated['is_read']]);
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t tráº¡ng thÃ¡i Ä‘á»c.');
+        return back()->with('success', 'Đã cập nhật trạng thái đọc.');
     }
 
     public function restoreNotification(Request $request, string $id): RedirectResponse
@@ -148,7 +149,7 @@ class TicketController extends AdminBaseController
 
         Notification::withTrashed()->findOrFail($id)->restore();
 
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c thÃ´ng bÃ¡o.');
+        return back()->with('success', 'Đã khôi phục thông báo.');
     }
 
     public function tickets(Request $request): View|RedirectResponse
@@ -191,17 +192,17 @@ class TicketController extends AdminBaseController
             'today' => Ticket::whereDate('created_at', today())->count(),
         ];
         $categories = [
-            'technical' => 'Ká»¹ thuáº­t',
-            'account' => 'TÃ i khoáº£n',
-            'quiz' => 'BÃ i kiá»ƒm tra',
-            'grades' => 'Äiá»ƒm sá»‘',
-            'classes' => 'Lá»›p há»c',
-            'quizzes' => 'BÃ i kiá»ƒm tra',
-            'questions' => 'NgÃ¢n hÃ ng cÃ¢u há»i',
-            'grading' => 'Cháº¥m Ä‘iá»ƒm',
-            'students' => 'Há»c sinh',
-            'analytics' => 'BÃ¡o cÃ¡o',
-            'other' => 'KhÃ¡c',
+            'technical' => 'Kỹ thuật',
+            'account' => 'Tài khoản',
+            'quiz' => 'Bài kiểm tra',
+            'grades' => 'Điểm số',
+            'classes' => 'Lớp học',
+            'quizzes' => 'Bài kiểm tra',
+            'questions' => 'Ngân hàng câu hỏi',
+            'grading' => 'Chấm điểm',
+            'students' => 'Học sinh',
+            'analytics' => 'Báo cáo',
+            'other' => 'Khác',
         ];
 
         return view('pages.admin.tickets', compact('tickets', 'summary', 'categories'));
@@ -225,9 +226,10 @@ class TicketController extends AdminBaseController
         if (! empty($validated['admin_response']) && $validated['admin_response'] !== $previousResponse) {
             Notification::create([
                 'user_id' => $ticket->user_id,
+                'audience_role' => $ticket->user?->isTeacher() ? 'teacher' : 'student',
                 'type' => 'support_ticket',
-                'title' => 'YÃªu cáº§u há»— trá»£ Ä‘Ã£ Ä‘Æ°á»£c pháº£n há»“i',
-                'body' => "YÃªu cáº§u \"{$ticket->subject}\" Ä‘Ã£ cÃ³ pháº£n há»“i tá»« quáº£n trá»‹ viÃªn.",
+                'title' => 'Yêu cầu hỗ trợ đã được phản hồi',
+                'body' => "Yêu cầu \"{$ticket->subject}\" đã có phản hồi từ quản trị viên.",
                 'data' => [
                     'ticket_id' => $ticket->id,
                     'status' => $ticket->status,
@@ -237,7 +239,7 @@ class TicketController extends AdminBaseController
             ]);
         }
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t yÃªu cáº§u há»— trá»£.');
+        return back()->with('success', 'Đã cập nhật yêu cầu hỗ trợ.');
     }
 }
 

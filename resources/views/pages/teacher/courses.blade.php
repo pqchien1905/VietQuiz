@@ -410,7 +410,7 @@
           </div>
           <div class="form-group">
             <label class="label" for="assignment-due">Hạn nộp</label>
-            <input type="datetime-local" id="assignment-due" name="due_at" class="input" />
+            <input type="datetime-local" id="assignment-due" name="due_at" class="input" min="{{ now()->format('Y-m-d\TH:i') }}" />
           </div>
         </div>
         <div class="modal-footer">

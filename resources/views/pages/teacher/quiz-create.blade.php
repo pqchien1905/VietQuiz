@@ -375,7 +375,9 @@
         ? (!empty($quiz->assigned_students) ? 'specific' : ($quiz->public_to_all_students ? 'everyone' : 'class'))
         : 'class');
     $quizTypeValue = old('quiz_type', $isEdit ? ($quiz->quiz_type ?? 'exam') : 'exam');
+    $unlimitedAttemptsValue = (bool) old('unlimited_attempts', $isEdit ? is_null($quiz->max_attempts) : false);
     $antiCheatValue = old('anti_cheat_enabled', $isEdit ? (string) (int) $quiz->anti_cheat_enabled : '1');
+    $deadlineValue = old('end_at', $isEdit && $quiz->end_at ? $quiz->end_at->format('Y-m-d\TH:i') : '');
     $initialQuestions = old('questions_json');
     if (!$initialQuestions) {
         $initialQuestions = $isEdit
@@ -593,6 +595,18 @@
                             @enderror
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label class="label" for="quiz-deadline">Hạn làm bài</label>
+                        <input type="datetime-local" id="quiz-deadline" name="end_at"
+                            class="input @error('end_at') input-error @enderror"
+                            value="{{ $deadlineValue }}" />
+                        <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.25rem;">
+                            Để trống nếu không giới hạn hạn làm bài.
+                        </div>
+                        @error('end_at')
+                        <span class="error-message">{{ $message }}</span>
+                        @enderror
+                    </div>
 
                     <!-- Assignment type -->
                     <div class="form-group">
@@ -759,11 +773,20 @@
                     </div>
                     <div class="form-group">
                         <label class="label" for="max-attempts">Số lần làm tối đa</label>
+                        <label style="display:flex;align-items:center;gap:.5rem;margin:.4rem 0 .6rem;font-size:var(--text-sm);">
+                            <input type="checkbox" id="unlimited-attempts" name="unlimited_attempts" value="1" @checked($unlimitedAttemptsValue)>
+                            Không giới hạn số lần kiểm tra
+                        </label>
                         <input type="number" id="max-attempts" name="max_attempts"
-                            class="input" value="1" min="1" max="1" readonly />
+                            class="input @error('max_attempts') input-error @enderror"
+                            value="{{ old('max_attempts', $isEdit ? ($quiz->max_attempts ?? 1) : 1) }}"
+                            min="1" max="20" />
                         <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.25rem;">
-                            Hệ thống hiện lưu một lượt làm chính thức cho mỗi học sinh.
+                            Mỗi học sinh có thể nộp lại đến số lượt đã cấu hình.
                         </div>
+                        @error('max_attempts')
+                        <span class="error-message">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
             </div>
@@ -1110,6 +1133,24 @@
         const hidden = $('#anti_cheat_hidden');
         if (hidden) hidden.value = enabled ? '1' : '0';
         syncAntiCheatControl(currentQuizType);
+    }
+
+    function syncUnlimitedAttemptsControl() {
+        const unlimited = $('#unlimited-attempts');
+        const maxAttempts = $('#max-attempts');
+        if (!unlimited || !maxAttempts) return;
+
+        maxAttempts.disabled = unlimited.checked;
+        if (unlimited.checked) {
+            maxAttempts.dataset.prevValue = maxAttempts.value || '1';
+            maxAttempts.value = '';
+            maxAttempts.placeholder = 'Không giới hạn';
+        } else {
+            if (!maxAttempts.value) {
+                maxAttempts.value = maxAttempts.dataset.prevValue || '1';
+            }
+            maxAttempts.placeholder = '';
+        }
     }
 
     // ── AI Question Generation ─────────────────
@@ -1815,6 +1856,15 @@
         ).join('');
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     // ── Render one question card ───────────────
     function renderQuestionCard(q, idx) {
         const isMc = q.type === 'multiple_choice';
@@ -1823,6 +1873,9 @@
         const options = q.options || [];
         const correctIdx = isMc ? parseInt(q.correct_answer) : q.correct_answer;
         const isSelected = selectedQuestionIndexes.has(idx);
+        const safeContent = escapeHtml(q.content || '(chưa có nội dung)');
+        const safeExplanation = escapeHtml(q.explanation || '');
+        const safeShortAnswer = escapeHtml(q.correct_answer || '(chưa nhập)');
 
         let optionsHtml = '';
         if (isMc && options.length) {
@@ -1832,7 +1885,7 @@
                     ${options.map((opt, oi) => `
                         <div class="option-input ${parseInt(correctIdx) === oi ? 'selected' : ''}">
                             <span style="font-weight:600;font-size:var(--text-xs);color:var(--muted-foreground);width:1.25rem;">${labels[oi] || oi+1}</span>
-                            <span style="flex:1;">${opt}</span>
+                            <span style="flex:1;">${escapeHtml(opt)}</span>
                             ${parseInt(correctIdx) === oi ? '<span style="color:var(--success);font-size:var(--text-xs);font-weight:600;">✓ Đúng</span>' : ''}
                         </div>
                     `).join('')}
@@ -1852,7 +1905,7 @@
             optionsHtml = `
                 <div style="margin-top:0.75rem;padding:0.75rem;background:var(--muted);border-radius:var(--radius-md);">
                     <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:0.25rem;">Đáp án đúng:</div>
-                    <div style="font-weight:500;">${q.correct_answer || '(chưa nhập)'}</div>
+                    <div style="font-weight:500;">${safeShortAnswer}</div>
                 </div>`;
         }
 
@@ -1875,9 +1928,9 @@
                 </div>
             </div>
             <div class="question-card-body">
-                <div style="font-weight:500;margin-bottom:0.5rem;">${q.content || '(chưa có nội dung)'}</div>
+                <div style="font-weight:500;margin-bottom:0.5rem;">${safeContent}</div>
                 ${optionsHtml}
-                ${q.explanation ? `<div style="margin-top:0.5rem;font-size:var(--text-xs);color:var(--muted-foreground);"><strong>Giải thích:</strong> ${q.explanation}</div>` : ''}
+                ${q.explanation ? `<div style="margin-top:0.5rem;font-size:var(--text-xs);color:var(--muted-foreground);"><strong>Giải thích:</strong> ${safeExplanation}</div>` : ''}
             </div>
         </div>`;
     }
@@ -1987,7 +2040,7 @@
                                 <input type="radio" name="correct_option_edit" value="${oi}" ${correct === oi ? 'checked' : ''} style="accent-color:var(--success);" />
                                 <span style="font-weight:600;width:1.5rem;color:var(--muted-foreground);">${lbl}.</span>
                                 <input type="text" class="input" id="edit-opt-${oi}"
-                                    value="${opts[oi] || ''}"
+                                    value="${escapeHtml(opts[oi] || '')}"
                                     placeholder="Nhập đáp án ${lbl}..."
                                     style="flex:1;" />
                             </div>
@@ -2017,7 +2070,7 @@
                 <div class="form-group">
                     <label class="label label-required" for="edit-sa-answer">Đáp án đúng / ý chính</label>
                     <textarea id="edit-sa-answer" class="input" style="min-height:3rem;"
-                        placeholder="Nhập đáp án hoặc ý chính để chấm...">${q.correct_answer || ''}</textarea>
+                        placeholder="Nhập đáp án hoặc ý chính để chấm...">${escapeHtml(q.correct_answer || '')}</textarea>
                 </div>`;
         }
 
@@ -2044,7 +2097,7 @@
                         <label class="label label-required" for="edit-content">Nội dung câu hỏi</label>
                         <textarea id="edit-content" class="input @error('content') input-error @enderror"
                             style="min-height:5rem;"
-                            placeholder="Nhập nội dung câu hỏi...">${q.content || ''}</textarea>
+                            placeholder="Nhập nội dung câu hỏi...">${escapeHtml(q.content || '')}</textarea>
                     </div>
 
                     ${optionsEditor}
@@ -2052,7 +2105,7 @@
                     <div class="form-group">
                         <label class="label" for="edit-explanation">Giải thích / Phản hồi (tùy chọn)</label>
                         <textarea id="edit-explanation" class="input" style="min-height:3rem;"
-                            placeholder="Giải thích đáp án đúng...">${q.explanation || ''}</textarea>
+                            placeholder="Giải thích đáp án đúng...">${escapeHtml(q.explanation || '')}</textarea>
                     </div>
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:0.75rem;padding:1rem 1.5rem;border-top:1px solid var(--border);">
@@ -2323,6 +2376,8 @@
 
         const quizType = INITIAL_QUIZ_TYPE || 'exam';
         setQuizType(quizType);
+        syncUnlimitedAttemptsControl();
+        $('#unlimited-attempts')?.addEventListener('change', syncUnlimitedAttemptsControl);
 
         if (OPEN_BANK_PICKER_ON_LOAD) {
             openBankPickerModal();

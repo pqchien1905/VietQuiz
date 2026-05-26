@@ -7,7 +7,6 @@ use App\Http\Controllers\Admin\CourseController as AdminCourseController;
 use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\QuizController as AdminQuizController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
-use App\Http\Controllers\Admin\TrashController as AdminTrashController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterAsStudentController;
@@ -117,13 +116,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::patch('/promotions/{id}', [AdminPaymentController::class, 'updatePromotion'])->name('promotions.update');
     Route::delete('/promotions/{id}', [AdminPaymentController::class, 'deletePromotion'])->name('promotions.delete');
     Route::post('/promotions/{id}/restore', [AdminPaymentController::class, 'restorePromotion'])->name('promotions.restore');
-    Route::get('/trash', [AdminTrashController::class, 'trash'])->name('trash');
-    Route::post('/trash/restore-all', [AdminTrashController::class, 'restoreAllTrashItems'])->name('trash.restore-all');
-    Route::delete('/trash/force-delete-all', [AdminTrashController::class, 'forceDeleteAllTrashItems'])->name('trash.force-delete-all');
-    Route::post('/trash/restore-selected', [AdminTrashController::class, 'restoreSelectedTrashItems'])->name('trash.restore-selected');
-    Route::delete('/trash/force-delete-selected', [AdminTrashController::class, 'forceDeleteSelectedTrashItems'])->name('trash.force-delete-selected');
-    Route::post('/trash/{type}/{id}/restore', [AdminTrashController::class, 'restoreTrashItem'])->name('trash.restore');
-    Route::delete('/trash/{type}/{id}', [AdminTrashController::class, 'forceDeleteTrashItem'])->name('trash.force-delete');
 });
 
 require __DIR__.'/auth.php';
@@ -243,6 +235,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/classes/{class}/archive', [ClassController::class, 'archive'])->name('classes.archive');
         Route::post('/classes/{class}/restore', [ClassController::class, 'restore'])->name('classes.restore');
         Route::delete('/classes/{class}/students/{student}', [ClassController::class, 'removeStudent'])->name('classes.remove-student');
+        Route::post('/classes/{class}/join-requests/{student}/approve', [ClassController::class, 'approveJoinRequest'])->name('classes.join-requests.approve');
+        Route::delete('/classes/{class}/join-requests/{student}/reject', [ClassController::class, 'rejectJoinRequest'])->name('classes.join-requests.reject');
         Route::post('/classes/{class}/import', [ClassController::class, 'importStudents'])->name('classes.import');
         Route::post('/classes/{class}/notify', [ClassController::class, 'sendNotification'])->name('classes.notify');
         Route::get('/classes/{class}/export', [ClassController::class, 'exportStudents'])->name('classes.export');
@@ -251,6 +245,13 @@ Route::middleware('auth')->group(function () {
         // Students management
         Route::get('/students', [StudentController::class, 'index'])->name('students');
         Route::get('/students/export', [StudentController::class, 'export'])->name('students.export');
+        Route::get('/students/invite-email', function () {
+            $previous = url()->previous();
+            $fallback = route('teacher.students');
+
+            return redirect($previous && $previous !== url()->current() ? $previous : $fallback)
+                ->with('info', 'Vui lòng dùng form mời học sinh để thêm email vào lớp.');
+        });
         Route::post('/students/invite-email', [StudentController::class, 'inviteByEmail'])->name('students.invite-email');
         Route::post('/students/invite-link/{class}', [StudentController::class, 'inviteByLink'])->name('students.invite-link');
         Route::post('/students/remove', [StudentController::class, 'removeStudent'])->name('students.remove');
@@ -289,6 +290,10 @@ Route::middleware('auth')->group(function () {
         // Assignments CRUD
         Route::get('/assignments', [AssignmentController::class, 'index'])->name('assignments');
         Route::post('/assignments', [AssignmentController::class, 'store'])->name('assignments.store');
+        Route::get('/assignments/{assignment}', [AssignmentController::class, 'show'])->name('assignments.show');
+        Route::get('/assignments/{assignment}/grading-board', [AssignmentController::class, 'gradingBoard'])->name('assignments.grading-board');
+        Route::get('/assignments/{assignment}/grading-board/submissions/{submission}', [AssignmentController::class, 'gradingSubmission'])->name('assignments.grading-submission');
+        Route::post('/assignments/{assignment}/grading-board/submissions/{submission}/ai-grade', [AssignmentController::class, 'generateAiGrade'])->name('assignments.grading-submission.ai-grade');
         Route::get('/assignments/{assignment}/attachment', [AssignmentController::class, 'previewAttachment'])->name('assignments.attachment.preview');
         Route::get('/assignments/{assignment}/attachment/inline', [AssignmentController::class, 'inlineAttachment'])->name('assignments.attachment.inline');
         Route::get('/assignments/{assignment}/attachment/converted', [AssignmentController::class, 'convertedAttachment'])->name('assignments.attachment.converted');
@@ -391,6 +396,14 @@ Route::middleware('auth')->group(function () {
         // Assignments
         Route::get('/assignments', [StudentAssignmentController::class, 'index'])->name('assignments');
         Route::get('/assignment-detail/{assignment}', [StudentAssignmentController::class, 'show'])->name('assignment-detail');
+        Route::get('/assignment-detail/{assignment}/attachment', [StudentAssignmentController::class, 'previewAttachment'])->name('assignment.attachment.preview');
+        Route::get('/assignment-detail/{assignment}/attachment/inline', [StudentAssignmentController::class, 'inlineAttachment'])->name('assignment.attachment.inline');
+        Route::get('/assignment-detail/{assignment}/attachment/converted', [StudentAssignmentController::class, 'convertedAttachment'])->name('assignment.attachment.converted');
+        Route::get('/assignment-detail/{assignment}/attachment/download', [StudentAssignmentController::class, 'downloadAttachment'])->name('assignment.attachment.download');
+        Route::get('/submissions/{submission}/attachment', [StudentAssignmentController::class, 'previewSubmissionAttachment'])->name('submissions.attachment.preview');
+        Route::get('/submissions/{submission}/attachment/inline', [StudentAssignmentController::class, 'inlineSubmissionAttachment'])->name('submissions.attachment.inline');
+        Route::get('/submissions/{submission}/attachment/converted', [StudentAssignmentController::class, 'convertedSubmissionAttachment'])->name('submissions.attachment.converted');
+        Route::get('/submissions/{submission}/attachment/download', [StudentAssignmentController::class, 'downloadSubmissionAttachment'])->name('submissions.attachment.download');
         Route::post('/assignment-detail/{assignment}/submit', [StudentAssignmentController::class, 'submit'])->name('assignment.submit');
 
         // Grades
@@ -399,6 +412,7 @@ Route::middleware('auth')->group(function () {
         // Join class
         Route::get('/join-class', [StudentClassController::class, 'showJoinForm'])->name('join-class');
         Route::post('/join-class', [StudentClassController::class, 'joinByCode'])->name('join-class.submit');
+        Route::delete('/join-class/{class}/cancel', [StudentClassController::class, 'cancelJoinRequest'])->name('join-class.cancel');
 
         // Profile
         Route::get('/profile-view', [SharedProfileController::class, 'index'])->name('profile');

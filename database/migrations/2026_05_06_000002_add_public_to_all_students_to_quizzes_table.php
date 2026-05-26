@@ -18,7 +18,7 @@ return new class extends Migration
             ->whereNull('course_id')
             ->where(function ($query) {
                 $query->whereNull('assigned_students')
-                    ->orWhere('assigned_students', '[]');
+                    ->orWhereJsonLength('assigned_students', 0);
             })
             ->update(['public_to_all_students' => true]);
     }

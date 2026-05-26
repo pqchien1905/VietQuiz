@@ -525,3 +525,6 @@ php artisan test tests/Feature/Admin
 - Khi đổi schema, tạo migration mới thay vì sửa migration đã dùng chung.
 - Với tính năng dùng queue/email/thanh toán, nên test cả luồng thành công và thất bại.
 - Dữ liệu tiếng Việt trong một số seeder cũ có thể bị lỗi encoding; nếu cần demo đẹp, ưu tiên cập nhật nội dung seed bằng UTF-8.
+
+
+fly ssh console -a vietquiz -C "php artisan db:seed --force"

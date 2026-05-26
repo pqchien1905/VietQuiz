@@ -67,30 +67,40 @@ class QuizController extends Controller
             ->latest('created_at')
             ->get();
 
-        $attempts = DB::table('quiz_user')
+        $attemptsByQuiz = DB::table('quiz_user')
             ->where('user_id', $user->id)
             ->whereIn('quiz_id', $quizzes->pluck('id'))
+            ->orderByDesc('submitted_at')
+            ->orderByDesc('started_at')
             ->get()
-            ->keyBy('quiz_id');
+            ->groupBy('quiz_id');
 
-        $quizzes = $quizzes->map(function (Quiz $quiz) use ($attempts) {
-            $attempt = $attempts->get($quiz->id);
-            $isSubmitted = $attempt && $attempt->submitted_at !== null;
-            $isStarted = $attempt && $attempt->started_at !== null && $attempt->submitted_at === null;
+        $quizzes = $quizzes->map(function (Quiz $quiz) use ($attemptsByQuiz) {
+            $quizAttempts = $attemptsByQuiz->get($quiz->id, collect());
+            $activeAttempt = $quizAttempts->first(fn ($attempt) => $attempt->started_at !== null && $attempt->submitted_at === null);
+            $latestSubmitted = $quizAttempts->first(fn ($attempt) => $attempt->submitted_at !== null);
+            $attempt = $activeAttempt ?? $latestSubmitted ?? $quizAttempts->first();
+            $submittedAttempts = max((int) ($attempt?->attempt_count ?? 0), $latestSubmitted ? 1 : 0);
+            $isUnlimitedAttempts = empty($quiz->max_attempts);
+            $maxAttempts = $isUnlimitedAttempts ? null : max(1, (int) $quiz->max_attempts);
+            $remainingAttempts = $isUnlimitedAttempts ? null : max(0, $maxAttempts - $submittedAttempts);
+            $isSubmitted = $attempt !== null && $submittedAttempts > 0;
+            $isStarted = $activeAttempt !== null;
             $isExpired = $quiz->end_at !== null && $quiz->end_at->isPast();
             $isScheduled = $quiz->start_at !== null && $quiz->start_at->isFuture();
+            $canRetry = ($isUnlimitedAttempts || (($remainingAttempts ?? 0) > 0)) && ! $isStarted && ! $isExpired && ! $isScheduled;
             $maxScore = (float) ($attempt?->total_points ?: $quiz->total_points ?: $quiz->questions_count ?: 0);
             $score = $attempt?->score !== null ? (float) $attempt->score : null;
             $scorePct = $score !== null && $maxScore > 0 ? round($score / $maxScore * 100) : null;
 
-            if ($isSubmitted) {
-                $learningStatus = 'completed';
+            if ($isStarted) {
+                $learningStatus = 'in_progress';
             } elseif ($isExpired) {
                 $learningStatus = 'missed';
             } elseif ($isScheduled) {
                 $learningStatus = 'scheduled';
-            } elseif ($isStarted) {
-                $learningStatus = 'in_progress';
+            } elseif ($isSubmitted && ! $canRetry) {
+                $learningStatus = 'completed';
             } else {
                 $learningStatus = 'available';
             }
@@ -101,7 +111,11 @@ class QuizController extends Controller
             $quiz->score_value = $score;
             $quiz->score_max = $maxScore;
             $quiz->started_at_display = $attempt?->started_at ? Carbon::parse($attempt->started_at) : null;
-            $quiz->submitted_at_display = $attempt?->submitted_at ? Carbon::parse($attempt->submitted_at) : null;
+            $quiz->submitted_at_display = $latestSubmitted?->submitted_at ? Carbon::parse($latestSubmitted->submitted_at) : null;
+            $quiz->submitted_attempts = $submittedAttempts;
+            $quiz->remaining_attempts = $remainingAttempts;
+            $quiz->is_unlimited_attempts = $isUnlimitedAttempts;
+            $quiz->max_attempts_display = $maxAttempts;
             $quiz->context_name = $quiz->course?->name ?? $quiz->classModel?->name ?? 'Bài giao chung';
             $duration = $quiz->time_limit ?? $quiz->duration_minutes;
             $quiz->duration_label = $duration ? ($duration.' phút') : 'Không giới hạn';
@@ -187,10 +201,17 @@ class QuizController extends Controller
         abort_if($quiz->start_at && $quiz->start_at->isFuture(), 403);
         abort_if($quiz->end_at && $quiz->end_at->isPast(), 403);
 
-        if ($user->quizAttempts()->where('quiz_id', $quiz->id)->whereNotNull('submitted_at')->exists()) {
+        $currentAttemptRow = $user->quizAttempts()
+            ->where('quiz_id', $quiz->id)
+            ->first();
+        $submittedAttempts = max(
+            (int) ($currentAttemptRow?->pivot->attempt_count ?? 0),
+            $currentAttemptRow?->pivot->submitted_at ? 1 : 0
+        );
+        if (!empty($quiz->max_attempts) && $submittedAttempts >= (int) $quiz->max_attempts) {
             return redirect()
                 ->route('student.quiz-result', $quiz)
-                ->with('info', 'Bạn đã nộp bài kiểm tra này. Hệ thống đang hiển thị kết quả gần nhất.');
+                ->with('info', 'Ban da dung het so luot lam bai cho phep. He thong dang hien thi ket qua gan nhat.');
         }
 
         // Check existing unfinished attempt
@@ -212,11 +233,23 @@ class QuizController extends Controller
         } else {
             // Check max attempts only before creating a new attempt. An unfinished
             // attempt must remain resumable even when max_attempts is 1.
-            $attempts = $user->quizAttempts()->where('quiz_id', $quiz->id)->count();
-            abort_if($quiz->max_attempts && $attempts >= $quiz->max_attempts, 403);
+            abort_if($quiz->max_attempts && $submittedAttempts >= $quiz->max_attempts, 403);
 
             $startedAt = now();
-            $user->quizAttempts()->attach($quiz->id, ['started_at' => $startedAt]);
+            $existingPivotRow = $user->quizAttempts()
+                ->where('quiz_id', $quiz->id)
+                ->first();
+
+            if ($existingPivotRow) {
+                $user->quizAttempts()->updateExistingPivot($quiz->id, [
+                    'started_at' => $startedAt,
+                    'submitted_at' => null,
+                    'is_graded' => false,
+                    'shuffled_options' => null,
+                ]);
+            } else {
+                $user->quizAttempts()->attach($quiz->id, ['started_at' => $startedAt]);
+            }
         }
 
         $query = $quiz->questions()->newQuery();
@@ -305,7 +338,12 @@ class QuizController extends Controller
                 ->orderByDesc('quiz_user.submitted_at')
                 ->first();
 
-            if ($submittedAttempt) {
+            $submittedCount = max(
+                (int) ($submittedAttempt?->pivot->attempt_count ?? 0),
+                $submittedAttempt?->pivot->submitted_at ? 1 : 0
+            );
+
+            if ($submittedAttempt && $quiz->max_attempts && $submittedCount >= $quiz->max_attempts) {
                 return response()->json([
                     'success' => true,
                     'already_submitted' => true,
@@ -313,14 +351,29 @@ class QuizController extends Controller
                 ]);
             }
 
-            $attemptCount = $user->quizAttempts()->where('quiz_id', $quiz->id)->count();
+            $attemptCount = $submittedCount;
             if ($quiz->max_attempts && $attemptCount >= $quiz->max_attempts) {
                 return response()->json([
                     'error' => 'Bạn đã hết số lượt làm bài cho phép.',
                 ], 403);
             }
 
-            $user->quizAttempts()->attach($quiz->id, ['started_at' => now()]);
+            $startedAt = now();
+            $existingPivotRow = $user->quizAttempts()
+                ->where('quiz_id', $quiz->id)
+                ->first();
+
+            if ($existingPivotRow) {
+                $user->quizAttempts()->updateExistingPivot($quiz->id, [
+                    'started_at' => $startedAt,
+                    'submitted_at' => null,
+                    'is_graded' => false,
+                    'shuffled_options' => null,
+                ]);
+            } else {
+                $user->quizAttempts()->attach($quiz->id, ['started_at' => $startedAt]);
+            }
+
             $attempt = $user->quizAttempts()
                 ->where('quiz_id', $quiz->id)
                 ->whereNull('submitted_at')
@@ -376,21 +429,33 @@ class QuizController extends Controller
             ];
         }
 
+        $previousScore = is_numeric($attempt->pivot->score) ? (float) $attempt->pivot->score : null;
+        $previousTotal = is_numeric($attempt->pivot->total_points) ? (float) $attempt->pivot->total_points : null;
+        $previousPct = $previousScore !== null && $previousTotal > 0
+            ? ($previousScore / $previousTotal) * 100
+            : null;
+        $currentPct = $totalPoints > 0 ? ($earnedPoints / $totalPoints) * 100 : 0;
+        $isBestAttempt = $previousPct === null || $currentPct >= $previousPct;
+        $nextAttemptCount = ((int) ($attempt->pivot->attempt_count ?? 0)) + 1;
+
         $user->quizAttempts()->updateExistingPivot($quiz->id, [
-            'answers' => json_encode($validated['answers']),
-            'score' => $earnedPoints,
-            'total_points' => $totalPoints,
+            'answers' => $isBestAttempt ? json_encode($validated['answers']) : $attempt->pivot->answers,
+            'score' => $isBestAttempt ? $earnedPoints : $previousScore,
+            'total_points' => $isBestAttempt ? $totalPoints : $previousTotal,
             'submitted_at' => now(),
             'is_graded' => true,
+            'attempt_count' => $nextAttemptCount,
         ]);
 
-        $pct = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100) : 0;
+        $bestScore = $isBestAttempt ? $earnedPoints : (float) $previousScore;
+        $bestTotal = $isBestAttempt ? $totalPoints : (float) $previousTotal;
+        $pct = $bestTotal > 0 ? round(($bestScore / $bestTotal) * 100) : 0;
         $passed = $pct >= ($quiz->passing_score ?? 50);
 
         return response()->json([
             'success' => true,
-            'score' => $earnedPoints,
-            'total' => $totalPoints,
+            'score' => $bestScore,
+            'total' => $bestTotal,
             'percent' => $pct,
             'passed' => $passed,
             'results' => $questionResults,
@@ -484,17 +549,30 @@ class QuizController extends Controller
     private function expireAttempt($user, Quiz $quiz): void
     {
         $totalPoints = $quiz->questions()->get(['points'])->sum(fn ($question) => $question->points ?? 1);
+        $attemptRow = DB::table('quiz_user')
+            ->where('quiz_id', $quiz->id)
+            ->where('user_id', $user->id)
+            ->whereNull('submitted_at')
+            ->first();
+
+        if (! $attemptRow) {
+            return;
+        }
+
+        $previousScore = is_numeric($attemptRow->score) ? (float) $attemptRow->score : null;
+        $previousTotal = is_numeric($attemptRow->total_points) ? (float) $attemptRow->total_points : null;
 
         DB::table('quiz_user')
             ->where('quiz_id', $quiz->id)
             ->where('user_id', $user->id)
             ->whereNull('submitted_at')
             ->update([
-                'answers' => json_encode([]),
-                'score' => 0,
-                'total_points' => $totalPoints,
+                'answers' => $previousScore === null ? json_encode([]) : $attemptRow->answers,
+                'score' => $previousScore ?? 0,
+                'total_points' => $previousTotal ?? $totalPoints,
                 'submitted_at' => now(),
                 'is_graded' => true,
+                'attempt_count' => ((int) ($attemptRow->attempt_count ?? 0)) + 1,
                 'updated_at' => now(),
             ]);
     }
@@ -580,3 +658,4 @@ class QuizController extends Controller
         return view('pages.student.quiz-result', compact('quiz', 'attempt'));
     }
 }
+

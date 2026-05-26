@@ -104,7 +104,7 @@ class QuizController extends AdminBaseController
 
         Quiz::create($validated);
 
-        return redirect()->route('admin.quizzes')->with('success', 'ÄÃ£ táº¡o bÃ i kiá»ƒm tra.');
+        return redirect()->route('admin.quizzes')->with('success', 'Đã tạo bài kiểm tra.');
     }
 
     public function showQuiz(Request $request, int $id): View|RedirectResponse
@@ -151,7 +151,7 @@ class QuizController extends AdminBaseController
         $this->ensureQuizTeacherScope($merged);
 
         $quiz->update($validated);
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t bÃ i kiá»ƒm tra.');
+        return back()->with('success', 'Đã cập nhật bài kiểm tra.');
     }
 
     public function resetQuizAttempt(Request $request, int $quizId, int $studentId): RedirectResponse
@@ -160,21 +160,21 @@ class QuizController extends AdminBaseController
 
         DB::table('quiz_user')->where('quiz_id', $quizId)->where('user_id', $studentId)->delete();
 
-        return back()->with('success', 'ÄÃ£ Ä‘áº·t láº¡i lÆ°á»£t lÃ m bÃ i kiá»ƒm tra cá»§a há»c sinh.');
+        return back()->with('success', 'Đã đặt lại lượt làm bài kiểm tra của học sinh.');
     }
 
     public function deleteQuiz(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Quiz::findOrFail($id)->delete();
-        return back()->with('success', 'ÄÃ£ Ä‘Æ°a bÃ i kiá»ƒm tra vÃ o thÃ¹ng rÃ¡c.');
+        return back()->with('success', 'Đã đưa bài kiểm tra vào thùng rác.');
     }
 
     public function restoreQuiz(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Quiz::withTrashed()->findOrFail($id)->restore();
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c bÃ i kiá»ƒm tra.');
+        return back()->with('success', 'Đã khôi phục bài kiểm tra.');
     }
 
     public function questions(Request $request): View|RedirectResponse
@@ -233,7 +233,7 @@ class QuizController extends AdminBaseController
 
         QuestionFolder::create($this->validateQuestionFolder($request));
 
-        return back()->with('success', 'ÄÃ£ táº¡o thÆ° má»¥c cÃ¢u há»i.');
+        return back()->with('success', 'Đã tạo thư mục câu hỏi.');
     }
 
     public function updateQuestionFolder(Request $request, int $id): RedirectResponse
@@ -242,7 +242,7 @@ class QuizController extends AdminBaseController
 
         QuestionFolder::findOrFail($id)->update($this->validateQuestionFolder($request, $id));
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t thÆ° má»¥c cÃ¢u há»i.');
+        return back()->with('success', 'Đã cập nhật thư mục câu hỏi.');
     }
 
     public function deleteQuestionFolder(Request $request, int $id): RedirectResponse
@@ -251,12 +251,12 @@ class QuizController extends AdminBaseController
 
         $folder = QuestionFolder::withCount('questions')->findOrFail($id);
         if ($folder->questions_count > 0) {
-            return back()->withErrors(['folder' => 'ThÆ° má»¥c váº«n cÃ²n cÃ¢u há»i. HÃ£y chuyá»ƒn cÃ¢u há»i sang nÆ¡i khÃ¡c trÆ°á»›c khi xÃ³a.']);
+            return back()->withErrors(['folder' => 'Thư mục vẫn còn câu hỏi. Hãy chuyển câu hỏi sang nơi khác trước khi xóa.']);
         }
 
         $folder->delete();
 
-        return back()->with('success', 'ÄÃ£ xÃ³a thÆ° má»¥c cÃ¢u há»i.');
+        return back()->with('success', 'Đã xóa thư mục câu hỏi.');
     }
 
     public function storeQuestion(Request $request): RedirectResponse
@@ -265,7 +265,7 @@ class QuizController extends AdminBaseController
 
         Question::create($this->validateQuestion($request));
 
-        return back()->with('success', 'ÄÃ£ táº¡o cÃ¢u há»i.');
+        return back()->with('success', 'Đã tạo câu hỏi.');
     }
 
     public function updateQuestion(Request $request, int $id): RedirectResponse
@@ -274,7 +274,7 @@ class QuizController extends AdminBaseController
 
         Question::withTrashed()->findOrFail($id)->update($this->validateQuestion($request));
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t cÃ¢u há»i.');
+        return back()->with('success', 'Đã cập nhật câu hỏi.');
     }
 
     public function deleteQuestion(Request $request, int $id): RedirectResponse
@@ -283,7 +283,7 @@ class QuizController extends AdminBaseController
 
         Question::findOrFail($id)->delete();
 
-        return back()->with('success', 'ÄÃ£ Ä‘Æ°a cÃ¢u há»i vÃ o thÃ¹ng rÃ¡c.');
+        return back()->with('success', 'Đã đưa câu hỏi vào thùng rác.');
     }
 
     public function restoreQuestion(Request $request, int $id): RedirectResponse
@@ -292,7 +292,7 @@ class QuizController extends AdminBaseController
 
         Question::withTrashed()->findOrFail($id)->restore();
 
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c cÃ¢u há»i.');
+        return back()->with('success', 'Đã khôi phục câu hỏi.');
     }
 
     public function assignments(Request $request): View|RedirectResponse
@@ -359,7 +359,7 @@ class QuizController extends AdminBaseController
 
         Assignment::create($this->validateAssignment($request));
 
-        return redirect()->route('admin.assignments')->with('success', 'ÄÃ£ táº¡o bÃ i táº­p.');
+        return redirect()->route('admin.assignments')->with('success', 'Đã tạo bài tập.');
     }
 
     public function showAssignment(Request $request, int $id): View|RedirectResponse
@@ -399,21 +399,21 @@ class QuizController extends AdminBaseController
 
         Assignment::withTrashed()->findOrFail($id)->update($this->validateAssignment($request));
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t bÃ i táº­p.');
+        return back()->with('success', 'Đã cập nhật bài tập.');
     }
 
     public function deleteAssignment(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Assignment::findOrFail($id)->delete();
-        return back()->with('success', 'ÄÃ£ Ä‘Æ°a bÃ i táº­p vÃ o thÃ¹ng rÃ¡c.');
+        return back()->with('success', 'Đã đưa bài tập vào thùng rác.');
     }
 
     public function restoreAssignment(Request $request, int $id): RedirectResponse
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Assignment::withTrashed()->findOrFail($id)->restore();
-        return back()->with('success', 'ÄÃ£ khÃ´i phá»¥c bÃ i táº­p.');
+        return back()->with('success', 'Đã khôi phục bài tập.');
     }
 
     public function submissions(Request $request): View|RedirectResponse
@@ -511,7 +511,7 @@ class QuizController extends AdminBaseController
             ]
         );
 
-        return back()->with('success', 'ÄÃ£ lÆ°u Ä‘iá»ƒm bÃ i ná»™p.');
+        return back()->with('success', 'Đã lưu điểm bài nộp.');
     }
 
     public function deleteSubmission(Request $request, int $id): RedirectResponse
@@ -524,7 +524,7 @@ class QuizController extends AdminBaseController
         }
         $submission->delete();
 
-        return back()->with('success', 'ÄÃ£ xÃ³a bÃ i ná»™p.');
+        return back()->with('success', 'Đã xóa bài nộp.');
     }
 
     public function grades(Request $request): View|RedirectResponse
@@ -596,7 +596,7 @@ class QuizController extends AdminBaseController
                 ->update(['score' => (int) $validated['score'], 'is_graded' => true]);
         }
 
-        return back()->with('success', 'ÄÃ£ cáº­p nháº­t Ä‘iá»ƒm.');
+        return back()->with('success', 'Đã cập nhật điểm.');
     }
 
     public function deleteGrade(Request $request, int $id): RedirectResponse
@@ -612,7 +612,7 @@ class QuizController extends AdminBaseController
         }
         $grade->delete();
 
-        return back()->with('success', 'ÄÃ£ xÃ³a Ä‘iá»ƒm.');
+        return back()->with('success', 'Đã xóa điểm.');
     }
 }
 

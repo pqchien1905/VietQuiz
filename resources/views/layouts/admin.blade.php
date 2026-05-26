@@ -24,7 +24,6 @@
     ['label' => 'Vận hành', 'items' => [
       ['route' => 'admin.notifications', 'match' => 'admin.notifications*', 'label' => 'Thông báo', 'icon' => 'notifications'],
       ['route' => 'admin.tickets', 'match' => 'admin.tickets*', 'label' => 'Hỗ trợ', 'icon' => 'tickets'],
-      ['route' => 'admin.trash', 'match' => 'admin.trash*', 'label' => 'Thùng rác', 'icon' => 'trash'],
     ]],
   ];
   $icons = [

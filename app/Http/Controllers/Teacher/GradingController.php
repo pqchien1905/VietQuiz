@@ -371,6 +371,7 @@ class GradingController extends Controller
 
         Notification::create([
             'user_id' => $studentId,
+            'audience_role' => 'student',
             'type' => 'grade_published',
             'title' => $title,
             'body' => $body,

@@ -40,7 +40,14 @@ class User extends Authenticatable
     public function classes(): BelongsToMany
     {
         return $this->belongsToMany(ClassModel::class, 'class_user', 'user_id', 'class_id')
-            ->withPivot('joined_at');
+            ->withPivot(['joined_at', 'enrollment_status', 'enrollment_source', 'requested_at', 'approved_at'])
+            ->wherePivot('enrollment_status', 'approved');
+    }
+
+    public function classEnrollments(): BelongsToMany
+    {
+        return $this->belongsToMany(ClassModel::class, 'class_user', 'user_id', 'class_id')
+            ->withPivot(['joined_at', 'enrollment_status', 'enrollment_source', 'requested_at', 'approved_at']);
     }
 
     public function courses(): BelongsToMany
@@ -112,7 +119,7 @@ class User extends Authenticatable
     public function quizAttempts(): BelongsToMany
     {
         return $this->belongsToMany(Quiz::class, 'quiz_user')
-            ->withPivot(['score', 'total_points', 'answers', 'started_at', 'submitted_at', 'is_graded', 'shuffled_options']);
+            ->withPivot(['score', 'total_points', 'answers', 'started_at', 'submitted_at', 'is_graded', 'attempt_count', 'shuffled_options']);
     }
 
     public function tickets(): HasMany

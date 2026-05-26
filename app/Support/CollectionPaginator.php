@@ -11,6 +11,11 @@ class CollectionPaginator
 {
     public static function make(Collection $items, Request $request, int $perPage = 12, string $pageName = 'page'): LengthAwarePaginator
     {
+        $requestedPerPage = (int) $request->query('per_page', $perPage);
+        if (in_array($requestedPerPage, [10, 20, 50, 100], true)) {
+            $perPage = $requestedPerPage;
+        }
+
         $page = Paginator::resolveCurrentPage($pageName);
 
         return new Paginator(

@@ -15,7 +15,7 @@ class DocumentTextExtractor
         return match ($extension) {
             'docx' => $this->extractDocx($file->getRealPath()),
             'pdf' => $this->extractPdf($file->getRealPath()),
-            'doc' => throw new RuntimeException('File .doc cu khong duoc ho tro truc tiep. Vui long luu lai thanh .docx hoac PDF.'),
+            'doc' => throw new RuntimeException('File .doc cũ không được hỗ trợ trực tiếp. Vui lòng lưu lại thành .docx hoặc PDF.'),
             default => throw new RuntimeException('Dinh dang file khong duoc ho tro. Hay dung PDF hoac DOCX.'),
         };
     }
@@ -24,7 +24,7 @@ class DocumentTextExtractor
     {
         $zip = new ZipArchive();
         if ($zip->open($path) !== true) {
-            throw new RuntimeException('Khong mo duoc file Word.');
+            throw new RuntimeException('Không mở được file Word.');
         }
 
         $parts = [
@@ -66,7 +66,7 @@ class DocumentTextExtractor
     {
         $content = file_get_contents($path);
         if ($content === false || $content === '') {
-            throw new RuntimeException('Khong doc duoc file PDF.');
+            throw new RuntimeException('Không đọc được file PDF.');
         }
 
         $streams = $this->extractPdfStreams($content);
@@ -78,7 +78,7 @@ class DocumentTextExtractor
 
         $text = $this->cleanText($text);
         if ($text === '') {
-            throw new RuntimeException('Khong trich xuat duoc chu tu PDF. Neu file la anh scan, can OCR truoc khi import.');
+            throw new RuntimeException('Không trích xuất được chữ từ PDF. Nếu file là ảnh scan, cần OCR trước khi import.');
         }
 
         return $text;

@@ -147,13 +147,13 @@ abstract class AdminBaseController extends Controller
             ->get();
 
         $recentActivity = collect([
-            ['label' => 'NgÆ°á»i dÃ¹ng má»›i', 'value' => User::latest()->limit(1)->value('created_at')],
-            ['label' => 'Quiz má»›i', 'value' => Quiz::latest()->limit(1)->value('created_at')],
-            ['label' => 'BÃ i ná»™p má»›i', 'value' => Submission::latest()->limit(1)->value('submitted_at')],
-            ['label' => 'Thanh toÃ¡n VIP má»›i', 'value' => VipPayment::where('status', 'paid')->latest('paid_at')->limit(1)->value('paid_at')],
+            ['label' => 'Người dùng mới', 'value' => User::latest()->limit(1)->value('created_at')],
+            ['label' => 'Quiz mới', 'value' => Quiz::latest()->limit(1)->value('created_at')],
+            ['label' => 'Bài nộp mới', 'value' => Submission::latest()->limit(1)->value('submitted_at')],
+            ['label' => 'Thanh toán VIP mới', 'value' => VipPayment::where('status', 'paid')->latest('paid_at')->limit(1)->value('paid_at')],
         ])->map(fn ($row) => [
             'label' => $row['label'],
-            'value' => $row['value'] ? Carbon::parse($row['value'])->diffForHumans() : 'ChÆ°a cÃ³ dá»¯ liá»‡u',
+            'value' => $row['value'] ? Carbon::parse($row['value'])->diffForHumans() : 'Chưa có dữ liệu',
         ])->all();
 
         return compact(
@@ -177,82 +177,82 @@ abstract class AdminBaseController extends Controller
     {
         return [
             [
-                'title' => 'ThÃ´ng tin bÃ¡o cÃ¡o',
+                'title' => 'Thông tin báo cáo',
                 'rows' => [
-                    ['Má»¥c', 'GiÃ¡ trá»‹'],
-                    ['TÃªn bÃ¡o cÃ¡o', 'Thá»‘ng kÃª chi tiáº¿t há»‡ thá»‘ng VietQuiz'],
-                    ['Khoáº£ng thá»i gian', $data['from']->format('d/m/Y') . ' - ' . $data['to']->format('d/m/Y')],
-                    ['Thá»i Ä‘iá»ƒm xuáº¥t', now()->format('d/m/Y H:i:s')],
+                    ['Mục', 'Giá trị'],
+                    ['Tên báo cáo', 'Thống kê chi tiết hệ thống VietQuiz'],
+                    ['Khoảng thời gian', $data['from']->format('d/m/Y') . ' - ' . $data['to']->format('d/m/Y')],
+                    ['Thời điểm xuất', now()->format('d/m/Y H:i:s')],
                 ],
             ],
             [
-                'title' => 'Tá»•ng quan',
+                'title' => 'Tổng quan',
                 'rows' => [
-                    ['Chá»‰ sá»‘', 'Tá»•ng hiá»‡n táº¡i', 'PhÃ¡t sinh trong ká»³'],
-                    ['NgÆ°á»i dÃ¹ng', $data['overview']['users'], $data['periodStats']['users']],
-                    ['GiÃ¡o viÃªn', $data['overview']['teachers'], ''],
-                    ['Há»c sinh', $data['overview']['students'], ''],
-                    ['Lá»›p há»c', $data['overview']['classes'], $data['periodStats']['classes']],
-                    ['KhÃ³a há»c', $data['overview']['courses'], $data['periodStats']['courses']],
-                    ['BÃ i kiá»ƒm tra', $data['overview']['quizzes'], $data['periodStats']['quizzes']],
-                    ['CÃ¢u há»i', $data['overview']['questions'], $data['periodStats']['questions']],
-                    ['BÃ i táº­p', $data['overview']['assignments'], $data['periodStats']['assignments']],
-                    ['BÃ i ná»™p', $data['overview']['submissions'], $data['periodStats']['submissions']],
-                    ['Äiá»ƒm Ä‘Ã£ ghi', $data['overview']['grades'], ''],
-                    ['Äiá»ƒm trung bÃ¬nh', $data['overview']['avg_score'], ''],
-                    ['Ticket há»— trá»£', $data['overview']['tickets'], $data['periodStats']['tickets']],
+                    ['Chỉ số', 'Tổng hiện tại', 'Phát sinh trong kỳ'],
+                    ['Người dùng', $data['overview']['users'], $data['periodStats']['users']],
+                    ['Giáo viên', $data['overview']['teachers'], ''],
+                    ['Học sinh', $data['overview']['students'], ''],
+                    ['Lớp học', $data['overview']['classes'], $data['periodStats']['classes']],
+                    ['Khóa học', $data['overview']['courses'], $data['periodStats']['courses']],
+                    ['Bài kiểm tra', $data['overview']['quizzes'], $data['periodStats']['quizzes']],
+                    ['Câu hỏi', $data['overview']['questions'], $data['periodStats']['questions']],
+                    ['Bài tập', $data['overview']['assignments'], $data['periodStats']['assignments']],
+                    ['Bài nộp', $data['overview']['submissions'], $data['periodStats']['submissions']],
+                    ['Điểm đã ghi', $data['overview']['grades'], ''],
+                    ['Điểm trung bình', $data['overview']['avg_score'], ''],
+                    ['Ticket hỗ trợ', $data['overview']['tickets'], $data['periodStats']['tickets']],
                     ['VIP active', $data['overview']['vip'], ''],
                     ['Doanh thu VIP', $data['overview']['revenue'], $data['periodStats']['revenue']],
                 ],
             ],
             [
-                'title' => 'Xu hÆ°á»›ng 12 thÃ¡ng',
+                'title' => 'Xu hướng 12 tháng',
                 'rows' => array_merge(
-                    [['ThÃ¡ng', 'NgÆ°á»i dÃ¹ng má»›i', 'Quiz má»›i', 'BÃ i ná»™p', 'Doanh thu VIP']],
+                    [['Tháng', 'Người dùng mới', 'Quiz mới', 'Bài nộp', 'Doanh thu VIP']],
                     collect($data['monthly'])->map(fn ($row) => [
                         $row['label'], $row['users'], $row['quizzes'], $row['submissions'], $row['revenue'],
                     ])->all()
                 ),
             ],
             [
-                'title' => 'CÆ¡ cáº¥u ngÆ°á»i dÃ¹ng',
+                'title' => 'Cơ cấu người dùng',
                 'rows' => array_merge(
-                    [['Vai trÃ²', 'Sá»‘ lÆ°á»£ng']],
+                    [['Vai trò', 'Số lượng']],
                     collect($data['roleDistribution'])->map(fn ($row) => [$row['label'], $row['value']])->all()
                 ),
             ],
             [
-                'title' => 'Tráº¡ng thÃ¡i quiz',
+                'title' => 'Trạng thái quiz',
                 'rows' => array_merge(
-                    [['Tráº¡ng thÃ¡i', 'Sá»‘ lÆ°á»£ng']],
+                    [['Trạng thái', 'Số lượng']],
                     collect($data['quizStatus'])->map(fn ($row) => [$row['label'], $row['value']])->all()
                 ),
             ],
             [
-                'title' => 'Tráº¡ng thÃ¡i há»— trá»£',
+                'title' => 'Trạng thái hỗ trợ',
                 'rows' => array_merge(
-                    [['Tráº¡ng thÃ¡i', 'Sá»‘ lÆ°á»£ng']],
+                    [['Trạng thái', 'Số lượng']],
                     collect($data['ticketStatus'])->map(fn ($row) => [$row['label'], $row['value']])->all()
                 ),
             ],
             [
-                'title' => 'Há»c táº­p cháº¥m Ä‘iá»ƒm',
+                'title' => 'Học tập chấm điểm',
                 'rows' => [
-                    ['Chá»‰ sá»‘', 'GiÃ¡ trá»‹'],
-                    ['Quiz Ä‘Ã£ xuáº¥t báº£n', $data['learning']['published_quizzes']],
-                    ['Quiz nhÃ¡p', $data['learning']['draft_quizzes']],
-                    ['Quiz Ä‘Ã£ Ä‘Ã³ng', $data['learning']['closed_quizzes']],
-                    ['LÆ°á»£t lÃ m quiz', $data['learning']['quiz_attempts']],
-                    ['LÆ°á»£t Ä‘Ã£ ná»™p quiz', $data['learning']['submitted_attempts']],
-                    ['LÆ°á»£t quiz chÆ°a cháº¥m', $data['learning']['ungraded_attempts']],
-                    ['BÃ i táº­p quÃ¡ háº¡n', $data['learning']['overdue_assignments']],
-                    ['BÃ i ná»™p chÆ°a cháº¥m', $data['learning']['ungraded_submissions']],
+                    ['Chỉ số', 'Giá trị'],
+                    ['Quiz đã xuất bản', $data['learning']['published_quizzes']],
+                    ['Quiz nháp', $data['learning']['draft_quizzes']],
+                    ['Quiz đã đóng', $data['learning']['closed_quizzes']],
+                    ['Lượt làm quiz', $data['learning']['quiz_attempts']],
+                    ['Lượt đã nộp quiz', $data['learning']['submitted_attempts']],
+                    ['Lượt quiz chưa chấm', $data['learning']['ungraded_attempts']],
+                    ['Bài tập quá hạn', $data['learning']['overdue_assignments']],
+                    ['Bài nộp chưa chấm', $data['learning']['ungraded_submissions']],
                 ],
             ],
             [
-                'title' => 'GiÃ¡o viÃªn ná»•i báº­t',
+                'title' => 'Giáo viên nổi bật',
                 'rows' => array_merge(
-                    [['GiÃ¡o viÃªn', 'Email', 'Lá»›p', 'KhÃ³a', 'Quiz', 'BÃ i táº­p']],
+                    [['Giáo viên', 'Email', 'Lớp', 'Khóa', 'Quiz', 'Bài tập']],
                     collect($data['topTeachers'])->map(fn ($teacher) => [
                         $teacher->name,
                         $teacher->email,
@@ -264,9 +264,9 @@ abstract class AdminBaseController extends Controller
                 ),
             ],
             [
-                'title' => 'KhÃ³a há»c nhiá»u há»c viÃªn',
+                'title' => 'Khóa học nhiều học viên',
                 'rows' => array_merge(
-                    [['KhÃ³a há»c', 'GiÃ¡o viÃªn', 'Há»c viÃªn', 'Quiz', 'BÃ i táº­p']],
+                    [['Khóa học', 'Giáo viên', 'Học viên', 'Quiz', 'Bài tập']],
                     collect($data['topCourses'])->map(fn ($course) => [
                         $course->name,
                         $course->teacher?->name ?? '',
@@ -277,18 +277,18 @@ abstract class AdminBaseController extends Controller
                 ),
             ],
             [
-                'title' => 'VIP thanh toÃ¡n',
+                'title' => 'VIP thanh toán',
                 'rows' => array_merge(
-                    [['Tráº¡ng thÃ¡i', 'Sá»‘ lÆ°á»£ng', 'Tá»•ng tiá»n']],
+                    [['Trạng thái', 'Số lượng', 'Tổng tiền']],
                     collect($data['paymentStatus'])->map(fn ($row) => [
                         $row['status'], $row['count'], $row['amount'],
                     ])->all()
                 ),
             ],
             [
-                'title' => 'Hoáº¡t Ä‘á»™ng má»›i nháº¥t',
+                'title' => 'Hoạt động mới nhất',
                 'rows' => array_merge(
-                    [['NhÃ³m dá»¯ liá»‡u', 'Má»‘c gáº§n nháº¥t']],
+                    [['Nhóm dữ liệu', 'Mốc gần nhất']],
                     collect($data['recentActivity'])->map(fn ($row) => [$row['label'], $row['value']])->all()
                 ),
             ],
@@ -571,14 +571,14 @@ abstract class AdminBaseController extends Controller
     protected function trashMap(): array
     {
         return [
-            'users' => ['label' => 'NgÆ°á»i dÃ¹ng', 'model' => User::class, 'title' => 'name'],
-            'classes' => ['label' => 'Lá»›p há»c', 'model' => ClassModel::class, 'title' => 'name'],
-            'courses' => ['label' => 'KhÃ³a há»c', 'model' => Course::class, 'title' => 'name'],
-            'quizzes' => ['label' => 'BÃ i kiá»ƒm tra', 'model' => Quiz::class, 'title' => 'title'],
-            'questions' => ['label' => 'CÃ¢u há»i', 'model' => Question::class, 'title' => 'content'],
-            'assignments' => ['label' => 'BÃ i táº­p', 'model' => Assignment::class, 'title' => 'title'],
-            'notifications' => ['label' => 'ThÃ´ng bÃ¡o', 'model' => Notification::class, 'title' => 'title'],
-            'promotions' => ['label' => 'Khuyáº¿n mÃ£i', 'model' => Promotion::class, 'title' => 'code'],
+            'users' => ['label' => 'Người dùng', 'model' => User::class, 'title' => 'name'],
+            'classes' => ['label' => 'Lớp học', 'model' => ClassModel::class, 'title' => 'name'],
+            'courses' => ['label' => 'Khóa học', 'model' => Course::class, 'title' => 'name'],
+            'quizzes' => ['label' => 'Bài kiểm tra', 'model' => Quiz::class, 'title' => 'title'],
+            'questions' => ['label' => 'Câu hỏi', 'model' => Question::class, 'title' => 'content'],
+            'assignments' => ['label' => 'Bài tập', 'model' => Assignment::class, 'title' => 'title'],
+            'notifications' => ['label' => 'Thông báo', 'model' => Notification::class, 'title' => 'title'],
+            'promotions' => ['label' => 'Khuyến mãi', 'model' => Promotion::class, 'title' => 'code'],
         ];
     }
 
