@@ -98,11 +98,13 @@ class GradeController extends Controller
                 'grades.score as manual_score',
                 'grades.feedback',
                 'grades.graded_at',
+                'quiz_user.best_score',
+                'quiz_user.best_total_points',
             ])
             ->get()
             ->map(function ($row) {
-                $score = $row->manual_score ?? $row->attempt_score;
-                $maxScore = $row->attempt_total_points ?: ($row->quiz_total_points ?: 10);
+                $score = $row->manual_score ?? $row->best_score ?? $row->attempt_score;
+                $maxScore = $row->best_total_points ?: ($row->attempt_total_points ?: ($row->quiz_total_points ?: 10));
                 $percentage = $score !== null && $maxScore > 0
                     ? round(((float) $score / (float) $maxScore) * 100, 1)
                     : null;

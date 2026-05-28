@@ -872,11 +872,28 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
     // ── Anti-Cheat Measures (exam mode only) ──
     let violationCount = 0;
     let lastFocusWarningAt = 0;
+    let lastAttentionViolationAt = 0;
+    let lastEscapeBlockedAt = 0;
     let lastDevtoolsWarningAt = 0;
+    let lastScreenshotWarningAt = 0;
+    let fullscreenOverlay = null;
+    let privacyShield = null;
+    let privacyShieldTimer = null;
+    const pressedGuardKeys = new Set();
+    let returnCountdownOverlay = null;
+    let returnCountdownTimer = null;
+    let returnCountdownDeadline = 0;
+    let returnCountdownEventType = null;
+    let returnCountdownMessage = '';
+    let mustReturnToFullscreen = false;
     let isAutoSubmitting = false;
     let finalWarningShown = false;
     const MAX_VIOLATIONS = QUIZ_DATA.max_violations || 3;
+    const ATTENTION_EVENTS = ['tab_hidden', 'focus_lost'];
+    const MAX_ATTENTION_VIOLATIONS = 2;
     const DEVTOOLS_THRESHOLD = 160;
+    const SCREENSHOT_GRACE_MS = 4000;
+    const SCREENSHOT_SHIELD_MS = 8000;
 
     async function logAntiCheatViolation(eventType, metadata = {}) {
         if (!IS_GUARDED_EXAM || !QUIZ_DATA.violation_url) return null;
@@ -910,12 +927,15 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
     function showAntiCheatWarning(msg, countViolation = true, eventType = 'focus_lost', metadata = {}) {
         if (!IS_GUARDED_EXAM) return;
         if (countViolation) violationCount++;
+        const displayMaxViolations = ATTENTION_EVENTS.includes(eventType)
+            ? MAX_ATTENTION_VIOLATIONS
+            : MAX_VIOLATIONS;
 
         const existing = document.getElementById('anticheat-toast');
         if (existing) existing.remove();
 
         const warningText = countViolation
-            ? msg + ' (' + violationCount + '/' + MAX_VIOLATIONS + ' lần)'
+            ? msg + ' (' + violationCount + '/' + displayMaxViolations + ' lần)'
             : msg;
         const toast = document.createElement('div');
         toast.id = 'anticheat-toast';
@@ -934,7 +954,7 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
                     isAutoSubmitting = true;
                     notifyUser(data.time_expired
                         ? 'Thời gian làm bài đã kết thúc. Hệ thống đã đóng lượt làm bài.'
-                        : 'Bạn đã vi phạm quá số lần cho phép. Hệ thống đã đóng lượt làm bài.');
+                        : 'Bạn đã rời khỏi màn hình làm bài quá số lần cho phép. Hệ thống đã đóng lượt làm bài.');
                     window.onbeforeunload = null;
                     setTimeout(() => {
                         window.location.href = data.redirect_url || QUIZ_DATA.result_url;
@@ -943,7 +963,7 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
             });
         }
 
-        if (violationCount >= MAX_VIOLATIONS && !finalWarningShown) {
+        if (violationCount >= displayMaxViolations && !finalWarningShown) {
             finalWarningShown = true;
             const finalToast = document.createElement('div');
             finalToast.id = 'anticheat-final-toast';
@@ -953,23 +973,173 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
         }
     }
 
+    function showAttentionWarning(msg, eventType) {
+        const now = Date.now();
+        if (now - lastAttentionViolationAt < 10000) return;
+        lastAttentionViolationAt = now;
+        lastFocusWarningAt = now;
+        showAntiCheatWarning(msg, true, eventType);
+    }
+
+    function cancelReturnCountdown() {
+        if (returnCountdownTimer) {
+            clearInterval(returnCountdownTimer);
+            returnCountdownTimer = null;
+        }
+        if (returnCountdownOverlay) {
+            returnCountdownOverlay.remove();
+            returnCountdownOverlay = null;
+        }
+        returnCountdownDeadline = 0;
+        returnCountdownEventType = null;
+        returnCountdownMessage = '';
+        mustReturnToFullscreen = false;
+    }
+
+    function updateReturnCountdownModal() {
+        if (!returnCountdownOverlay) return;
+        const remaining = Math.max(0, Math.ceil((returnCountdownDeadline - Date.now()) / 1000));
+        const counter = returnCountdownOverlay.querySelector('[data-return-countdown]');
+        if (counter) counter.textContent = String(remaining);
+    }
+
+    function showReturnCountdownModal(message) {
+        if (returnCountdownOverlay) {
+            updateReturnCountdownModal();
+            return;
+        }
+
+        returnCountdownOverlay = document.createElement('div');
+        returnCountdownOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:100002;display:flex;align-items:center;justify-content:center;padding:1rem;';
+        returnCountdownOverlay.innerHTML = '<div style="background:var(--card);border-radius:var(--radius-xl);padding:2rem;max-width:460px;text-align:center;box-shadow:var(--shadow-xl);"><h3 style="font-size:var(--text-xl);font-weight:800;margin-bottom:0.75rem;">Quay lại bài kiểm tra</h3><p style="font-size:var(--text-sm);color:var(--muted-foreground);line-height:1.55;margin-bottom:1rem;">' + escapeHtml(message) + '</p><div style="font-size:var(--text-4xl);font-weight:900;color:var(--destructive);margin-bottom:1rem;"><span data-return-countdown>15</span>s</div><p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.25rem;">Nếu hết thời gian mà bạn chưa quay lại chế độ toàn màn hình, hệ thống sẽ tự động nộp bài và ghi nhận gian lận.</p><button id="return-countdown-btn" class="btn btn-primary">Quay lại toàn màn hình</button></div>';
+        document.body.appendChild(returnCountdownOverlay);
+        document.getElementById('return-countdown-btn')?.addEventListener('click', () => {
+            requestGuardFullscreen();
+            if (isFullscreen()) {
+                cancelReturnCountdown();
+            }
+        });
+        updateReturnCountdownModal();
+    }
+
+    function closeAttemptForReturnTimeout(eventType, metadata = {}) {
+        if (isAutoSubmitting) return;
+        isAutoSubmitting = true;
+        if (returnCountdownTimer) {
+            clearInterval(returnCountdownTimer);
+            returnCountdownTimer = null;
+        }
+        if (returnCountdownOverlay) {
+            returnCountdownOverlay.remove();
+            returnCountdownOverlay = null;
+        }
+
+        logAntiCheatViolation(eventType || returnCountdownEventType || 'focus_lost', {
+            ...metadata,
+            return_timeout: true,
+            return_timeout_seconds: 15,
+            message: returnCountdownMessage || 'Không quay lại chế độ toàn màn hình trong thời gian cho phép.',
+        }).then(data => {
+            notifyUser('Bạn không quay lại chế độ toàn màn hình trong thời gian cho phép. Hệ thống đã đóng lượt làm bài.');
+            window.onbeforeunload = null;
+            setTimeout(() => {
+                window.location.href = data?.redirect_url || QUIZ_DATA.result_url;
+            }, 700);
+        });
+    }
+
+    function enforceReturnCountdownDeadline() {
+        if (!returnCountdownDeadline || Date.now() < returnCountdownDeadline) return false;
+        closeAttemptForReturnTimeout(returnCountdownEventType, {
+            deadline: new Date(returnCountdownDeadline).toISOString(),
+        });
+        return true;
+    }
+
+    function startReturnCountdown(message, eventType, metadata = {}) {
+        if (!IS_GUARDED_EXAM || isAutoSubmitting) return;
+        saveAnswersDraft();
+        mustReturnToFullscreen = true;
+
+        if (!returnCountdownDeadline) {
+            returnCountdownDeadline = Date.now() + 15000;
+            returnCountdownEventType = eventType;
+            returnCountdownMessage = message;
+            returnCountdownTimer = setInterval(() => {
+                updateReturnCountdownModal();
+                enforceReturnCountdownDeadline();
+            }, 250);
+        }
+
+        try {
+            window.focus();
+        } catch (e) {}
+        showReturnCountdownModal(message);
+    }
+
+    function keepQuizTabActive(message, eventType) {
+        const now = Date.now();
+        if (returnCountdownDeadline) {
+            try {
+                window.focus();
+            } catch (e) {}
+            showReturnCountdownModal(returnCountdownMessage || message);
+            return;
+        }
+
+        lastAttentionViolationAt = now;
+        lastFocusWarningAt = now;
+        mustReturnToFullscreen = true;
+        saveAnswersDraft();
+
+        try {
+            window.focus();
+        } catch (e) {}
+
+        startReturnCountdown(message, eventType);
+    }
+
+    function requestGuardFullscreen() {
+        try {
+            const el = document.documentElement;
+            const request = el.requestFullscreen || el.webkitRequestFullscreen;
+            const result = request ? request.call(el) : null;
+            if (result && typeof result.catch === 'function') {
+                result.catch(() => {});
+            }
+        } catch (e) {}
+    }
+
+    function showFullscreenOverlay(message = null) {
+        if (!IS_GUARDED_EXAM || isFullscreen()) return;
+        if (returnCountdownDeadline) {
+            showReturnCountdownModal(returnCountdownMessage || message || 'Vui lòng quay lại toàn màn hình để tiếp tục làm bài.');
+            return;
+        }
+        if (fullscreenOverlay) return;
+
+        fullscreenOverlay = document.createElement('div');
+        fullscreenOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:100001;display:flex;align-items:center;justify-content:center;padding:1rem;';
+        fullscreenOverlay.innerHTML = '<div style="background:var(--card);border-radius:var(--radius-xl);padding:2rem;max-width:430px;text-align:center;box-shadow:var(--shadow-xl);"><h3 style="font-size:var(--text-xl);font-weight:800;margin-bottom:0.75rem;">Yêu cầu toàn màn hình</h3><p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">' + escapeHtml(message || 'Bài kiểm tra chống gian lận phải được làm ở chế độ toàn màn hình. Vui lòng quay lại toàn màn hình để tiếp tục làm bài.') + '</p><div style="display:flex;gap:0.75rem;justify-content:center;"><button id="fs-return" class="btn btn-primary">Quay lại toàn màn hình</button></div></div>';
+        document.body.appendChild(fullscreenOverlay);
+        document.getElementById('fs-return').onclick = () => {
+            requestGuardFullscreen();
+            if (fullscreenOverlay) {
+                fullscreenOverlay.remove();
+                fullscreenOverlay = null;
+            }
+        };
+    }
+
     // Fullscreen prompt on start
     function promptFullscreen() {
         if (!IS_GUARDED_EXAM) return;
-
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-        overlay.innerHTML = '<div style="background:var(--card);border-radius:var(--radius-xl);padding:2rem;max-width:430px;text-align:center;box-shadow:var(--shadow-xl);"><h3 style="font-size:var(--text-xl);font-weight:800;margin-bottom:0.75rem;">Bật chế độ toàn màn hình</h3><p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">Bài kiểm tra yêu cầu toàn màn hình. Nếu rời màn hình, thoát fullscreen hoặc mở công cụ nhà phát triển, hệ thống sẽ cảnh báo và ghi nhận vi phạm.</p><div style="display:flex;gap:0.75rem;justify-content:center;"><button id="fs-accept" class="btn btn-primary">Bắt đầu làm bài</button></div></div>';
+        overlay.innerHTML = '<div style="background:var(--card);border-radius:var(--radius-xl);padding:2rem;max-width:430px;text-align:center;box-shadow:var(--shadow-xl);"><h3 style="font-size:var(--text-xl);font-weight:800;margin-bottom:0.75rem;">Bật chế độ toàn màn hình</h3><p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:1.5rem;">Bài kiểm tra yêu cầu toàn màn hình. Nếu rời màn hình, thoát fullscreen hoặc mở công cụ nhà phát triển, hệ thống sẽ cảnh báo và ghi nhận vi phạm. Cảnh báo chụp màn hình không tính là vi phạm gian lận.</p><div style="display:flex;gap:0.75rem;justify-content:center;"><button id="fs-accept" class="btn btn-primary">Bắt đầu làm bài</button></div></div>';
         document.body.appendChild(overlay);
         document.getElementById('fs-accept').onclick = () => {
-            try {
-                const el = document.documentElement;
-                const request = el.requestFullscreen || el.webkitRequestFullscreen;
-                const result = request ? request.call(el) : null;
-                if (result && typeof result.catch === 'function') {
-                    result.catch(() => {});
-                }
-            } catch (e) {}
+            requestGuardFullscreen();
             overlay.remove();
         };
     }
@@ -978,13 +1148,135 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
         return document.fullscreenElement || document.webkitFullscreenElement;
     }
 
+    function isRecentScreenshotShortcut() {
+        return Date.now() - lastScreenshotWarningAt < SCREENSHOT_GRACE_MS;
+    }
+
+    function showPrivacyShield(message = 'Nội dung bài kiểm tra đang được ẩn để chống chụp màn hình.', duration = 0) {
+        if (!IS_GUARDED_EXAM) return;
+
+        if (!privacyShield) {
+            privacyShield = document.createElement('div');
+            privacyShield.id = 'anti-screenshot-shield';
+            privacyShield.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#020617;color:#fff;display:flex;align-items:center;justify-content:center;padding:1rem;text-align:center;';
+            privacyShield.innerHTML = '<div style="max-width:460px;"><div style="font-size:var(--text-xl);font-weight:900;margin-bottom:.6rem;">Đã ẩn nội dung bài kiểm tra</div><div data-shield-message style="font-size:var(--text-sm);line-height:1.55;color:rgba(255,255,255,.78);"></div></div>';
+            document.body.appendChild(privacyShield);
+        }
+
+        const messageEl = privacyShield.querySelector('[data-shield-message]');
+        if (messageEl) messageEl.textContent = message;
+
+        if (privacyShieldTimer) {
+            clearTimeout(privacyShieldTimer);
+            privacyShieldTimer = null;
+        }
+        if (duration > 0) {
+            privacyShieldTimer = setTimeout(hidePrivacyShield, duration);
+        }
+    }
+
+    function hidePrivacyShield() {
+        if (pressedGuardKeys.has('alt') && pressedGuardKeys.has('shift')) return;
+
+        if (privacyShieldTimer) {
+            clearTimeout(privacyShieldTimer);
+            privacyShieldTimer = null;
+        }
+        if (privacyShield) {
+            privacyShield.remove();
+            privacyShield = null;
+        }
+    }
+
+    function normalizeGuardKey(event) {
+        const key = String(event.key || '').toLowerCase();
+        if (key === 'alt' || key === 'altgraph') return 'alt';
+        if (key === 'shift') return 'shift';
+        if (key === 'control' || key === 'ctrl') return 'ctrl';
+        if (key === 'meta' || key === 'os') return 'meta';
+        if (key === 'printscreen') return 'printscreen';
+        return key;
+    }
+
+    function rememberGuardKey(event) {
+        const key = normalizeGuardKey(event);
+        if (['alt', 'shift', 'ctrl', 'meta', 'printscreen'].includes(key)) {
+            pressedGuardKeys.add(key);
+        }
+        if (event.altKey) pressedGuardKeys.add('alt');
+        if (event.shiftKey) pressedGuardKeys.add('shift');
+        if (event.ctrlKey) pressedGuardKeys.add('ctrl');
+        if (event.metaKey) pressedGuardKeys.add('meta');
+    }
+
+    function forgetGuardKey(event) {
+        pressedGuardKeys.delete(normalizeGuardKey(event));
+        if (!event.altKey) pressedGuardKeys.delete('alt');
+        if (!event.shiftKey) pressedGuardKeys.delete('shift');
+        if (!event.ctrlKey) pressedGuardKeys.delete('ctrl');
+        if (!event.metaKey) pressedGuardKeys.delete('meta');
+    }
+
+    function isScreenshotModifierChord(event) {
+        const hasAlt = event.altKey || pressedGuardKeys.has('alt');
+        const hasShift = event.shiftKey || pressedGuardKeys.has('shift');
+        return hasAlt && hasShift;
+    }
+
+    function isScreenshotShortcut(event) {
+        const key = normalizeGuardKey(event);
+
+        return key === 'printscreen'
+            || ((event.ctrlKey || event.metaKey || event.altKey || pressedGuardKeys.has('ctrl') || pressedGuardKeys.has('meta') || pressedGuardKeys.has('alt'))
+                && (event.shiftKey || pressedGuardKeys.has('shift'))
+                && key === 's');
+    }
+
+    function clearScreenshotClipboard() {
+        [0, 80, 200, 500, 1000, 1800].forEach(delay => {
+            setTimeout(() => {
+                try {
+                    navigator.clipboard?.writeText('');
+                } catch (e) {}
+            }, delay);
+        });
+    }
+
+    function warnScreenshotAttempt(event = null) {
+        const now = Date.now();
+        showPrivacyShield('Không được chụp màn hình trong bài kiểm tra. Nội dung đang được tạm ẩn.', SCREENSHOT_SHIELD_MS);
+
+        if (now - lastScreenshotWarningAt < 800) return;
+
+        lastScreenshotWarningAt = now;
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        clearScreenshotClipboard();
+
+        showAntiCheatWarning('Không được chụp màn hình trong bài kiểm tra. Hành động này chỉ bị che/cảnh báo và không tính là gian lận.', false, 'screenshot_attempt', {
+            key: event?.key || null,
+            ctrl: event?.ctrlKey || false,
+            shift: event?.shiftKey || false,
+            alt: event?.altKey || false,
+            meta: event?.metaKey || false,
+        });
+    }
+
     function registerExamGuard() {
         if (!IS_GUARDED_EXAM) return;
 
         ['copy', 'cut', 'paste'].forEach(eventName => {
             document.addEventListener(eventName, event => {
                 event.preventDefault();
-                showAntiCheatWarning('Không được sao chép, cắt hoặc dán nội dung trong bài kiểm tra.', true, eventName, {
+                const isNonScoringClipboardEvent = ['copy', 'cut'].includes(eventName);
+                const message = isNonScoringClipboardEvent
+                    ? 'Không được sao chép hoặc cắt nội dung trong bài kiểm tra. Hành động này chỉ bị chặn/cảnh báo và không tính là gian lận.'
+                    : 'Không được dán nội dung trong bài kiểm tra.';
+
+                showAntiCheatWarning(message, !isNonScoringClipboardEvent, eventName, {
                     target: event.target?.tagName || null,
                 });
             });
@@ -992,14 +1284,57 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
 
         document.addEventListener('contextmenu', event => {
             event.preventDefault();
-            showAntiCheatWarning('Không được click chuột phải trong bài kiểm tra.', true, 'context_menu');
+            showAntiCheatWarning('Không được click chuột phải trong bài kiểm tra.', false, 'context_menu');
         });
 
         document.addEventListener('keydown', event => {
+            rememberGuardKey(event);
             const key = String(event.key).toLowerCase();
+
+            if (isScreenshotModifierChord(event)) {
+                showPrivacyShield('Nội dung bài kiểm tra đang được ẩn khi phát hiện tổ hợp phím chụp màn hình.', SCREENSHOT_SHIELD_MS);
+            }
+
+            if (isScreenshotShortcut(event)) {
+                warnScreenshotAttempt(event);
+                return;
+            }
+
+            if (event.key === 'F5') {
+                saveAnswersDraft();
+                window.onbeforeunload = null;
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                lastEscapeBlockedAt = Date.now();
+                event.preventDefault();
+                event.stopPropagation();
+                startReturnCountdown('Bạn vừa dùng phím ESC trong bài kiểm tra. Vui lòng xác nhận quay lại toàn màn hình để tiếp tục.', 'blocked_shortcut', {
+                    key: event.key,
+                    ctrl: event.ctrlKey,
+                    shift: event.shiftKey,
+                    alt: event.altKey,
+                    meta: event.metaKey,
+                });
+                return;
+            }
+
+            if (event.key === 'F12') {
+                event.preventDefault();
+                event.stopPropagation();
+                showAntiCheatWarning('Không được mở DevTools trong bài kiểm tra.', false, 'blocked_shortcut', {
+                    key: event.key,
+                    ctrl: event.ctrlKey,
+                    shift: event.shiftKey,
+                    alt: event.altKey,
+                    meta: event.metaKey,
+                });
+                return;
+            }
+
             const blocked =
-                event.key === 'F12'
-                || (event.ctrlKey && event.shiftKey && ['i', 'j', 'c'].includes(key))
+                (event.ctrlKey && event.shiftKey && ['i', 'j', 'c'].includes(key))
                 || (event.ctrlKey && ['u', 's', 'p'].includes(key))
                 || (event.metaKey && event.altKey && ['i', 'j', 'c'].includes(key));
 
@@ -1015,26 +1350,115 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
             });
         }, true);
 
+        document.addEventListener('keyup', event => {
+            const wasScreenshotShortcut = isScreenshotShortcut(event);
+            forgetGuardKey(event);
+
+            if (!pressedGuardKeys.has('alt') || !pressedGuardKeys.has('shift')) {
+                setTimeout(hidePrivacyShield, 1200);
+            }
+
+            if (!wasScreenshotShortcut) return;
+            warnScreenshotAttempt(event);
+        }, true);
+
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) return;
-            showAntiCheatWarning('Bạn đã rời khỏi tab làm bài. Hành vi này đang được ghi nhận.', true, 'tab_hidden');
+            if (document.hidden) {
+                showPrivacyShield('Nội dung bài kiểm tra đang được ẩn khi trang không còn hiển thị.');
+                if (isRecentScreenshotShortcut()) {
+                    warnScreenshotAttempt();
+                    return;
+                }
+                keepQuizTabActive('Bài kiểm tra đang yêu cầu giữ tab làm bài hoạt động. Vui lòng quay lại toàn màn hình để tiếp tục.', 'tab_hidden');
+                return;
+            }
+
+            setTimeout(hidePrivacyShield, 600);
+
+            if (returnCountdownDeadline) {
+                if (enforceReturnCountdownDeadline()) return;
+                showReturnCountdownModal(returnCountdownMessage || 'Vui lòng quay lại toàn màn hình để tiếp tục làm bài.');
+            }
+
+            if (mustReturnToFullscreen && !isFullscreen()) {
+                showReturnCountdownModal(returnCountdownMessage || 'Bạn đã quay lại bài kiểm tra. Vui lòng bật lại toàn màn hình để tiếp tục.');
+            }
         });
 
         window.addEventListener('blur', () => {
             const now = Date.now();
-            if (now - lastFocusWarningAt < 1200) return;
-            lastFocusWarningAt = now;
-            showAntiCheatWarning('Cửa sổ làm bài không còn được focus. Hành vi này đang được ghi nhận.', true, 'focus_lost');
+            showPrivacyShield('Nội dung bài kiểm tra đang được ẩn khi cửa sổ mất focus.');
+            if (isRecentScreenshotShortcut()) {
+                warnScreenshotAttempt();
+                return;
+            }
+            if (returnCountdownDeadline) {
+                showReturnCountdownModal(returnCountdownMessage || 'Vui lòng quay lại toàn màn hình để tiếp tục làm bài.');
+                return;
+            }
+            if (now - lastFocusWarningAt < 1200 && !returnCountdownDeadline) return;
+            keepQuizTabActive('Bài kiểm tra đang yêu cầu giữ cửa sổ làm bài hoạt động. Vui lòng quay lại toàn màn hình để tiếp tục.', 'focus_lost');
+        });
+
+        window.addEventListener('focus', () => {
+            pressedGuardKeys.clear();
+            setTimeout(hidePrivacyShield, 600);
+            if (returnCountdownDeadline) {
+                if (enforceReturnCountdownDeadline()) return;
+                showReturnCountdownModal(returnCountdownMessage || 'Vui lòng quay lại toàn màn hình để tiếp tục làm bài.');
+            }
+            if (!mustReturnToFullscreen || isFullscreen()) return;
+            showReturnCountdownModal(returnCountdownMessage || 'Bạn đã quay lại bài kiểm tra. Vui lòng bật lại toàn màn hình để tiếp tục.');
+        });
+
+        window.addEventListener('pagehide', () => {
+            showPrivacyShield('Nội dung bài kiểm tra đang được ẩn khi trang tạm rời khỏi màn hình.');
+            if (isRecentScreenshotShortcut()) return;
+            keepQuizTabActive('Bài kiểm tra đang yêu cầu giữ tab làm bài hoạt động. Vui lòng quay lại toàn màn hình để tiếp tục.', 'tab_hidden');
+        });
+
+        document.addEventListener('freeze', () => {
+            showPrivacyShield('Nội dung bài kiểm tra đang được ẩn khi trang bị tạm dừng.');
+            if (isRecentScreenshotShortcut()) return;
+            keepQuizTabActive('Bài kiểm tra đang yêu cầu giữ tab làm bài hoạt động. Vui lòng quay lại toàn màn hình để tiếp tục.', 'tab_hidden');
         });
 
         document.addEventListener('fullscreenchange', () => {
-            if (isFullscreen()) return;
-            showAntiCheatWarning('Bạn đã thoát chế độ toàn màn hình trong bài kiểm tra.', true, 'fullscreen_exit');
+            if (isFullscreen()) {
+                cancelReturnCountdown();
+                mustReturnToFullscreen = false;
+                if (fullscreenOverlay) {
+                    fullscreenOverlay.remove();
+                    fullscreenOverlay = null;
+                }
+                return;
+            }
+            if (Date.now() - lastEscapeBlockedAt < 1500) {
+                startReturnCountdown('Bạn vừa dùng ESC để thoát toàn màn hình. Vui lòng quay lại toàn màn hình để tiếp tục làm bài.', 'fullscreen_exit');
+                return;
+            }
+            lastAttentionViolationAt = Date.now();
+            lastFocusWarningAt = lastAttentionViolationAt;
+            startReturnCountdown('Bạn đã thoát chế độ toàn màn hình. Vui lòng quay lại toàn màn hình để tiếp tục làm bài.', 'fullscreen_exit');
         });
 
         document.addEventListener('webkitfullscreenchange', () => {
-            if (isFullscreen()) return;
-            showAntiCheatWarning('Bạn đã thoát chế độ toàn màn hình trong bài kiểm tra.', true, 'fullscreen_exit');
+            if (isFullscreen()) {
+                cancelReturnCountdown();
+                mustReturnToFullscreen = false;
+                if (fullscreenOverlay) {
+                    fullscreenOverlay.remove();
+                    fullscreenOverlay = null;
+                }
+                return;
+            }
+            if (Date.now() - lastEscapeBlockedAt < 1500) {
+                startReturnCountdown('Bạn vừa dùng ESC để thoát toàn màn hình. Vui lòng quay lại toàn màn hình để tiếp tục làm bài.', 'fullscreen_exit');
+                return;
+            }
+            lastAttentionViolationAt = Date.now();
+            lastFocusWarningAt = lastAttentionViolationAt;
+            startReturnCountdown('Bạn đã thoát chế độ toàn màn hình. Vui lòng quay lại toàn màn hình để tiếp tục làm bài.', 'fullscreen_exit');
         });
 
         window.setInterval(() => {
@@ -1044,12 +1468,14 @@ body { background: color-mix(in srgb, var(--muted) 45%, var(--background)); }
 
             const now = Date.now();
             if (now - lastDevtoolsWarningAt < 5000) return;
+            if (now - lastAttentionViolationAt < 5000) return;
             lastDevtoolsWarningAt = now;
             showAntiCheatWarning('Hệ thống phát hiện cửa sổ DevTools hoặc vùng hiển thị bất thường.', true, 'devtools_detected', {
                 width_gap: widthGap,
                 height_gap: heightGap,
             });
         }, 1500);
+
     }
 
     function showStartModal() {

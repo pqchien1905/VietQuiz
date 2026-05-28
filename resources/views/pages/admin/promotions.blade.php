@@ -7,7 +7,8 @@
 @php
   $discountTypes = ['percentage' => 'Phần trăm', 'fixed' => 'Số tiền cố định'];
   $statusLabels = ['active' => 'Hoạt động', 'inactive' => 'Tạm dừng'];
-  $vipPlanLabels = ['all' => 'Tất cả gói VIP', 'monthly' => 'VIP tháng', 'yearly' => 'VIP năm', 'lifetime' => 'VIP trọn đời'];
+  $vipAudienceLabels = ['all' => 'Tất cả đối tượng VIP', 'teacher' => 'Giáo viên', 'student' => 'Học sinh'];
+  $vipPlanLabels = ['all' => 'Tất cả chu kỳ VIP', 'monthly' => 'Hàng tháng', 'yearly' => 'Hàng năm', 'lifetime' => 'Trọn đời'];
   $summaryCards = [
     ['label' => 'Tổng mã', 'value' => $summary['total'], 'tone' => 'var(--primary)', 'href' => route('admin.promotions', ['state' => 'all'])],
     ['label' => 'Đang hiệu lực', 'value' => $summary['running'], 'tone' => 'var(--success)', 'href' => route('admin.promotions', ['scope' => 'running'])],
@@ -26,7 +27,7 @@
   .promotion-title { display:flex; flex-direction:column; gap:.25rem; min-width:0; }
   .promotion-title h3 { margin:0; font-size:var(--text-lg); font-weight:800; }
   .promotion-title p { margin:0; color:var(--muted-foreground); font-size:var(--text-sm); }
-  .promotion-filter-grid { display:grid; grid-template-columns:minmax(240px,1fr) repeat(6,minmax(130px,auto)) auto auto; gap:.75rem; align-items:end; width:100%; }
+  .promotion-filter-grid { display:grid; grid-template-columns:minmax(240px,1fr) repeat(7,minmax(130px,auto)) auto auto; gap:.75rem; align-items:end; width:100%; }
   .promotion-main { min-width:18rem; }
   .promotion-code { font-size:1rem; font-weight:900; letter-spacing:.04em; }
   .promotion-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.45rem; }
@@ -63,6 +64,7 @@
       <div class="form-group"><label class="label">Tìm kiếm</label><input class="input" name="q" value="{{ request('q') }}" placeholder="Mã, tên hoặc mô tả"></div>
       <div class="form-group"><label class="label">Trạng thái</label><select class="input select" name="status"><option value="">Tất cả</option>@foreach($statusLabels as $value => $label)<option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>@endforeach</select></div>
       <div class="form-group"><label class="label">Loại giảm</label><select class="input select" name="discount_type"><option value="">Tất cả</option>@foreach($discountTypes as $value => $label)<option value="{{ $value }}" @selected(request('discount_type') === $value)>{{ $label }}</option>@endforeach</select></div>
+      <div class="form-group"><label class="label">Đối tượng</label><select class="input select" name="audience"><option value="">Tất cả</option>@foreach($vipAudienceLabels as $value => $label)<option value="{{ $value }}" @selected(request('audience') === $value)>{{ $label }}</option>@endforeach</select></div>
       <div class="form-group"><label class="label">VIP</label><select class="input select" name="vip_plan"><option value="">Tất cả</option>@foreach($vipPlanLabels as $value => $label)<option value="{{ $value }}" @selected(request('vip_plan') === $value)>{{ $label }}</option>@endforeach</select></div>
       <div class="form-group"><label class="label">Nhóm</label><select class="input select" name="scope"><option value="">Tất cả</option><option value="running" @selected(request('scope') === 'running')>Đang hiệu lực</option><option value="scheduled" @selected(request('scope') === 'scheduled')>Sắp chạy</option><option value="expired" @selected(request('scope') === 'expired')>Hết hạn</option><option value="exhausted" @selected(request('scope') === 'exhausted')>Dùng hết</option><option value="vip" @selected(request('scope') === 'vip')>Mã VIP</option><option value="general" @selected(request('scope') === 'general')>Mã thường</option></select></div>
       <div class="form-group"><label class="label">Dữ liệu</label><select class="input select" name="state"><option value="active" @selected(request('state', 'active') === 'active')>Đang dùng</option><option value="all" @selected(request('state') === 'all')>Tất cả</option><option value="deleted" @selected(request('state') === 'deleted')>Đã xóa</option></select></div>
@@ -81,6 +83,7 @@
           $usagePercent = $promotion->usage_limit ? min(100, round(($promotion->used_count / max(1, $promotion->usage_limit)) * 100)) : null;
           $isDeleted = $promotion->trashed();
           $isActiveNow = ! $isDeleted && $promotion->isActive();
+          $audienceLabel = $vipAudienceLabels[$promotion->audience ?? 'all'] ?? $promotion->audience;
           $scopeLabel = $promotion->vip_plan ? ($vipPlanLabels[$promotion->vip_plan] ?? $promotion->vip_plan) : 'Toàn hệ thống';
           $discountLabel = $promotion->discount_type === 'percentage'
             ? rtrim(rtrim((string) $promotion->discount_value, '0'), '.').'%'
@@ -97,6 +100,7 @@
           <td>
             <span class="badge {{ $promotion->vip_plan ? 'badge-warning' : 'badge-info' }}">{{ $scopeLabel }}</span>
             <div class="promotion-meta">
+              <span class="badge badge-primary">{{ $audienceLabel }}</span>
               <span class="badge badge-outline">{{ $discountTypes[$promotion->discount_type] ?? $promotion->discount_type }}</span>
             </div>
           </td>
@@ -116,7 +120,7 @@
                 <form method="POST" action="{{ route('admin.promotions.restore', $promotion->id) }}">@csrf<button class="btn btn-outline-primary btn-sm">Khôi phục</button></form>
               @else
                 <button class="btn btn-primary btn-sm" type="button" onclick="openAdminPromotionModal('edit-promotion-{{ $promotion->id }}')">Sửa</button>
-                <form method="POST" action="{{ route('admin.promotions.delete', $promotion->id) }}" data-confirm="Đưa mã {{ $promotion->code }} vào thùng rác?" data-confirm-ok="Xóa mã">
+                <form method="POST" action="{{ route('admin.promotions.delete', $promotion->id) }}" data-confirm="Xóa mã {{ $promotion->code }} khỏi danh sách hoạt động?" data-confirm-ok="Xóa mã">
                   @csrf
                   @method('DELETE')
                   <button class="btn btn-destructive btn-sm">Xóa</button>
@@ -146,7 +150,7 @@
         <button class="modal-close" type="button" onclick="closeAdminPromotionModal('create-promotion-modal')" aria-label="Đóng">×</button>
       </div>
       <div class="modal-body">
-        @include('pages.admin.partials.promotion-form-fields', ['promotion' => null, 'discountTypes' => $discountTypes, 'statusLabels' => $statusLabels, 'vipPlanLabels' => $vipPlanLabels])
+        @include('pages.admin.partials.promotion-form-fields', ['promotion' => null, 'discountTypes' => $discountTypes, 'statusLabels' => $statusLabels, 'vipAudienceLabels' => $vipAudienceLabels, 'vipPlanLabels' => $vipPlanLabels])
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" type="button" onclick="closeAdminPromotionModal('create-promotion-modal')">Hủy</button>
@@ -171,7 +175,7 @@
             <button class="modal-close" type="button" onclick="closeAdminPromotionModal('edit-promotion-{{ $promotion->id }}')" aria-label="Đóng">×</button>
           </div>
           <div class="modal-body">
-            @include('pages.admin.partials.promotion-form-fields', ['promotion' => $promotion, 'discountTypes' => $discountTypes, 'statusLabels' => $statusLabels, 'vipPlanLabels' => $vipPlanLabels])
+            @include('pages.admin.partials.promotion-form-fields', ['promotion' => $promotion, 'discountTypes' => $discountTypes, 'statusLabels' => $statusLabels, 'vipAudienceLabels' => $vipAudienceLabels, 'vipPlanLabels' => $vipPlanLabels])
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline" type="button" onclick="closeAdminPromotionModal('edit-promotion-{{ $promotion->id }}')">Hủy</button>

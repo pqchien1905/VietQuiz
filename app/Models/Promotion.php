@@ -14,6 +14,7 @@ class Promotion extends Model
         'code',
         'name',
         'description',
+        'audience',
         'vip_plan',
         'discount_type',
         'discount_value',

@@ -12,7 +12,15 @@
     <input class="input" name="name" value="{{ old('name', $promotion?->name) }}" placeholder="Ưu đãi học viên mới" required>
   </div>
   <div class="form-group">
-    <label class="label">Phạm vi VIP</label>
+    <label class="label">Đối tượng VIP</label>
+    <select class="input select" name="audience">
+      @foreach($vipAudienceLabels as $value => $label)
+        <option value="{{ $value }}" @selected(old('audience', $promotion?->audience ?? 'all') === $value)>{{ $label }}</option>
+      @endforeach
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="label">Gói VIP</label>
     <select class="input select" name="vip_plan">
       <option value="">Không giới hạn VIP</option>
       @foreach($vipPlanLabels as $value => $label)

@@ -127,7 +127,7 @@ class TicketController extends AdminBaseController
 
         Notification::findOrFail($id)->delete();
 
-        return back()->with('success', 'Đã đưa thông báo vào thùng rác.');
+        return back()->with('success', 'Đã xóa thông báo khỏi danh sách hoạt động.');
     }
 
     public function updateNotificationReadState(Request $request, string $id): RedirectResponse

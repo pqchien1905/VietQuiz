@@ -158,7 +158,7 @@
               @if($quiz->trashed())
                 <form method="POST" action="{{ route('admin.quizzes.restore', $quiz->id) }}">@csrf<button class="btn btn-outline-primary btn-sm">Khôi phục</button></form>
               @else
-                <form method="POST" action="{{ route('admin.quizzes.delete', $quiz->id) }}" data-confirm="Đưa bài kiểm tra {{ $quiz->title }} vào thùng rác?" data-confirm-ok="Xóa bài kiểm tra">@csrf @method('DELETE')<button class="btn btn-destructive btn-sm">Xóa</button></form>
+                <form method="POST" action="{{ route('admin.quizzes.delete', $quiz->id) }}" data-confirm="Xóa bài kiểm tra {{ $quiz->title }} khỏi danh sách hoạt động?" data-confirm-ok="Xóa bài kiểm tra">@csrf @method('DELETE')<button class="btn btn-destructive btn-sm">Xóa</button></form>
               @endif
             </div>
           </td>

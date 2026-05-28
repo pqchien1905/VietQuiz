@@ -58,13 +58,13 @@ class AiQuestionGenerator
             ]);
 
             if ($response->failed()) {
-                throw new RuntimeException('AI API loi: HTTP ' . $response->status());
+                throw new RuntimeException('AI API lỗi: HTTP ' . $response->status());
             }
 
             $content = data_get($response->json(), 'choices.0.message.content');
         }
         if (!is_string($content) || trim($content) === '') {
-            throw new RuntimeException('AI khong tra ve noi dung hop le.');
+            throw new RuntimeException('AI không trả về nội dung hợp lệ.');
         }
 
         $decoded = json_decode($this->extractJson($content), true);
@@ -74,7 +74,7 @@ class AiQuestionGenerator
 
         $questions = $decoded['questions'] ?? $decoded;
         if (!is_array($questions)) {
-            throw new RuntimeException('AI khong tra ve danh sach cau hoi.');
+            throw new RuntimeException('AI không trả về danh sách câu hỏi.');
         }
 
         return $this->normalizeQuestions($questions, (int) $input['count']);
@@ -226,7 +226,7 @@ PROMPT;
         }
 
         if (!preg_match('/\s2\d\d\s/', $statusLine)) {
-            throw new RuntimeException('AI API loi: ' . ($statusLine ?: 'khong ro trang thai'));
+            throw new RuntimeException('AI API lỗi: ' . ($statusLine ?: 'không rõ trạng thái'));
         }
 
         return $body;

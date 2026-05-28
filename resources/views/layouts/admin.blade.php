@@ -41,7 +41,6 @@
     'tickets' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
     'vip' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
     'promotions' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>',
-    'trash' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
   ];
 @endphp
 
@@ -93,20 +92,20 @@
   .admin-content .card-header { gap:1rem; }
   .admin-content .card-header > * { min-width:0; }
   .admin-content .stats-grid { margin-bottom:0; }
-  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid,.trash-filter-grid) {
+  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid) {
     display:grid !important;
     grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)) !important;
     align-items:end;
     gap:.75rem;
     width:100%;
   }
-  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid,.trash-filter-grid) > .form-group:first-child {
+  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid) > .form-group:first-child {
     grid-column:span 2;
   }
-  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid,.trash-filter-grid) .form-group {
+  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid) .form-group {
     min-width:0;
   }
-  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid,.trash-filter-grid) :is(.input,.select,button,.btn) {
+  .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid) :is(.input,.select,button,.btn) {
     width:100%;
     min-width:0;
   }
@@ -139,10 +138,10 @@
   @media (max-width:720px) {
     .admin-hero { flex-direction:column; align-items:flex-start; }
     .admin-form-grid { grid-template-columns:1fr; min-width:0; }
-    .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid,.trash-filter-grid) {
+    .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid) {
       grid-template-columns:1fr !important;
     }
-    .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid,.trash-filter-grid) > .form-group:first-child {
+    .admin-content :is(.user-filter-grid,.class-filter-grid,.course-filter-grid,.quiz-filter-grid,.question-filter-grid,.assignment-filter-grid,.submission-filter-grid,.grade-filter-grid,.promotion-filter-grid,.vip-filter-grid,.notification-filter-grid,.ticket-filter-grid) > .form-group:first-child {
       grid-column:auto;
     }
   }

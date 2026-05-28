@@ -39,6 +39,50 @@
     margin-top: .5rem;
     flex-wrap: wrap;
 }
+.quiz-context-strip {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(150px, 0.55fr));
+    gap: 0.75rem;
+    align-items: stretch;
+}
+.quiz-context-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--card);
+    padding: 0.85rem 0.95rem;
+    min-width: 0;
+}
+.quiz-context-card--primary {
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+    background: color-mix(in srgb, var(--primary) 7%, var(--card));
+}
+.quiz-context-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    margin-bottom: 0.35rem;
+}
+.quiz-context-title {
+    color: var(--foreground);
+    font-size: var(--text-base);
+    font-weight: 800;
+    line-height: 1.35;
+    word-break: break-word;
+}
+.quiz-context-card--primary .quiz-context-title {
+    font-size: var(--text-lg);
+}
+.quiz-context-sub {
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+    margin-top: 0.25rem;
+    line-height: 1.45;
+}
 .quiz-hero-actions {
     display: flex;
     gap: .5rem;
@@ -286,7 +330,7 @@
 }
 .detail-quick-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
     margin-bottom: 1rem;
 }
@@ -376,12 +420,14 @@
     margin-bottom: 0.75rem;
 }
 @media (max-width: 1024px) {
+    .quiz-context-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .quiz-detail-grid,
     .quiz-main-grid { grid-template-columns: 1fr; }
     .stats-grid.stats-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
     .quiz-hero-title { font-size: var(--text-xl); }
+    .quiz-context-strip { grid-template-columns: 1fr; }
     .detail-quick-grid { grid-template-columns: 1fr; }
     .attempt-row { grid-template-columns: 1fr; gap: 0.35rem; }
     .detail-row { flex-direction: column; gap: 0.25rem; }
@@ -416,13 +462,73 @@
   $unsubmittedCount = max(0, $totalStudents - $submittedCount - $inProgressCount);
   $questions = $quiz->questions ?? collect();
   $totalPoints = round($questions->sum(fn($question) => (float) ($question->points ?? 0)), 2);
-  $passCount = $submittedAttempts->filter(fn($attempt) => $attempt->pivot->total_points > 0
-    && round(($attempt->pivot->score / $attempt->pivot->total_points) * 100) >= ($quiz->passing_score ?? 50)
-  )->count();
+  $bestScoreValue = function ($attempt) {
+    return is_numeric($attempt->pivot->best_score ?? null)
+      ? (float) $attempt->pivot->best_score
+      : (is_numeric($attempt->pivot->score ?? null) ? (float) $attempt->pivot->score : null);
+  };
+  $bestTotalValue = function ($attempt) {
+    return is_numeric($attempt->pivot->best_total_points ?? null)
+      ? (float) $attempt->pivot->best_total_points
+      : (is_numeric($attempt->pivot->total_points ?? null) ? (float) $attempt->pivot->total_points : 0);
+  };
+  $bestScorePercent = function ($attempt) use ($bestScoreValue, $bestTotalValue) {
+    $score = $bestScoreValue($attempt);
+    $total = $bestTotalValue($attempt);
+
+    return $score !== null && $total > 0 ? round(($score / $total) * 100) : 0;
+  };
+  $latestScorePercent = function ($attempt) {
+    $score = is_numeric($attempt->pivot->score ?? null) ? (float) $attempt->pivot->score : null;
+    $total = is_numeric($attempt->pivot->total_points ?? null) ? (float) $attempt->pivot->total_points : 0;
+
+    return $score !== null && $total > 0 ? round(($score / $total) * 100) : null;
+  };
+  $allowsMultipleAttempts = empty($quiz->max_attempts) || (int) $quiz->max_attempts > 1;
+  $recentRetakeAttempts = $submittedAttempts
+    ->filter(fn($attempt) => max((int) ($attempt->pivot->attempt_count ?? 0), $attempt->pivot->submitted_at ? 1 : 0) > 1)
+    ->sortByDesc(fn($attempt) => optional(\Carbon\Carbon::parse($attempt->pivot->submitted_at))->timestamp ?? 0)
+    ->values();
+  $passCount = $submittedAttempts->filter(fn($attempt) => $bestScorePercent($attempt) >= ($quiz->passing_score ?? 50))->count();
   $passRate = $submittedCount > 0 ? round(($passCount / $submittedCount) * 100) : 0;
-  $targetLabel = $quiz->classModel?->name
-    ?? ($quiz->course?->title
-    ?? (!empty($quiz->assigned_students) ? count($quiz->assigned_students) . ' học sinh được chọn' : ($quiz->public_to_all_students ? 'Mọi người' : 'Chưa chọn phạm vi')));
+  $scopeCards = collect();
+  if ($quiz->course) {
+    $scopeCards->push([
+      'type' => 'Khóa học',
+      'title' => $quiz->course->name,
+      'sub' => $quiz->classModel ? 'Thuộc lớp '.$quiz->classModel->name : 'Giao theo khóa học',
+    ]);
+  }
+  if ($quiz->classModel) {
+    $scopeCards->push([
+      'type' => 'Lớp học',
+      'title' => $quiz->classModel->name,
+      'sub' => $totalStudents > 0 ? $totalStudents.' học sinh trong lớp' : 'Giao theo lớp học',
+    ]);
+  }
+  if (!empty($quiz->assigned_students)) {
+    $scopeCards->push([
+      'type' => 'Học sinh',
+      'title' => count($quiz->assigned_students).' học sinh được chọn',
+      'sub' => 'Chỉ những học sinh trong danh sách được làm bài',
+    ]);
+  }
+  if ($quiz->public_to_all_students && $scopeCards->isEmpty()) {
+    $scopeCards->push([
+      'type' => 'Phạm vi',
+      'title' => 'Mọi học sinh',
+      'sub' => 'Bài kiểm tra được mở công khai cho học sinh',
+    ]);
+  }
+  if ($scopeCards->isEmpty()) {
+    $scopeCards->push([
+      'type' => 'Phạm vi',
+      'title' => 'Chưa chọn phạm vi',
+      'sub' => 'Học sinh sẽ chưa thấy bài này cho đến khi được giao',
+    ]);
+  }
+  $primaryScope = $scopeCards->first();
+  $targetLabel = $scopeCards->map(fn($item) => $item['type'].': '.$item['title'])->implode(' · ');
   $formatDateTime = fn($value) => $value ? \Carbon\Carbon::parse($value)->format('d/m/Y H:i') : 'Chưa đặt';
   $violationSummary = $violationSummary ?? collect();
   $violationTotal = $violationSummary->sum('total');
@@ -447,32 +553,40 @@
     return is_array($decoded) ? $decoded : [];
   };
 
-  function gradeLetter($pct) {
-    if ($pct >= 90) return 'A';
-    if ($pct >= 80) return 'B';
-    if ($pct >= 70) return 'C';
-    if ($pct >= 60) return 'D';
-    return 'F';
+  if (! function_exists('gradeLetter')) {
+    function gradeLetter($pct) {
+      if ($pct >= 90) return 'A';
+      if ($pct >= 80) return 'B';
+      if ($pct >= 70) return 'C';
+      if ($pct >= 60) return 'D';
+      return 'F';
+    }
   }
-  function gradeClass($pct) {
-    if ($pct >= 90) return 'grade-a';
-    if ($pct >= 80) return 'grade-b';
-    if ($pct >= 70) return 'grade-c';
-    if ($pct >= 60) return 'grade-d';
-    return 'grade-f';
+  if (! function_exists('gradeClass')) {
+    function gradeClass($pct) {
+      if ($pct >= 90) return 'grade-a';
+      if ($pct >= 80) return 'grade-b';
+      if ($pct >= 70) return 'grade-c';
+      if ($pct >= 60) return 'grade-d';
+      return 'grade-f';
+    }
   }
-  function gradeColor($pct) {
-    if ($pct >= 90) return 'var(--success)';
-    if ($pct >= 70) return 'var(--info)';
-    if ($pct >= 50) return 'var(--warning)';
-    return 'var(--destructive)';
+  if (! function_exists('gradeColor')) {
+    function gradeColor($pct) {
+      if ($pct >= 90) return 'var(--success)';
+      if ($pct >= 70) return 'var(--info)';
+      if ($pct >= 50) return 'var(--warning)';
+      return 'var(--destructive)';
+    }
   }
-  function timeSpent($start, $end) {
-    if (!$start || !$end) return '—';
-    $s = \Carbon\Carbon::parse($start);
-    $e = \Carbon\Carbon::parse($end);
-    $m = (int) $s->diffInMinutes($e);
-    return $m . ' phút';
+  if (! function_exists('timeSpent')) {
+    function timeSpent($start, $end) {
+      if (!$start || !$end) return '—';
+      $s = \Carbon\Carbon::parse($start);
+      $e = \Carbon\Carbon::parse($end);
+      $m = (int) $s->diffInMinutes($e);
+      return $m . ' phút';
+    }
   }
 ?>
 
@@ -505,11 +619,7 @@
       @if($quiz->time_limit)
         <span class="badge badge-default">{{ $quiz->time_limit }} phút</span>
       @endif
-      @if($quiz->classModel)
-        <span class="badge badge-default">{{ $quiz->classModel->name }}</span>
-      @else
-        <span class="badge badge-default">Mọi người</span>
-      @endif
+      <span class="badge badge-default">{{ $primaryScope['type'] }}: {{ $primaryScope['title'] }}</span>
     </div>
   </div>
   <div class="quiz-hero-actions">
@@ -531,6 +641,33 @@
       </button>
     </form>
     @endif
+  </div>
+</div>
+
+<!-- Assignment scope -->
+<div class="quiz-context-strip stagger-children">
+  <div class="quiz-context-card quiz-context-card--primary">
+    <div class="quiz-context-label">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><path d="M7 14h10"/><path d="M7 17h7"/></svg>
+      Bài này đang giao cho
+    </div>
+    <div class="quiz-context-title">{{ $primaryScope['title'] }}</div>
+    <div class="quiz-context-sub">{{ $primaryScope['type'] }} · {{ $primaryScope['sub'] }}</div>
+  </div>
+  <div class="quiz-context-card">
+    <div class="quiz-context-label">Loại bài</div>
+    <div class="quiz-context-title">{{ $quiz->quiz_type === 'practice' ? 'Luyện tập' : 'Kiểm tra' }}</div>
+    <div class="quiz-context-sub">{{ $quiz->anti_cheat_enabled ? 'Có chống gian lận' : 'Không bật chống gian lận' }}</div>
+  </div>
+  <div class="quiz-context-card">
+    <div class="quiz-context-label">Thời lượng</div>
+    <div class="quiz-context-title">{{ $quiz->time_limit ? $quiz->time_limit . ' phút' : 'Không giới hạn' }}</div>
+    <div class="quiz-context-sub">Hạn nộp: {{ $formatDateTime($quiz->end_at) }}</div>
+  </div>
+  <div class="quiz-context-card">
+    <div class="quiz-context-label">Lượt làm</div>
+    <div class="quiz-context-title">{{ $quiz->max_attempts ? $quiz->max_attempts . ' lần' : 'Không giới hạn' }}</div>
+    <div class="quiz-context-sub">Đã nộp {{ $totalAttemptCount }} lượt</div>
   </div>
 </div>
 
@@ -563,13 +700,13 @@
     @endif
   </div>
   <div class="stat-card">
-    <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Điểm TB</div>
+    <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Điểm TB cao nhất</div>
     <div class="stat-card__value" style="color:{{ gradeColor($avgScore) }};">{{ $avgScore ? $avgScore . '%' : '—' }}</div>
   </div>
   <div class="stat-card">
     <div style="font-size:var(--text-sm);color:var(--muted-foreground);margin-bottom:.5rem;">Điểm cao nhất</div>
     @php
-      $maxScore = $submittedAttempts->count() > 0 ? $submittedAttempts->max(fn($a) => $a->pivot->total_points > 0 ? round(($a->pivot->score / $a->pivot->total_points) * 100) : 0) : 0;
+      $maxScore = $submittedAttempts->count() > 0 ? $submittedAttempts->max(fn($a) => $bestScorePercent($a)) : 0;
     @endphp
     <div class="stat-card__value" style="color:{{ gradeColor($maxScore) }};">{{ $maxScore ? $maxScore . '%' : '—' }}</div>
   </div>
@@ -588,6 +725,11 @@
     </div>
     <div class="card-content">
       <div class="detail-quick-grid">
+        <div class="detail-quick-item">
+          <div class="detail-quick-label">Phạm vi giao bài</div>
+          <div class="detail-quick-value">{{ $primaryScope['type'] }}: {{ $primaryScope['title'] }}</div>
+          <div class="detail-quick-sub">{{ $primaryScope['sub'] }}</div>
+        </div>
         <div class="detail-quick-item">
           <div class="detail-quick-label">Số lần làm tối đa</div>
           <div class="detail-quick-value">{{ $quiz->max_attempts ? $quiz->max_attempts . ' lần' : 'Không giới hạn' }}</div>
@@ -682,12 +824,12 @@
         <div class="attempts-list">
           @foreach($submittedAttempts->take(8) as $attempt)
             @php
-              $pct = $attempt->pivot->total_points > 0 ? round(($attempt->pivot->score / $attempt->pivot->total_points) * 100) : 0;
+              $pct = $bestScorePercent($attempt);
             @endphp
             <div class="attempt-row">
               <div class="attempt-student">
                 <div class="attempt-name">{{ $attempt->name }}</div>
-                <div class="attempt-meta">{{ $attempt->email }} · Nộp lúc {{ $formatDateTime($attempt->pivot->submitted_at) }}</div>
+                <div class="attempt-meta">{{ $attempt->email }} · Nộp gần nhất {{ $formatDateTime($attempt->pivot->submitted_at) }}</div>
               </div>
               <span class="badge {{ $pct >= ($quiz->passing_score ?? 50) ? 'badge-success' : 'badge-danger' }}">{{ $pct >= ($quiz->passing_score ?? 50) ? 'Đạt' : 'Chưa đạt' }}</span>
               <span class="attempt-score" style="color:{{ gradeColor($pct) }};">{{ $pct }}%</span>
@@ -705,6 +847,46 @@
       @endif
     </div>
   </div>
+
+  @if($allowsMultipleAttempts)
+  <div class="card quiz-detail-wide">
+    <div class="card-header">
+      <h3 class="card-title">Lịch sử làm lại gần đây</h3>
+      <p class="card-description">{{ $recentRetakeAttempts->count() }} học sinh đã nộp từ 2 lượt trở lên</p>
+    </div>
+    <div class="card-content">
+      @if($recentRetakeAttempts->count() > 0)
+        <div class="attempts-list">
+          @foreach($recentRetakeAttempts->take(10) as $attempt)
+            @php
+              $attemptCount = max((int) ($attempt->pivot->attempt_count ?? 0), $attempt->pivot->submitted_at ? 1 : 0);
+              $latestPct = $latestScorePercent($attempt);
+              $bestPct = $bestScorePercent($attempt);
+            @endphp
+            <div class="attempt-row">
+              <div class="attempt-student">
+                <div class="attempt-name">{{ $attempt->name }}</div>
+                <div class="attempt-meta">{{ $attempt->email }} · Lần gần nhất {{ $formatDateTime($attempt->pivot->submitted_at) }}</div>
+              </div>
+              <span class="badge badge-default">{{ $attemptCount }} lượt</span>
+              <span class="attempt-score" style="color:{{ $latestPct === null ? 'var(--muted-foreground)' : gradeColor($latestPct) }};">
+                Gần nhất {{ $latestPct === null ? '—' : $latestPct . '%' }}
+              </span>
+              <span class="attempt-duration" style="min-width:4.5rem;">Cao nhất {{ $bestPct }}%</span>
+            </div>
+          @endforeach
+        </div>
+      @else
+        <div style="text-align:center;padding:2rem;color:var(--muted-foreground);">
+          <span class="empty-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+          </span>
+          <p style="font-size:var(--text-sm);">Chưa có học sinh nào làm lại bài kiểm tra.</p>
+        </div>
+      @endif
+    </div>
+  </div>
+  @endif
 </div>
 
 <!-- Main Grid -->
@@ -774,9 +956,7 @@
     <div class="card-content">
       @if($submittedAttempts->count() > 0)
         @php
-          $scores = $submittedAttempts->map(fn($a) => $a->pivot->total_points > 0
-            ? round(($a->pivot->score / $a->pivot->total_points) * 100)
-            : 0)->sort()->values();
+          $scores = $submittedAttempts->map(fn($a) => $bestScorePercent($a))->sort()->values();
           $buckets = ['0-20%'=>0,'21-40%'=>0,'41-60%'=>0,'61-80%'=>0,'81-100%'=>0];
           foreach($scores as $s) {
             if ($s <= 20) $buckets['0-20%']++;

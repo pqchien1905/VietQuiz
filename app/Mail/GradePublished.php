@@ -23,10 +23,10 @@ class GradePublished extends Mailable
 
     public function envelope(): Envelope
     {
-        $label = $this->itemType === 'assignment' ? 'Bai tap' : 'Bai kiem tra';
+        $label = $this->itemType === 'assignment' ? 'Bài tập' : 'Bài kiểm tra';
 
         return new Envelope(
-            subject: "{$label} da duoc cham - VietQuiz",
+            subject: "{$label} đã được chấm - VietQuiz",
         );
     }
 

@@ -116,10 +116,22 @@ class User extends Authenticatable
         return $this->hasMany(VipPayment::class);
     }
 
+    public function vipSubscriptionForAudience(string $audience): HasOne
+    {
+        return $this->hasOne(VipSubscription::class)
+            ->where('audience', $audience);
+    }
+
+    public function vipPaymentsForAudience(string $audience): HasMany
+    {
+        return $this->hasMany(VipPayment::class)
+            ->where('audience', $audience);
+    }
+
     public function quizAttempts(): BelongsToMany
     {
         return $this->belongsToMany(Quiz::class, 'quiz_user')
-            ->withPivot(['score', 'total_points', 'answers', 'started_at', 'submitted_at', 'is_graded', 'attempt_count', 'shuffled_options']);
+            ->withPivot(['score', 'total_points', 'best_score', 'best_total_points', 'answers', 'started_at', 'submitted_at', 'is_graded', 'attempt_count', 'shuffled_options']);
     }
 
     public function tickets(): HasMany
@@ -153,7 +165,12 @@ class User extends Authenticatable
 
     public function isVip(): bool
     {
-        return (bool) $this->vipSubscription?->is_active;
+        return (bool) $this->vipSubscriptionForAudience($this->vipAudience())->first()?->is_active;
+    }
+
+    public function vipAudience(): string
+    {
+        return $this->isStudent() ? 'student' : 'teacher';
     }
 
     public function canSwitchRole(): bool

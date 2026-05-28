@@ -123,11 +123,15 @@ class PaymentController extends AdminBaseController
             'expires_at' => ['nullable', 'date', 'after_or_equal:started_at'],
         ]);
 
-        abort_unless(User::whereKey($validated['user_id'])->whereIn('role', ['teacher', 'student'])->exists(), 422);
+        $targetUser = User::whereKey($validated['user_id'])->whereIn('role', ['teacher', 'student'])->first();
+        abort_unless($targetUser, 422);
 
         $startedAt = isset($validated['started_at']) ? \Illuminate\Support\Carbon::parse($validated['started_at']) : now();
         VipSubscription::updateOrCreate(
-            ['user_id' => $validated['user_id']],
+            [
+                'user_id' => $validated['user_id'],
+                'audience' => $targetUser->role === 'student' ? 'student' : 'teacher',
+            ],
             [
                 'plan' => $validated['plan'],
                 'status' => $validated['status'],
@@ -192,6 +196,7 @@ class PaymentController extends AdminBaseController
             })
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
             ->when($request->filled('discount_type'), fn ($query) => $query->where('discount_type', $request->query('discount_type')))
+            ->when($request->filled('audience'), fn ($query) => $query->where('audience', $request->query('audience')))
             ->when($request->filled('vip_plan'), fn ($query) => $query->where('vip_plan', $request->query('vip_plan')))
             ->when($request->query('scope') === 'vip', fn ($query) => $query->whereNotNull('vip_plan'))
             ->when($request->query('scope') === 'general', fn ($query) => $query->whereNull('vip_plan'))
@@ -256,7 +261,7 @@ class PaymentController extends AdminBaseController
 
         Promotion::findOrFail($id)->delete();
 
-        return back()->with('success', 'Đã đưa khuyến mãi vào thùng rác.');
+        return back()->with('success', 'Đã xóa khuyến mãi khỏi danh sách hoạt động.');
     }
 
     public function restorePromotion(Request $request, int $id): RedirectResponse

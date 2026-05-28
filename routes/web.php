@@ -309,7 +309,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/courses/{course}/publish', [CourseController::class, 'publish'])->name('courses.publish');
         Route::post('/courses/{course}/unpublish', [CourseController::class, 'unpublish'])->name('courses.unpublish');
         Route::post('/courses/{course}/duplicate', [CourseController::class, 'duplicate'])->name('courses.duplicate');
-        Route::post('/courses/{course}/sync-students', [CourseController::class, 'syncStudents'])->name('courses.sync-students');
         Route::delete('/courses/{course}/students/{student}', [CourseController::class, 'removeStudent'])->name('courses.remove-student');
         Route::delete('/courses/{course}', [CourseController::class, 'destroy'])->name('courses.destroy');
 

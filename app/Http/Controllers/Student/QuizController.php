@@ -89,8 +89,10 @@ class QuizController extends Controller
             $isExpired = $quiz->end_at !== null && $quiz->end_at->isPast();
             $isScheduled = $quiz->start_at !== null && $quiz->start_at->isFuture();
             $canRetry = ($isUnlimitedAttempts || (($remainingAttempts ?? 0) > 0)) && ! $isStarted && ! $isExpired && ! $isScheduled;
-            $maxScore = (float) ($attempt?->total_points ?: $quiz->total_points ?: $quiz->questions_count ?: 0);
-            $score = $attempt?->score !== null ? (float) $attempt->score : null;
+            $maxScore = (float) ($attempt?->best_total_points ?: $attempt?->total_points ?: $quiz->total_points ?: $quiz->questions_count ?: 0);
+            $score = $attempt?->best_score !== null
+                ? (float) $attempt->best_score
+                : ($attempt?->score !== null ? (float) $attempt->score : null);
             $scorePct = $score !== null && $maxScore > 0 ? round($score / $maxScore * 100) : null;
 
             if ($isStarted) {
@@ -211,7 +213,7 @@ class QuizController extends Controller
         if (!empty($quiz->max_attempts) && $submittedAttempts >= (int) $quiz->max_attempts) {
             return redirect()
                 ->route('student.quiz-result', $quiz)
-                ->with('info', 'Ban da dung het so luot lam bai cho phep. He thong dang hien thi ket qua gan nhat.');
+                ->with('info', 'Bạn đã dùng hết số lượt làm bài cho phép. Hệ thống đang hiển thị kết quả gần nhất.');
         }
 
         // Check existing unfinished attempt
@@ -220,8 +222,12 @@ class QuizController extends Controller
             ->whereNull('submitted_at')
             ->first();
 
+        $existingShuffleState = [];
         if ($existingAttempt) {
             $startedAt = Carbon::parse($existingAttempt->pivot->started_at);
+            $existingShuffleState = $existingAttempt->pivot->shuffled_options
+                ? (json_decode($existingAttempt->pivot->shuffled_options, true) ?: [])
+                : [];
 
             if ($this->attemptDeadline($quiz, $startedAt)?->isPast()) {
                 $this->expireAttempt($user, $quiz);
@@ -252,8 +258,20 @@ class QuizController extends Controller
             }
         }
 
+        $storedQuestionOrder = collect($existingShuffleState['_question_order'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values();
+
         $query = $quiz->questions()->newQuery();
-        if ($quiz->shuffle_questions) {
+        if ($storedQuestionOrder->isNotEmpty()) {
+            $orderSql = $storedQuestionOrder
+                ->map(fn ($id, $index) => 'WHEN '.$id.' THEN '.$index)
+                ->implode(' ');
+
+            $query->whereIn('id', $storedQuestionOrder)
+                ->orderByRaw('CASE id '.$orderSql.' ELSE '.($storedQuestionOrder->count() + 1).' END');
+        } elseif ($quiz->shuffle_questions) {
             $query->inRandomOrder();
         } else {
             $query->orderBy('order');
@@ -265,7 +283,11 @@ class QuizController extends Controller
         foreach ($questions as $question) {
             $options = $this->normalizeOptions($question->options);
 
-            if ($quiz->shuffle_answers && $question->options) {
+            $storedQuestionShuffle = $existingShuffleState[$question->id] ?? $existingShuffleState[(string) $question->id] ?? null;
+            if (is_array($storedQuestionShuffle) && isset($storedQuestionShuffle['shuffled'])) {
+                $question->shuffled_options = $storedQuestionShuffle['shuffled'];
+                $shuffledOrder[$question->id] = $storedQuestionShuffle;
+            } elseif ($quiz->shuffle_answers && $question->options) {
                 if (is_array($options) && count($options) > 1) {
                     $shuffled = $options;
                     shuffle($shuffled);
@@ -282,7 +304,13 @@ class QuizController extends Controller
             }
         }
 
-        if (! empty($shuffledOrder)) {
+        if ($storedQuestionOrder->isEmpty() && $quiz->shuffle_questions) {
+            $shuffledOrder['_question_order'] = $questions->pluck('id')->values()->all();
+        } elseif (isset($existingShuffleState['_question_order'])) {
+            $shuffledOrder['_question_order'] = $existingShuffleState['_question_order'];
+        }
+
+        if (! empty($shuffledOrder) && $shuffledOrder !== $existingShuffleState) {
             $user->quizAttempts()->updateExistingPivot($quiz->id, [
                 'shuffled_options' => json_encode($shuffledOrder),
             ]);
@@ -429,33 +457,37 @@ class QuizController extends Controller
             ];
         }
 
-        $previousScore = is_numeric($attempt->pivot->score) ? (float) $attempt->pivot->score : null;
-        $previousTotal = is_numeric($attempt->pivot->total_points) ? (float) $attempt->pivot->total_points : null;
-        $previousPct = $previousScore !== null && $previousTotal > 0
-            ? ($previousScore / $previousTotal) * 100
-            : null;
         $currentPct = $totalPoints > 0 ? ($earnedPoints / $totalPoints) * 100 : 0;
-        $isBestAttempt = $previousPct === null || $currentPct >= $previousPct;
+        $previousBestScore = is_numeric($attempt->pivot->best_score ?? null)
+            ? (float) $attempt->pivot->best_score
+            : (is_numeric($attempt->pivot->score) ? (float) $attempt->pivot->score : null);
+        $previousBestTotal = is_numeric($attempt->pivot->best_total_points ?? null)
+            ? (float) $attempt->pivot->best_total_points
+            : (is_numeric($attempt->pivot->total_points) ? (float) $attempt->pivot->total_points : null);
+        $previousBestPct = $previousBestScore !== null && $previousBestTotal > 0
+            ? ($previousBestScore / $previousBestTotal) * 100
+            : null;
+        $isBestAttempt = $previousBestPct === null || $currentPct >= $previousBestPct;
         $nextAttemptCount = ((int) ($attempt->pivot->attempt_count ?? 0)) + 1;
 
         $user->quizAttempts()->updateExistingPivot($quiz->id, [
-            'answers' => $isBestAttempt ? json_encode($validated['answers']) : $attempt->pivot->answers,
-            'score' => $isBestAttempt ? $earnedPoints : $previousScore,
-            'total_points' => $isBestAttempt ? $totalPoints : $previousTotal,
+            'answers' => json_encode($validated['answers']),
+            'score' => $earnedPoints,
+            'total_points' => $totalPoints,
+            'best_score' => $isBestAttempt ? $earnedPoints : $previousBestScore,
+            'best_total_points' => $isBestAttempt ? $totalPoints : $previousBestTotal,
             'submitted_at' => now(),
             'is_graded' => true,
             'attempt_count' => $nextAttemptCount,
         ]);
 
-        $bestScore = $isBestAttempt ? $earnedPoints : (float) $previousScore;
-        $bestTotal = $isBestAttempt ? $totalPoints : (float) $previousTotal;
-        $pct = $bestTotal > 0 ? round(($bestScore / $bestTotal) * 100) : 0;
+        $pct = round($currentPct);
         $passed = $pct >= ($quiz->passing_score ?? 50);
 
         return response()->json([
             'success' => true,
-            'score' => $bestScore,
-            'total' => $bestTotal,
+            'score' => $earnedPoints,
+            'total' => $totalPoints,
             'percent' => $pct,
             'passed' => $passed,
             'results' => $questionResults,
@@ -465,7 +497,7 @@ class QuizController extends Controller
     public function logViolation(Request $request, Quiz $quiz)
     {
         $validated = $request->validate([
-            'event_type' => 'required|string|in:tab_hidden,focus_lost,fullscreen_exit,copy,cut,paste,context_menu,blocked_shortcut,devtools_detected',
+            'event_type' => 'required|string|in:tab_hidden,focus_lost,fullscreen_exit,copy,cut,paste,context_menu,blocked_shortcut,devtools_detected,screenshot_attempt',
             'metadata' => 'nullable|array',
         ]);
 
@@ -505,6 +537,75 @@ class QuizController extends Controller
             ], 403);
         }
 
+        $attemptStartedAt = Carbon::parse($attemptRow->started_at);
+        $forceCloseAttempt = (bool) data_get($validated, 'metadata.return_timeout', false);
+        if ($forceCloseAttempt) {
+            QuizViolation::create([
+                'quiz_id' => $quiz->id,
+                'user_id' => $user->id,
+                'quiz_attempt_id' => $attemptRow->id,
+                'event_type' => $validated['event_type'],
+                'metadata' => $validated['metadata'] ?? null,
+                'occurred_at' => now(),
+            ]);
+
+            $this->expireAttempt($user, $quiz);
+
+            return response()->json([
+                'logged' => true,
+                'violation_count' => 1,
+                'max_violations' => 1,
+                'should_auto_submit' => true,
+                'redirect_url' => route('student.quiz-result', $quiz),
+            ]);
+        }
+
+        $nonScoringEvents = ['copy', 'cut', 'context_menu', 'blocked_shortcut', 'fullscreen_exit', 'screenshot_attempt'];
+        if (in_array($validated['event_type'], $nonScoringEvents, true)) {
+            return response()->json([
+                'logged' => false,
+                'ignored' => true,
+                'violation_count' => QuizViolation::where('quiz_id', $quiz->id)
+                    ->where('user_id', $user->id)
+                    ->where('quiz_attempt_id', $attemptRow->id)
+                    ->whereIn('event_type', ['tab_hidden', 'focus_lost'])
+                    ->where('occurred_at', '>=', $attemptStartedAt)
+                    ->count(),
+                'max_violations' => 2,
+                'should_auto_submit' => false,
+                'redirect_url' => route('student.quiz-result', $quiz),
+            ]);
+        }
+
+        $attentionEvents = ['tab_hidden', 'focus_lost'];
+        $isAttentionEvent = in_array($validated['event_type'], $attentionEvents, true);
+        $duplicateRecentAttentionEvent = $isAttentionEvent
+            && QuizViolation::where('quiz_id', $quiz->id)
+                ->where('user_id', $user->id)
+                ->where('quiz_attempt_id', $attemptRow->id)
+                ->whereIn('event_type', $attentionEvents)
+                ->where('occurred_at', '>=', $attemptStartedAt)
+                ->where('occurred_at', '>=', now()->subSeconds(10))
+                ->exists();
+
+        if ($duplicateRecentAttentionEvent) {
+            $violationCount = QuizViolation::where('quiz_id', $quiz->id)
+                ->where('user_id', $user->id)
+                ->where('quiz_attempt_id', $attemptRow->id)
+                ->when($isAttentionEvent, fn ($query) => $query->whereIn('event_type', $attentionEvents))
+                ->where('occurred_at', '>=', $attemptStartedAt)
+                ->count();
+
+            return response()->json([
+                'logged' => false,
+                'duplicate' => true,
+                'violation_count' => $violationCount,
+                'max_violations' => $isAttentionEvent ? 2 : $this->maxAntiCheatViolations(),
+                'should_auto_submit' => false,
+                'redirect_url' => route('student.quiz-result', $quiz),
+            ]);
+        }
+
         QuizViolation::create([
             'quiz_id' => $quiz->id,
             'user_id' => $user->id,
@@ -514,12 +615,17 @@ class QuizController extends Controller
             'occurred_at' => now(),
         ]);
 
-        $violationCount = QuizViolation::where('quiz_id', $quiz->id)
+        $violationCountQuery = QuizViolation::where('quiz_id', $quiz->id)
             ->where('user_id', $user->id)
             ->where('quiz_attempt_id', $attemptRow->id)
-            ->count();
+            ->where('occurred_at', '>=', $attemptStartedAt);
 
-        $maxViolations = $this->maxAntiCheatViolations();
+        if ($isAttentionEvent) {
+            $violationCountQuery->whereIn('event_type', $attentionEvents);
+        }
+
+        $violationCount = $violationCountQuery->count();
+        $maxViolations = $isAttentionEvent ? 2 : $this->maxAntiCheatViolations();
         $shouldAutoSubmit = $violationCount >= $maxViolations;
         if ($shouldAutoSubmit) {
             $this->expireAttempt($user, $quiz);
@@ -559,17 +665,20 @@ class QuizController extends Controller
             return;
         }
 
-        $previousScore = is_numeric($attemptRow->score) ? (float) $attemptRow->score : null;
-        $previousTotal = is_numeric($attemptRow->total_points) ? (float) $attemptRow->total_points : null;
-
         DB::table('quiz_user')
             ->where('quiz_id', $quiz->id)
             ->where('user_id', $user->id)
             ->whereNull('submitted_at')
             ->update([
-                'answers' => $previousScore === null ? json_encode([]) : $attemptRow->answers,
-                'score' => $previousScore ?? 0,
-                'total_points' => $previousTotal ?? $totalPoints,
+                'answers' => json_encode([]),
+                'score' => 0,
+                'total_points' => $totalPoints,
+                'best_score' => is_numeric($attemptRow->best_score ?? null)
+                    ? $attemptRow->best_score
+                    : (is_numeric($attemptRow->score ?? null) ? $attemptRow->score : 0),
+                'best_total_points' => is_numeric($attemptRow->best_total_points ?? null)
+                    ? $attemptRow->best_total_points
+                    : (is_numeric($attemptRow->total_points ?? null) ? $attemptRow->total_points : $totalPoints),
                 'submitted_at' => now(),
                 'is_graded' => true,
                 'attempt_count' => ((int) ($attemptRow->attempt_count ?? 0)) + 1,
@@ -658,4 +767,3 @@ class QuizController extends Controller
         return view('pages.student.quiz-result', compact('quiz', 'attempt'));
     }
 }
-

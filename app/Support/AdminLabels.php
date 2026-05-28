@@ -105,17 +105,5 @@ class AdminLabels
         ][$key] ?? self::status($key);
     }
 
-    public static function trashType(?string $type): string
-    {
-        return [
-            'users' => 'Người dùng',
-            'classes' => 'Lớp học',
-            'courses' => 'Khóa học',
-            'quizzes' => 'Bài kiểm tra',
-            'questions' => 'Câu hỏi',
-            'assignments' => 'Bài tập',
-            'notifications' => 'Thông báo',
-            'promotions' => 'Khuyến mãi',
-        ][$type] ?? (string) $type;
-    }
+
 }

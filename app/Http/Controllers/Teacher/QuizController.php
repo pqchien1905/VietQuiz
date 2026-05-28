@@ -218,12 +218,12 @@ class QuizController extends Controller
                         $sourceFile->getMimeType() ?: 'image/'.($extension === 'jpg' ? 'jpeg' : $extension),
                         base64_encode($contents)
                     );
-                    $validated['extra_context'] = trim(($validated['extra_context'] ?? '')."\n\nHay doc noi dung trong anh va so hoa thanh cau hoi.");
+                    $validated['extra_context'] = trim(($validated['extra_context'] ?? '')."\n\nHãy đọc nội dung trong ảnh và số hóa thành câu hỏi.");
                 } else {
                     $documentText = $extractor->extract($sourceFile);
                     $documentText = mb_substr($documentText, 0, 12000);
 
-                    $validated['extra_context'] = trim(($validated['extra_context'] ?? '')."\n\nNoi dung tai lieu de tao cau hoi:\n".$documentText);
+                    $validated['extra_context'] = trim(($validated['extra_context'] ?? '')."\n\nNội dung tài liệu để tạo câu hỏi:\n".$documentText);
                 }
             }
 
@@ -375,9 +375,16 @@ class QuizController extends Controller
 
         $submittedAttempts = $quiz->attempts->filter(fn ($attempt) => $attempt->pivot->submitted_at !== null);
         $avgScore = $submittedAttempts->count() > 0
-            ? round($submittedAttempts->avg(fn ($a) => $a->pivot->total_points > 0
-                ? round(($a->pivot->score / $a->pivot->total_points) * 100)
-                : 0))
+            ? round($submittedAttempts->avg(function ($a) {
+                $score = is_numeric($a->pivot->best_score ?? null)
+                    ? (float) $a->pivot->best_score
+                    : (is_numeric($a->pivot->score ?? null) ? (float) $a->pivot->score : null);
+                $total = is_numeric($a->pivot->best_total_points ?? null)
+                    ? (float) $a->pivot->best_total_points
+                    : (is_numeric($a->pivot->total_points ?? null) ? (float) $a->pivot->total_points : 0);
+
+                return $score !== null && $total > 0 ? round(($score / $total) * 100) : 0;
+            }))
             : 0;
 
         $violationSummary = QuizViolation::query()

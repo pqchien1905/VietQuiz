@@ -4,12 +4,14 @@
 @php
   $role = $role ?? auth()->user()->role ?? 'teacher';
   $user = auth()->user();
+  $vipAudience = $role === 'student' ? 'student' : 'teacher';
+  $currentVipSubscription = $user ? $user->vipSubscriptionForAudience($vipAudience)->first() : null;
   $placeholder = $role === 'teacher'
     ? 'Tìm kiếm bài kiểm tra, bài tập, học sinh...'
     : 'Tìm kiếm khóa học, bài kiểm tra...';
   $unreadCount = $user ? $user->notifications()->forAudience($role)->where('is_read', false)->count() : 0;
   $initials = $user ? collect(explode(' ', $user->name))->map(fn($w) => mb_substr($w, 0, 1))->take(2)->implode('') : 'U';
-  $isVip = $user && $user->vipSubscription && $user->vipSubscription->is_active;
+  $isVip = $currentVipSubscription?->is_active;
   $avatarUrl = null;
   if ($user && $user->avatar) {
     $avatarUrl = \Illuminate\Support\Str::startsWith($user->avatar, ['http://', 'https://'])
@@ -21,14 +23,14 @@
     : ['monthly' => 'Pro tháng', 'yearly' => 'Pro năm', 'lifetime' => 'Pro trọn đời', 'pro' => 'Pro', 'enterprise' => 'Enterprise'];
   $roleLabel = $role === 'teacher' ? 'Giáo viên' : 'Học sinh';
   $accountSubtitle = $isVip
-    ? ($planLabels[$user->vipSubscription->plan] ?? 'VIP')
+    ? ($planLabels[$currentVipSubscription->plan] ?? 'VIP')
     : ($role === 'student' ? 'Gói miễn phí' : 'Tài khoản thường');
   $vipDetailUrl = route("$role.vip") . ($role === 'teacher' ? '#vip-plans' : '#vip-plan');
   $vipExpiresLabel = null;
   if ($isVip) {
-    $vipExpiresLabel = ($user->vipSubscription->plan === 'lifetime' || !$user->vipSubscription->expires_at)
+    $vipExpiresLabel = ($currentVipSubscription->plan === 'lifetime' || !$currentVipSubscription->expires_at)
       ? 'Trọn đời'
-      : $user->vipSubscription->expires_at->format('d/m/Y');
+      : $currentVipSubscription->expires_at->format('d/m/Y');
   }
 
   $currentPage = request()->path();
@@ -337,8 +339,8 @@
               <div class="user-menu-role-row">
                 <span class="user-menu-role">{{ $roleLabel }}</span>
                 @if($isVip)
-                  <span class="user-vip-pill" title="VIP {{ $planLabels[$user->vipSubscription->plan] ?? '' }}">
-                    ⭐ {{ $planLabels[$user->vipSubscription->plan] ?? 'VIP' }}
+                  <span class="user-vip-pill" title="VIP {{ $planLabels[$currentVipSubscription->plan] ?? '' }}">
+                    ⭐ {{ $planLabels[$currentVipSubscription->plan] ?? 'VIP' }}
                   </span>
                 @endif
               </div>

@@ -63,7 +63,6 @@ class CourseController extends Controller
             'publish_url' => route('teacher.courses.publish', $course),
             'unpublish_url' => route('teacher.courses.unpublish', $course),
             'duplicate_url' => route('teacher.courses.duplicate', $course),
-            'sync_students_url' => route('teacher.courses.sync-students', $course),
         ])->values();
 
         return view('pages.teacher.courses', [
@@ -212,27 +211,6 @@ class CourseController extends Controller
         $copy->push();
 
         return back()->with('success', 'Đã nhân bản khóa học thành bản nháp.');
-    }
-
-    public function syncStudents(Request $request, Course $course)
-    {
-        $this->authorizeCourse($request, $course);
-
-        if (!$course->class_id) {
-            return back()->with('error', 'Khóa học cần được gắn với một lớp trước khi đồng bộ học sinh.');
-        }
-
-        $studentIds = $course->classModel?->students()->pluck('users.id') ?? collect();
-
-        if ($studentIds->isEmpty()) {
-            return back()->with('error', 'Lớp đang gắn chưa có học sinh để đồng bộ.');
-        }
-
-        $course->students()->syncWithoutDetaching(
-            $studentIds->mapWithKeys(fn ($id) => [$id => ['enrolled_at' => now()]])->all()
-        );
-
-        return back()->with('success', 'Đã đồng bộ ' . $studentIds->count() . ' học sinh vào khóa học.');
     }
 
     public function removeStudent(Request $request, Course $course, User $student)

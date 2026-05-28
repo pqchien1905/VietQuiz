@@ -16,7 +16,7 @@ class DocumentTextExtractor
             'docx' => $this->extractDocx($file->getRealPath()),
             'pdf' => $this->extractPdf($file->getRealPath()),
             'doc' => throw new RuntimeException('File .doc cũ không được hỗ trợ trực tiếp. Vui lòng lưu lại thành .docx hoặc PDF.'),
-            default => throw new RuntimeException('Dinh dang file khong duoc ho tro. Hay dung PDF hoac DOCX.'),
+            default => throw new RuntimeException('Định dạng file không được hỗ trợ. Hãy dùng PDF hoặc DOCX.'),
         };
     }
 

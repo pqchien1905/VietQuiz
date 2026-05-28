@@ -127,7 +127,7 @@
                   <input type="hidden" name="is_read" value="{{ $notification->is_read ? 0 : 1 }}">
                   <button class="btn btn-outline btn-sm">{{ $notification->is_read ? 'Đánh dấu chưa đọc' : 'Đánh dấu đã đọc' }}</button>
                 </form>
-                <form method="POST" action="{{ route('admin.notifications.delete', $notification->id) }}" data-confirm="Đưa thông báo này vào thùng rác?" data-confirm-ok="Xóa thông báo">
+                <form method="POST" action="{{ route('admin.notifications.delete', $notification->id) }}" data-confirm="Xóa thông báo này khỏi danh sách hoạt động?" data-confirm-ok="Xóa thông báo">
                   @csrf
                   @method('DELETE')
                   <button class="btn btn-destructive btn-sm">Xóa</button>

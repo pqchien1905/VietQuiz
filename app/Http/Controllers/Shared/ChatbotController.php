@@ -117,7 +117,7 @@ class ChatbotController extends Controller
             [
                 'topic' => 'class',
                 'keywords' => ['lop', 'hoc sinh', 'ma lop', 'moi hoc sinh', 'danh sach', 'import hoc sinh'],
-                'reply' => 'Bạn tạo lớp trong Lớp của Tôi, sau đó mời học sinh bằng mã lớp, link mời hoặc import danh sách. Khi học sinh tham gia, bạn có thể quản lý danh sách và đồng bộ sang khóa học.',
+                'reply' => 'Bạn tạo lớp trong Lớp của Tôi, sau đó mời học sinh bằng mã lớp, link mời hoặc import danh sách. Khi học sinh tham gia, bạn có thể quản lý danh sách học sinh trực tiếp trong lớp.',
                 'actions' => [
                     ['label' => 'Lớp của tôi', 'url' => route('teacher.classes')],
                     ['label' => 'Quản lý học sinh', 'url' => route('teacher.students')],

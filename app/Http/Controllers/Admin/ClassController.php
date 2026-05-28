@@ -172,7 +172,7 @@ class ClassController extends AdminBaseController
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         ClassModel::findOrFail($id)->delete();
-        return back()->with('success', 'Đã đưa lớp học vào thùng rác.');
+        return back()->with('success', 'Đã xóa lớp học khỏi danh sách hoạt động.');
     }
 
     public function restoreClass(Request $request, int $id): RedirectResponse

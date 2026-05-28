@@ -1,1127 +1,521 @@
-﻿{{-- Teacher: class-detail --}}
+{{-- Teacher: class-detail --}}
 @extends('layouts.dashboard', ['role' => 'teacher'])
+
+@php
+  $students = $studentGrades ?? collect();
+  $assignments = ($class->assignments ?? collect())->sortByDesc('created_at')->values();
+  $courses = ($class->courses ?? collect())->sortBy('name')->values();
+  $pendingStudents = $pendingStudents ?? collect();
+  $classAvgDisplay = $classAvg !== null ? round($classAvg, 1).'%' : '—';
+  $status = $class->status ?? 'active';
+  $joinLink = url('/student/join/' . strtolower($class->code));
+  $submittedQuizCount = $quizzes->sum('submitted_count');
+  $assignmentSubmissionCount = $assignments->sum(fn ($assignment) => $assignment->submissions?->count() ?? 0);
+  $gradedStudents = $students->filter(fn ($student) => $student->avg_pct !== null)->count();
+  $gradeBuckets = [
+      'excellent' => ['label' => 'Giỏi', 'range' => '>= 90%', 'value' => $dist['excellent'] ?? 0, 'color' => 'var(--success)'],
+      'good' => ['label' => 'Khá', 'range' => '70-89%', 'value' => $dist['good'] ?? 0, 'color' => '#0891b2'],
+      'average' => ['label' => 'Trung bình', 'range' => '50-69%', 'value' => $dist['average'] ?? 0, 'color' => 'var(--warning)'],
+      'weak' => ['label' => 'Cần hỗ trợ', 'range' => '< 50%', 'value' => $dist['weak'] ?? 0, 'color' => 'var(--destructive)'],
+  ];
+  $bucketMax = max(1, collect($gradeBuckets)->max('value'));
+  $gradeColor = function (?float $score) {
+      if ($score === null) return 'var(--muted-foreground)';
+      if ($score >= 80) return 'var(--success)';
+      if ($score >= 60) return '#0891b2';
+      if ($score >= 40) return 'var(--warning)';
+      return 'var(--destructive)';
+  };
+@endphp
 
 @push('styles')
 <style>
-    /* ── Page Layout ── */
-    .page-class-detail { display: flex; flex-direction: column; gap: 1.25rem; }
-
-    /* ── Header Section ── */
-    .cd-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-    .cd-header-left { display: flex; align-items: center; gap: 1rem; }
-    .cd-class-icon {
-        width: 3.5rem;
-        height: 3.5rem;
-        border-radius: var(--radius-lg);
-        background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
-        color: #fff;
-        font-size: 1.5rem;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        box-shadow: 0 4px 12px rgb(59 130 246 / 0.3);
-    }
-    .cd-class-info h1 {
-        font-size: var(--text-xl);
-        font-weight: 700;
-        line-height: 1.2;
-        margin-bottom: 0.375rem;
-    }
-    .cd-class-badges { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-    .cd-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-
-    /* ── Stats Row ── */
-    .cd-stats {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.875rem;
-    }
-    .cd-stat {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-xl);
-        padding: 1.125rem 1.25rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.375rem;
-        transition: box-shadow var(--transition-fast), transform var(--transition-fast);
-    }
-    .cd-stat:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-    .cd-stat-label { font-size: var(--text-xs); color: var(--muted-foreground); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-    .cd-stat-value { font-size: var(--text-2xl); font-weight: 800; line-height: 1; }
-    .cd-stat-sub { font-size: var(--text-xs); color: var(--muted-foreground); margin-top: 0.25rem; }
-
-    /* ── Tab Navigation ── */
-    .cd-tabs {
-        display: flex;
-        align-items: center;
-        gap: 0;
-        border-bottom: 1px solid var(--border);
-        background: var(--card);
-        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-        padding: 0 0.5rem;
-        overflow: hidden;
-    }
-    .cd-tab {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.875rem 1.125rem;
-        border: none;
-        background: none;
-        border-bottom: 2px solid transparent;
-        color: var(--muted-foreground);
-        cursor: pointer;
-        font-size: var(--text-sm);
-        font-weight: 600;
-        transition: all var(--transition-fast);
-        white-space: nowrap;
-        position: relative;
-    }
-    .cd-tab:hover { color: var(--foreground); background: var(--muted); border-radius: var(--radius-md) var(--radius-md) 0 0; }
-    .cd-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-    .cd-tab svg { width: 1rem; height: 1rem; flex-shrink: 0; }
-    .cd-tab-badge {
-        background: var(--muted);
-        color: var(--muted-foreground);
-        border-radius: 9999px;
-        padding: 0.125rem 0.5rem;
-        font-size: 0.7rem;
-        font-weight: 700;
-        transition: all var(--transition-fast);
-    }
-    .cd-tab.active .cd-tab-badge { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
-
-    /* ── Tab Panels ── */
-    .cd-panel { display: none; }
-    .cd-panel.active { display: block; }
-
-    /* ── Toolbar ── */
-    .cd-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        margin-bottom: 1rem;
-    }
-    .cd-toolbar-left { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
-    .cd-toolbar-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-
-    /* ── Search ── */
-    .cd-search {
-        position: relative;
-        flex: 1;
-        max-width: 280px;
-    }
-    .cd-search svg { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
-    .cd-search input { padding-left: 2.25rem; width: 100%; }
-
-    /* ── Student Table ── */
-    .cd-table-wrap { overflow-x: auto; border-radius: var(--radius-lg); }
-    .cd-table { width: 100%; border-collapse: collapse; }
-    .cd-table thead th {
-        padding: 0.625rem 1rem;
-        text-align: left;
-        font-size: var(--text-xs);
-        font-weight: 700;
-        color: var(--muted-foreground);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        background: var(--muted);
-        border-bottom: 1px solid var(--border);
-        white-space: nowrap;
-    }
-    .cd-table thead th:first-child { border-radius: var(--radius-md) 0 0 0; }
-    .cd-table thead th:last-child { border-radius: 0 var(--radius-md) 0 0; }
-    .cd-table tbody tr {
-        border-bottom: 1px solid var(--border);
-        transition: background var(--transition-fast);
-    }
-    .cd-table tbody tr:last-child { border-bottom: none; }
-    .cd-table tbody tr:hover { background: var(--muted); }
-    .cd-table tbody td { padding: 0.75rem 1rem; vertical-align: middle; }
-
-    /* Student Avatar */
-    .stu-avatar {
-        width: 2.125rem;
-        height: 2.125rem;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: var(--text-xs);
-        font-weight: 700;
-        flex-shrink: 0;
-    }
-
-    /* Grade badge */
-    .grade-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.75rem;
-        height: 1.75rem;
-        border-radius: 50%;
-        font-size: var(--text-xs);
-        font-weight: 800;
-    }
-
-    /* ── Progress Cards ── */
-    .cd-progress-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-    .cd-list-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-bottom: 1px solid var(--border); }
-    .cd-list-item:last-child { border-bottom: none; }
-    .cd-list-rank { width: 1.75rem; font-size: var(--text-base); text-align: center; flex-shrink: 0; }
-    .cd-list-info { flex: 1; min-width: 0; }
-    .cd-list-name { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cd-list-sub { font-size: var(--text-xs); color: var(--muted-foreground); }
-
-    /* ── Dist Bar ── */
-    .dist-row { display: flex; align-items: center; gap: 0.625rem; padding: 0.375rem 0; }
-    .dist-label { font-size: var(--text-xs); font-weight: 600; width: 5.5rem; flex-shrink: 0; color: var(--muted-foreground); }
-    .dist-bar { flex: 1; height: 0.5rem; background: var(--muted); border-radius: 9999px; overflow: hidden; }
-    .dist-fill { height: 100%; border-radius: 9999px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-    .dist-count { font-size: var(--text-xs); font-weight: 700; width: 1.5rem; text-align: right; flex-shrink: 0; }
-
-    /* ── Settings ── */
-    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .danger-card {
-        background: color-mix(in srgb, var(--destructive) 3%, transparent);
-        border: 1px solid color-mix(in srgb, var(--destructive) 15%, transparent);
-        border-radius: var(--radius-xl);
-        padding: 1.25rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-    }
-
-    /* ── Toast ── */
-    #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
-    .toast {
-        display: flex; align-items: center; gap: 0.625rem;
-        padding: 0.75rem 1.125rem;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-lg);
-        font-size: var(--text-sm);
-        font-weight: 500;
-        pointer-events: all;
-        opacity: 0; transform: translateX(1rem);
-        transition: all var(--transition);
-    }
-    .toast.show { opacity: 1; transform: translateX(0); }
-    .toast-success { border-left: 3px solid var(--success); }
-    .toast-warning { border-left: 3px solid var(--warning); }
-    .toast-error { border-left: 3px solid var(--destructive); }
-
-    /* ── Import / Add forms ── */
-    .cd-inline-form {
-        padding: 0.875rem 1.25rem;
-        border-bottom: 1px solid var(--border);
-        background: var(--muted);
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-    .cd-inline-form-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-
-    /* ── Add Student Modal ── */
-    .asm-tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; padding-bottom: 0.75rem; flex-wrap: wrap; }
-    .asm-tab {
-        padding: 0.5rem 0.875rem;
-        border: none;
-        background: transparent;
-        border-radius: var(--radius-md);
-        color: var(--muted-foreground);
-        cursor: pointer;
-        font-size: var(--text-sm);
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: all var(--transition-fast);
-    }
-    .asm-tab:hover { color: var(--foreground); background: var(--muted); }
-    .asm-tab.active { color: var(--primary-foreground); background: var(--primary); }
-    .asm-panel { display: none; }
-    .asm-panel.active { display: block; }
-    .asm-file-hint { font-size: var(--text-xs); color: var(--muted-foreground); margin-bottom: 0.75rem; }
-    .asm-file-hint code { background: var(--muted); padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); font-size: var(--text-xs); }
-    .asm-or { display: flex; align-items: center; gap: 0.75rem; margin: 0.75rem 0; color: var(--muted-foreground); font-size: var(--text-xs); }
-    .asm-or::before, .asm-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-    .asm-link-box { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: var(--muted); border-radius: var(--radius-md); font-size: var(--text-sm); word-break: break-all; }
-    .asm-link-box span { flex: 1; color: var(--foreground); }
-
-    /* ── Empty state ── */
-    .cd-empty { text-align: center; padding: 3rem 1.5rem; color: var(--muted-foreground); }
-    .cd-empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
-
-    /* ── Responsive ── */
-    @media (max-width: 900px) {
-        .cd-stats { grid-template-columns: repeat(2, 1fr); }
-        .cd-progress-grid { grid-template-columns: 1fr; }
-        .settings-grid { grid-template-columns: 1fr; }
-        .cd-tabs { overflow-x: auto; }
-    }
-    @media (max-width: 600px) {
-        .cd-stats { grid-template-columns: repeat(2, 1fr); }
-        .cd-header { flex-direction: column; }
-        .cd-actions { width: 100%; }
-        .cd-actions .btn { flex: 1; justify-content: center; }
-    }
+  .class-detail-page{display:flex;flex-direction:column;gap:1rem}
+  .class-breadcrumb{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;font-size:var(--text-sm);color:var(--muted-foreground)}
+  .class-breadcrumb a{color:var(--primary);font-weight:700;text-decoration:none}
+  .class-hero{border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--card);overflow:hidden}
+  .class-hero__banner{padding:1.1rem 1.25rem;background:linear-gradient(135deg,var(--primary),#4f46e5);color:#fff;display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap}
+  .class-identity{display:flex;gap:.9rem;align-items:flex-start;min-width:0}
+  .class-avatar{width:3.25rem;height:3.25rem;border-radius:var(--radius-lg);background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:900;flex-shrink:0}
+  .class-title{font-size:var(--text-2xl);font-weight:900;line-height:1.16;margin:0 0 .45rem;word-break:break-word}
+  .class-meta{display:flex;gap:.4rem;flex-wrap:wrap}
+  .class-meta .badge{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.28)}
+  .class-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+  .class-actions .btn-outline{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.35)}
+  .class-hero__body{padding:1rem 1.25rem;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center}
+  .class-description{margin:0;color:var(--muted-foreground);line-height:1.6}
+  .join-box{display:flex;align-items:center;gap:.5rem;background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-md);padding:.55rem .65rem;min-width:min(100%,24rem)}
+  .join-box code{font-size:var(--text-sm);font-weight:800;color:var(--foreground)}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem}
+  .kpi-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);padding:.85rem .95rem}
+  .kpi-label{font-size:var(--text-xs);font-weight:800;text-transform:uppercase;color:var(--muted-foreground);letter-spacing:0}
+  .kpi-value{font-size:var(--text-2xl);font-weight:900;margin-top:.35rem;line-height:1}
+  .kpi-sub{font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.35rem}
+  .tabs-card{border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--card);overflow:hidden}
+  .class-tabs{display:flex;gap:.15rem;overflow-x:auto;border-bottom:1px solid var(--border);padding:0 .45rem;background:color-mix(in srgb,var(--muted) 45%,transparent)}
+  .class-tab{border:0;background:transparent;color:var(--muted-foreground);font-weight:800;font-size:var(--text-sm);padding:.9rem .85rem;display:flex;align-items:center;gap:.45rem;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent}
+  .class-tab:hover{color:var(--foreground)}
+  .class-tab.active{color:var(--primary);border-bottom-color:var(--primary);background:var(--card)}
+  .tab-count{font-size:var(--text-xs);font-weight:800;border:1px solid var(--border);border-radius:999px;padding:.08rem .45rem;background:var(--background);color:var(--muted-foreground)}
+  .class-panel{display:none;padding:1rem}
+  .class-panel.active{display:block}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:.9rem}
+  .panel-title{font-size:var(--text-lg);font-weight:900;margin:0}
+  .panel-sub{font-size:var(--text-sm);color:var(--muted-foreground);margin:.2rem 0 0}
+  .panel-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+  .search-field{position:relative;min-width:230px}
+  .search-field svg{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted-foreground);pointer-events:none}
+  .search-field input{padding-left:2.35rem!important}
+  .student-list,.content-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .student-row,.content-row{display:grid;grid-template-columns:minmax(0,1.25fr) auto auto auto;gap:.75rem;align-items:center;padding:.8rem .9rem;border-bottom:1px solid var(--border);background:var(--card)}
+  .student-row:last-child,.content-row:last-child{border-bottom:0}
+  .student-main{display:flex;align-items:center;gap:.7rem;min-width:0}
+  .student-avatar{width:2.25rem;height:2.25rem;border-radius:999px;background:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:var(--text-xs);flex-shrink:0}
+  .student-name,.content-title{font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row-meta{font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.15rem}
+  .score-pill{font-weight:900;min-width:4rem;text-align:right}
+  .request-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.75rem;margin-bottom:1rem}
+  .request-card{border:1px solid color-mix(in srgb,var(--warning) 32%,var(--border));background:color-mix(in srgb,var(--warning) 7%,var(--card));border-radius:var(--radius-lg);padding:.85rem}
+  .request-card__actions{display:flex;gap:.45rem;margin-top:.65rem;flex-wrap:wrap}
+  .analytics-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.75fr);gap:1rem}
+  .mini-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);padding:1rem}
+  .rank-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem 0;border-bottom:1px solid var(--border)}
+  .rank-row:last-child{border-bottom:0}
+  .dist-row{display:grid;grid-template-columns:6.5rem minmax(0,1fr) 2rem;gap:.6rem;align-items:center;margin:.65rem 0}
+  .dist-label{font-size:var(--text-xs);font-weight:800;color:var(--muted-foreground)}
+  .dist-bar{height:.55rem;border-radius:999px;background:var(--muted);overflow:hidden}
+  .dist-fill{height:100%;border-radius:999px}
+  .settings-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.75fr);gap:1rem}
+  .settings-form{display:flex;flex-direction:column;gap:.85rem}
+  .form-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+  .danger-box{border:1px solid color-mix(in srgb,var(--destructive) 24%,var(--border));background:color-mix(in srgb,var(--destructive) 5%,transparent);border-radius:var(--radius-lg);padding:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+  .empty-state{text-align:center;padding:2.75rem 1rem;color:var(--muted-foreground);border:1px dashed var(--border);border-radius:var(--radius-lg);background:color-mix(in srgb,var(--muted) 35%,transparent)}
+  .modal-tabs{display:flex;gap:.5rem;border-bottom:1px solid var(--border);padding-bottom:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+  .modal-tab{border:0;background:transparent;border-radius:var(--radius-md);padding:.5rem .75rem;color:var(--muted-foreground);font-weight:800;cursor:pointer}
+  .modal-tab.active{background:var(--primary);color:var(--primary-foreground)}
+  .modal-panel{display:none}
+  .modal-panel.active{display:block}
+  .invite-link-box{display:flex;align-items:center;gap:.5rem;background:var(--muted);border-radius:var(--radius-md);padding:.7rem;font-size:var(--text-sm);word-break:break-all}
+  .invite-link-box span{flex:1}
+  @media(max-width:1050px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-grid,.settings-grid{grid-template-columns:1fr}.class-hero__body{grid-template-columns:1fr}.student-row,.content-row{grid-template-columns:1fr}.score-pill{text-align:left}.join-box{width:100%}}
+  @media(max-width:640px){.class-hero__banner{align-items:stretch}.class-actions,.panel-actions{width:100%}.class-actions .btn,.panel-actions .btn,.panel-actions form{flex:1}.form-grid-2{grid-template-columns:1fr}.kpi-grid{grid-template-columns:1fr}.search-field{width:100%}.search-field input{width:100%}}
 </style>
 @endpush
 
 @section('content')
-<?php
-    $gradeColors = [
-        'A' => 'var(--success)',
-        'B' => '#22d3ee',
-        'C' => 'var(--warning)',
-        'D' => '#fb923c',
-        'F' => 'var(--destructive)',
-    ];
-    $gradeBgColors = [
-        'A' => 'color-mix(in srgb, var(--success) 12%, transparent)',
-        'B' => 'color-mix(in srgb, #22d3ee 12%, transparent)',
-        'C' => 'color-mix(in srgb, var(--warning) 12%, transparent)',
-        'D' => 'color-mix(in srgb, #fb923c 12%, transparent)',
-        'F' => 'color-mix(in srgb, var(--destructive) 12%, transparent)',
-    ];
-    $avatarColors = ['#3b82f6','#ef4444','#22c55e','#f97316','#a855f7','#06b6d4','#ec4899','#eab308'];
-    $classColor = $avatarColors[abs(crc32($class->name)) % count($avatarColors)];
-    $studentColors = $avatarColors;
+<div class="class-detail-page">
+  <nav class="class-breadcrumb">
+    <a href="{{ route('teacher.classes') }}">Lớp của tôi</a>
+    <span>/</span>
+    <span>{{ $class->name }}</span>
+  </nav>
 
-    // Distribution bar widths
-    $totalWithScore = $dist['excellent'] + $dist['good'] + $dist['average'] + $dist['weak'];
-    $distWidths = [];
-    foreach (['excellent', 'good', 'average', 'weak'] as $key) {
-        $distWidths[$key] = $totalWithScore > 0 ? round($dist[$key] / $totalWithScore * 100) : 0;
-    }
-    $distLabels = [
-        'excellent' => ['Giỏi ≥90%', 'var(--success)'],
-        'good'      => ['Khá 70-89%', '#22d3ee'],
-        'average'   => ['TB 50-69%', 'var(--warning)'],
-        'weak'      => ['Yếu <50%', 'var(--destructive)'],
-    ];
-?>
+  @foreach(['success' => 'alert-success', 'warning' => 'alert-warning', 'error' => 'alert-danger', 'info' => 'alert-info'] as $flash => $className)
+    @if(session($flash))
+      <div class="alert {{ $className }}"><span>{{ session($flash) }}</span></div>
+    @endif
+  @endforeach
+  @if($errors->any())
+    <div class="alert alert-danger"><span>{{ $errors->first() }}</span></div>
+  @endif
 
-<div class="page-class-detail">
-
-    <!-- ── Header ── -->
-    <div class="cd-header stagger-children">
-        <div class="cd-header-left">
-            <div class="cd-class-icon">{{ mb_substr($class->name, 0, 1) }}</div>
-            <div class="cd-class-info">
-                <h1>{{ $class->name }}</h1>
-                <div class="cd-class-badges">
-                    <span class="badge badge-primary" style="font-size:var(--text-xs);">
-                        {{ $studentCount }} học sinh
-                    </span>
-                    @if($class->subject)
-                    <span class="badge badge-default" style="font-size:var(--text-xs);">{{ $class->subject }}</span>
-                    @endif
-                    <span class="badge badge-outline" style="font-size:var(--text-xs);">
-                        Mã: <strong>{{ $class->code }}</strong>
-                    </span>
-                    @if($class->status === 'archived')
-                    <span class="badge badge-destructive" style="font-size:var(--text-xs);">Đã lưu trữ</span>
-                    @endif
-                </div>
-            </div>
+  <section class="class-hero">
+    <div class="class-hero__banner">
+      <div class="class-identity">
+        <div class="class-avatar">{{ mb_substr($class->name, 0, 1) }}</div>
+        <div>
+          <h1 class="class-title">{{ $class->name }}</h1>
+          <div class="class-meta">
+            <span class="badge">{{ $status === 'archived' ? 'Đã lưu trữ' : 'Đang hoạt động' }}</span>
+            @if($class->subject)<span class="badge">{{ $class->subject }}</span>@endif
+            @if($class->grade_level)<span class="badge">Khối {{ $class->grade_level }}</span>@endif
+            <span class="badge">Mã lớp: {{ $class->code }}</span>
+          </div>
         </div>
-        <div class="cd-actions">
-            <button class="btn btn-outline btn-sm" onclick="copyCode()" style="gap:0.375rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                Sao chép mã
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="openAddStudentModal('asm-link')" style="gap:0.375rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                Chia sẻ lớp
-            </button>
-            <a href="{{ route('teacher.quiz-create', ['class_id' => $class->id]) }}" class="btn btn-primary btn-sm" style="gap:0.375rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Giao bài kiểm tra
-            </a>
-        </div>
+      </div>
+      <div class="class-actions">
+        <button class="btn btn-outline btn-sm" type="button" onclick="copyText(@js($class->code), 'Đã sao chép mã lớp')">Sao chép mã</button>
+        <button class="btn btn-outline btn-sm" type="button" onclick="openInviteModal('link')">Chia sẻ lớp</button>
+        <button class="btn btn-outline btn-sm" type="button" onclick="openNotifyModal()">Gửi thông báo</button>
+        <a class="btn btn-primary btn-sm" href="{{ route('teacher.quiz-create', ['class_id' => $class->id]) }}">Giao bài kiểm tra</a>
+      </div>
+    </div>
+    <div class="class-hero__body">
+      <p class="class-description">{{ $class->description ?: 'Chưa có mô tả cho lớp học này.' }}</p>
+      <div class="join-box">
+        <span style="font-size:var(--text-xs);color:var(--muted-foreground);font-weight:800;">Link mời</span>
+        <code>{{ $class->code }}</code>
+        <button class="btn btn-outline btn-sm" type="button" onclick="copyText(@js($joinLink), 'Đã sao chép link mời')">Copy link</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Học sinh</div><div class="kpi-value">{{ $studentCount }}</div><div class="kpi-sub">{{ $pendingStudents->count() }} yêu cầu chờ duyệt</div></div>
+    <div class="kpi-card"><div class="kpi-label">Điểm trung bình</div><div class="kpi-value" style="color:{{ $gradeColor($classAvg) }}">{{ $classAvgDisplay }}</div><div class="kpi-sub">{{ $gradedStudents }} học sinh có điểm</div></div>
+    <div class="kpi-card"><div class="kpi-label">Bài kiểm tra</div><div class="kpi-value">{{ $quizzes->count() }}</div><div class="kpi-sub">{{ $submittedQuizCount }} lượt nộp</div></div>
+    <div class="kpi-card"><div class="kpi-label">Bài tập</div><div class="kpi-value">{{ $assignments->count() }}</div><div class="kpi-sub">{{ $assignmentSubmissionCount }} bài nộp · {{ $completionRate }}% hoàn thành</div></div>
+  </div>
+
+  <section class="tabs-card">
+    <div class="class-tabs">
+      <button class="class-tab active" type="button" data-tab="students">Học sinh <span class="tab-count">{{ $studentCount }}</span></button>
+      <button class="class-tab" type="button" data-tab="content">Nội dung <span class="tab-count">{{ $quizzes->count() + $assignments->count() }}</span></button>
+      <button class="class-tab" type="button" data-tab="analytics">Phân tích</button>
+      <button class="class-tab" type="button" data-tab="settings">Cài đặt</button>
     </div>
 
-    <!-- ── Stats Row ── -->
-    <div class="cd-stats stagger-children">
-        <div class="cd-stat">
-            <div class="cd-stat-label">Học sinh</div>
-            <div class="cd-stat-value" style="color:var(--primary);">{{ $studentCount }}</div>
-            <div class="cd-stat-sub">đã tham gia</div>
+    <div class="class-panel active" id="panel-students">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">Danh sách học sinh</h2>
+          <p class="panel-sub">Quản lý học sinh đã tham gia và các yêu cầu chờ duyệt.</p>
         </div>
-        <div class="cd-stat">
-            <div class="cd-stat-label">Điểm trung bình</div>
-            <div class="cd-stat-value" style="{{ $classAvg ? 'color:var(--success)' : 'color:var(--muted-foreground)' }}">
-                {{ $classAvg ? round($classAvg, 1) . '%' : '—' }}
+        <div class="panel-actions">
+          <div class="search-field">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="student-search" class="input" type="search" placeholder="Tìm học sinh...">
+          </div>
+          <button class="btn btn-primary btn-sm" type="button" onclick="openInviteModal('email')">Thêm học sinh</button>
+          <a class="btn btn-outline btn-sm" href="{{ route('teacher.classes.export', $class) }}">Xuất Excel</a>
+        </div>
+      </div>
+
+      @if($pendingStudents->isNotEmpty())
+        <div class="request-list">
+          @foreach($pendingStudents as $pendingStudent)
+            <div class="request-card">
+              <div class="student-main">
+                <div class="student-avatar">{{ mb_substr($pendingStudent->name, 0, 1) }}</div>
+                <div style="min-width:0">
+                  <div class="student-name">{{ $pendingStudent->name }}</div>
+                  <div class="row-meta">{{ $pendingStudent->email }} · {{ $pendingStudent->pivot->requested_at ? \Illuminate\Support\Carbon::parse($pendingStudent->pivot->requested_at)->diffForHumans() : 'Đang chờ' }}</div>
+                </div>
+              </div>
+              <div class="request-card__actions">
+                <form method="POST" action="{{ route('teacher.classes.join-requests.approve', [$class, $pendingStudent->id]) }}">@csrf<button class="btn btn-primary btn-sm" type="submit">Duyệt</button></form>
+                <form method="POST" action="{{ route('teacher.classes.join-requests.reject', [$class, $pendingStudent->id]) }}" data-confirm="Từ chối yêu cầu tham gia lớp của {{ $pendingStudent->name }}?">@csrf @method('DELETE')<button class="btn btn-outline btn-sm" type="submit">Từ chối</button></form>
+              </div>
             </div>
-            <div class="cd-stat-sub">của lớp</div>
+          @endforeach
         </div>
-        <div class="cd-stat">
-            <div class="cd-stat-label">Bài thi đã giao</div>
-            <div class="cd-stat-value" style="color:#a855f7;">{{ $quizzes->count() }}</div>
-            <div class="cd-stat-sub">đã tạo</div>
+      @endif
+
+      @if($students->isNotEmpty())
+        <div class="student-list">
+          @foreach($students as $index => $student)
+            <div class="student-row student-search-row" data-search="{{ mb_strtolower($student->name.' '.$student->email) }}">
+              <div class="student-main">
+                <div class="student-avatar">{{ mb_substr($student->name, 0, 1) }}</div>
+                <div style="min-width:0">
+                  <div class="student-name">{{ $student->name }}</div>
+                  <div class="row-meta">{{ $student->email }}</div>
+                </div>
+              </div>
+              <div><span class="badge badge-outline">{{ $student->completed_count }} bài đã nộp</span></div>
+              <div class="score-pill" style="color:{{ $gradeColor($student->avg_pct) }}">{{ $student->avg_pct !== null ? $student->avg_pct.'%' : '—' }}</div>
+              <form method="POST" action="{{ route('teacher.classes.remove-student', [$class, $student->id]) }}" data-confirm="Xóa {{ $student->name }} khỏi lớp?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--destructive)" type="submit">Gỡ</button></form>
+            </div>
+          @endforeach
         </div>
-        <div class="cd-stat">
-            <div class="cd-stat-label">Tỷ lệ hoàn thành</div>
-            <div class="cd-stat-value" style="color:#06b6d4;">{{ $completionRate }}%</div>
-            <div class="cd-stat-sub">bài đã nộp</div>
+      @else
+        <div class="empty-state">
+          <h3>Chưa có học sinh</h3>
+          <p>Mời học sinh bằng email, link tham gia hoặc import danh sách để bắt đầu quản lý lớp.</p>
+          <button class="btn btn-primary" type="button" onclick="openInviteModal('email')">Thêm học sinh</button>
         </div>
+      @endif
     </div>
 
-    <!-- ── Tabs ── -->
-    <div class="cd-tabs stagger-children">
-        <button class="cd-tab active" data-tab="students">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            Học sinh
-            <span class="cd-tab-badge">{{ $studentCount }}</span>
-        </button>
-        <button class="cd-tab" data-tab="quizzes">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            Bài kiểm tra
-            <span class="cd-tab-badge">{{ $quizzes->count() }}</span>
-        </button>
-        <button class="cd-tab" data-tab="progress">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-            Tiến độ
-        </button>
-        <button class="cd-tab" data-tab="settings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-            Cài đặt
-        </button>
-    </div>
-
-    <!-- ══════════════════════════════════════
-         TAB: HỌC SINH
-    ══════════════════════════════════════ -->
-    <div class="cd-panel active" id="panel-students">
-        <div class="card">
-            <!-- Toolbar -->
-            <div style="padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border);">
-                <h3 style="font-size:var(--text-base);font-weight:700;">Danh sách học sinh</h3>
-                <div style="display:flex;gap:.5rem;align-items:center;">
-                    <div class="cd-search">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="search" class="input" placeholder="Tìm học sinh..." id="stu-search" style="font-size:var(--text-sm);height:2rem;" />
-                    </div>
-                    <a href="{{ route('teacher.classes.export', $class) }}" class="btn btn-outline btn-sm" style="gap:0.375rem;" title="Xuất danh sách học sinh ra file CSV">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Xuất Excel
-                    </a>
-                    <button class="btn btn-outline btn-sm" onclick="toggleForm('add-notify-form')" style="gap:0.375rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                        Gửi thông báo
-                    </button>
-                    <button class="btn btn-primary btn-sm" onclick="openAddStudentModal()" style="gap:0.375rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Thêm HS
-                    </button>
-                </div>
-            </div>
-
-            <!-- Send Notification Form -->
-            <div id="add-notify-form" class="cd-inline-form" style="display:none;">
-                <p style="font-size:var(--text-sm);font-weight:600;margin:0;">Gửi thông báo cho {{ $studentCount }} học sinh trong lớp</p>
-                <form method="POST" action="{{ route('teacher.classes.notify', $class) }}" class="cd-inline-form-row" style="margin:0;padding:0;border:none;background:none;flex-wrap:wrap;">
-                    @csrf
-                    <input type="text" name="title" class="input" placeholder="Tiêu đề thông báo..." required style="max-width:220px;font-size:var(--text-sm);height:2rem;" />
-                    <input type="text" name="body" class="input" placeholder="Nội dung thông báo..." required style="flex:1;min-width:200px;font-size:var(--text-sm);height:2rem;" />
-                    <button type="submit" class="btn btn-primary btn-sm">Gửi ngay</button>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="hideForm('add-notify-form')">Hủy</button>
-                </form>
-            </div>
-
-            <div class="card" style="margin:1rem 0;border-color:color-mix(in srgb,var(--warning) 35%,var(--border));">
-                <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:1rem;">
-                    <div>
-                        <h3 style="font-size:var(--text-base);font-weight:800;">Yêu cầu chờ duyệt</h3>
-                        <p style="font-size:var(--text-sm);color:var(--muted-foreground);margin-top:.25rem;">Học sinh tự tham gia bằng mã/link sẽ nằm ở đây trước khi được vào lớp.</p>
-                    </div>
-                    <span class="badge {{ ($pendingStudents ?? collect())->isNotEmpty() ? 'badge-warning' : 'badge-outline' }}">{{ ($pendingStudents ?? collect())->count() }} chờ duyệt</span>
-                </div>
-                <div style="padding:0 1.25rem;">
-                    @forelse(($pendingStudents ?? collect()) as $pendingStudent)
-                        <div class="join-class-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;padding:.875rem 0;border-top:1px solid var(--border);">
-                            <div style="min-width:0;">
-                                <div style="font-weight:700;">{{ $pendingStudent->name }}</div>
-                                <div style="font-size:var(--text-sm);color:var(--muted-foreground);">
-                                    {{ $pendingStudent->email }} · Gửi lúc {{ $pendingStudent->pivot->requested_at ? \Illuminate\Support\Carbon::parse($pendingStudent->pivot->requested_at)->format('d/m/Y H:i') : 'N/A' }}
-                                </div>
-                            </div>
-                            <div style="display:flex;gap:.5rem;align-items:center;">
-                                <form method="POST" action="{{ route('teacher.classes.join-requests.approve', [$class, $pendingStudent->id]) }}">
-                                    @csrf
-                                    <button class="btn btn-primary btn-sm" type="submit">Phê duyệt</button>
-                                </form>
-                                <form method="POST" action="{{ route('teacher.classes.join-requests.reject', [$class, $pendingStudent->id]) }}" data-confirm="Từ chối yêu cầu tham gia lớp của {{ $pendingStudent->name }}?">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-ghost btn-sm" style="color:var(--destructive);" type="submit">Từ chối</button>
-                                </form>
-                            </div>
-                        </div>
-                    @empty
-                        <div style="padding:1rem 0;color:var(--muted-foreground);font-size:var(--text-sm);">
-                            Chưa có yêu cầu nào. Khi học sinh nhập mã lớp hoặc mở link mời, yêu cầu sẽ xuất hiện tại đây để giáo viên duyệt.
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-
-            <!-- Table -->
-            <div class="cd-table-wrap">
-                <table class="cd-table">
-                    <thead>
-                        <tr>
-                            <th>Học sinh</th>
-                            <th style="text-align:right;">Điểm TB</th>
-                            <th style="text-align:center;">Đã làm</th>
-                            <th style="text-align:center;">Xếp loại</th>
-                            <th style="text-align:right;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="stu-tbody">
-                        @forelse($studentGrades as $idx => $student)
-                        <?php
-                            $c = $studentColors[$idx % count($studentColors)];
-                            $initials = collect(explode(' ', $student->name))->filter()->map(fn($w) => $w[0])->slice(-2)->implode('');
-                        ?>
-                        <tr class="stu-row" data-name="{{ strtolower($student->name) }}">
-                            <td>
-                                <div style="display:flex;align-items:center;gap:0.75rem;">
-                                    <div class="stu-avatar" style="background:color-mix(in srgb, {{ $c }} 15%, transparent);color:{{ $c }};">
-                                        {{ $initials }}
-                                    </div>
-                                    <span style="font-weight:600;font-size:var(--text-sm);">{{ $student->name }}</span>
-                                </div>
-                            </td>
-                            <td style="text-align:right;">
-                                @if($student->avg_pct !== null)
-                                <span style="font-weight:800;font-size:var(--text-base);color:{{ $gradeColors[$student->grade_letter] ?? 'inherit' }};">{{ $student->avg_pct }}%</span>
-                                @else
-                                <span style="color:var(--muted-foreground);">—</span>
-                                @endif
-                            </td>
-                            <td style="text-align:center;">
-                                <span class="cd-tab-badge" style="font-size:var(--text-xs);">{{ $student->completed_count }}</span>
-                            </td>
-                            <td style="text-align:center;">
-                                @if($student->avg_pct !== null)
-                                <span class="grade-badge" style="background:{{ $gradeBgColors[$student->grade_letter] ?? 'var(--muted)' }};color:{{ $gradeColors[$student->grade_letter] ?? 'gray' }};">
-                                    {{ $student->grade_letter }}
-                                </span>
-                                @else
-                                <span style="color:var(--muted-foreground);font-size:var(--text-sm);">—</span>
-                                @endif
-                            </td>
-                            <td style="text-align:right;">
-                                <form method="POST" action="{{ route('teacher.classes.remove-student', [$class, $student->id]) }}" data-confirm="Xóa {{ $student->name }} khỏi lớp?" style="display:inline;">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--destructive);width:2rem;height:2rem;padding:0;" title="Xóa khỏi lớp">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="5">
-                                <div class="cd-empty">
-                                    <div class="cd-empty-icon">🎓</div>
-                                    <p style="font-size:var(--text-sm);font-weight:600;margin-bottom:.25rem;color:var(--foreground);">Chưa có học sinh nào</p>
-                                    <p style="font-size:var(--text-xs);">Thêm học sinh bằng email hoặc nhập file CSV để bắt đầu</p>
-                                </div>
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+    <div class="class-panel" id="panel-content">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">Nội dung của lớp</h2>
+          <p class="panel-sub">Bài kiểm tra, bài tập và khóa học đang gắn với lớp này.</p>
         </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
-         TAB: BÀI KIỂM TRA
-    ══════════════════════════════════════ -->
-    <div class="cd-panel" id="panel-quizzes">
-        <div class="card">
-            <div style="padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
-                <h3 style="font-size:var(--text-base);font-weight:700;">Bài kiểm tra đã giao</h3>
-                <a href="{{ route('teacher.quiz-create', ['class_id' => $class->id]) }}" class="btn btn-primary btn-sm" style="gap:0.375rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Tạo bài mới
-                </a>
-            </div>
-
-            @if($quizzes->isEmpty())
-            <div class="cd-empty">
-                <div class="cd-empty-icon">📝</div>
-                <p style="font-size:var(--text-sm);font-weight:600;margin-bottom:.25rem;color:var(--foreground);">Chưa có bài kiểm tra nào</p>
-                <p style="font-size:var(--text-xs);">Tạo bài kiểm tra và giao cho lớp này</p>
-            </div>
-            @else
-            <div class="cd-table-wrap">
-                <table class="cd-table">
-                    <thead>
-                        <tr>
-                            <th>Đề thi</th>
-                            <th>Ngày tạo</th>
-                            <th style="text-align:center;">Câu hỏi</th>
-                            <th style="text-align:right;">Đã nộp</th>
-                            <th style="text-align:right;">Điểm TB</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($quizzes as $quiz)
-                        <tr>
-                            <td>
-                                <div style="display:flex;align-items:center;gap:0.5rem;">
-                                    <div style="width:2rem;height:2rem;border-radius:var(--radius-sm);background:color-mix(in srgb, var(--primary) 10%, transparent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                    </div>
-                                    <span style="font-weight:600;font-size:var(--text-sm);">{{ $quiz->title }}</span>
-                                </div>
-                            </td>
-                            <td style="font-size:var(--text-sm);color:var(--muted-foreground);white-space:nowrap;">{{ $quiz->created_at->format('d/m/Y') }}</td>
-                            <td style="text-align:center;font-size:var(--text-sm);">{{ $quiz->questions_count ?? '—' }}</td>
-                            <td style="text-align:right;font-size:var(--text-sm);">{{ $quiz->submitted_count ?? 0 }}</td>
-                            <td style="text-align:right;">
-                                @if($quiz->avg_score !== null)
-                                <span style="font-weight:800;font-size:var(--text-sm);color:var(--success);">{{ $quiz->avg_score }}%</span>
-                                @else
-                                <span style="color:var(--muted-foreground);font-size:var(--text-sm);">—</span>
-                                @endif
-                            </td>
-                            <td style="text-align:right;">
-                                <a href="{{ route('teacher.quiz-detail', $quiz) }}" class="btn btn-ghost btn-sm" style="font-size:var(--text-xs);">Xem</a>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            @endif
+        <div class="panel-actions">
+          <a class="btn btn-primary btn-sm" href="{{ route('teacher.quiz-create', ['class_id' => $class->id]) }}">Tạo bài kiểm tra</a>
+          <button class="btn btn-outline btn-sm" type="button" onclick="openAssignmentModal()">Tạo bài tập</button>
         </div>
-    </div>
+      </div>
 
-    <!-- ══════════════════════════════════════
-         TAB: TIẾN ĐỘ
-    ══════════════════════════════════════ -->
-    <div class="cd-panel" id="panel-progress">
-        <!-- Mini stats -->
-        <?php
-            $maxScore = $studentGrades->filter(fn($s) => $s->avg_pct !== null)->max('avg_pct');
-            $minScore = $studentGrades->filter(fn($s) => $s->avg_pct !== null)->min('avg_pct');
-        ?>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.25rem;">
-            <div class="cd-stat">
-                <div class="cd-stat-label">Điểm cao nhất</div>
-                <div class="cd-stat-value" style="color:var(--success);">{{ $maxScore ? $maxScore . '%' : '—' }}</div>
-            </div>
-            <div class="cd-stat">
-                <div class="cd-stat-label">Điểm thấp nhất</div>
-                <div class="cd-stat-value" style="color:var(--destructive);">{{ $minScore ? $minScore . '%' : '—' }}</div>
-            </div>
-            <div class="cd-stat">
-                <div class="cd-stat-label">Giỏi (≥90%)</div>
-                <div class="cd-stat-value" style="color:var(--success);">{{ $dist['excellent'] }}</div>
-            </div>
-            <div class="cd-stat">
-                <div class="cd-stat-label">Cần cải thiện (&lt;60%)</div>
-                <div class="cd-stat-value" style="color:var(--warning);">{{ $dist['weak'] + $dist['average'] }}</div>
-            </div>
-        </div>
-
-        <!-- Two column layout -->
-        <div class="cd-progress-grid">
-
-            <!-- Left: Distribution + Top Students -->
-            <div style="display:flex;flex-direction:column;gap:1.25rem;">
-                <!-- Grade distribution -->
-                <div class="card">
-                    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-                        <h3 style="font-size:var(--text-sm);font-weight:700;">Phân bố điểm</h3>
-                    </div>
-                    <div style="padding:1rem 1.25rem;">
-                        @foreach (['excellent', 'good', 'average', 'weak'] as $key)
-                        <?php [$label, $color] = $distLabels[$key]; ?>
-                        <div class="dist-row">
-                            <div class="dist-label" style="color:{{ $color }};">{{ $label }}</div>
-                            <div class="dist-bar">
-                                <div class="dist-fill" style="width:{{ $distWidths[$key] }}%;background:{{ $color }};"></div>
-                            </div>
-                            <div class="dist-count" style="color:{{ $color }};">{{ $dist[$key] }}</div>
-                        </div>
-                        @endforeach
-                        @if($totalWithScore === 0)
-                        <p style="text-align:center;font-size:var(--text-sm);color:var(--muted-foreground);padding:.5rem 0;">Chưa có dữ liệu điểm</p>
-                        @endif
-                    </div>
-                </div>
-
-                <!-- Top Students -->
-                <div class="card">
-                    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;">
-                        <span>🥇</span>
-                        <h3 style="font-size:var(--text-sm);font-weight:700;">Top 5 Học sinh</h3>
-                    </div>
-                    <div style="padding:0.5rem 1.25rem;">
-                        @if($topStudents->isEmpty())
-                        <div style="text-align:center;padding:1.5rem;color:var(--muted-foreground);font-size:var(--text-sm);">Chưa có dữ liệu</div>
-                        @else
-                        @foreach($topStudents as $i => $student)
-                        <div class="cd-list-item">
-                            <div class="cd-list-rank">
-                                @if($i === 0) 🥇
-                                @elseif($i === 1) 🥈
-                                @elseif($i === 2) 🥉
-                                @else <span style="font-weight:700;color:var(--muted-foreground);font-size:var(--text-sm);">{{ $i + 1 }}</span>
-                                @endif
-                            </div>
-                            <div class="cd-list-info">
-                                <div class="cd-list-name">{{ $student->name }}</div>
-                                <div class="cd-list-sub">{{ $student->completed_count }} bài đã làm</div>
-                            </div>
-                            <span style="font-weight:800;font-size:var(--text-base);color:var(--success);">{{ $student->avg_pct }}%</span>
-                        </div>
-                        @endforeach
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right: Weak Students + Summary -->
-            <div style="display:flex;flex-direction:column;gap:1.25rem;">
-                <!-- Need support -->
-                <div class="card">
-                    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;">
-                        <span>⚠️</span>
-                        <h3 style="font-size:var(--text-sm);font-weight:700;">Cần hỗ trợ (&lt;60%)</h3>
-                    </div>
-                    <div style="padding:0.5rem 1.25rem;">
-                        @if($weakStudents->isEmpty())
-                        <div style="text-align:center;padding:1.5rem;">
-                            <div style="font-size:2rem;margin-bottom:.5rem;">🎉</div>
-                            <p style="font-size:var(--text-sm);font-weight:600;color:var(--success);">Tất cả học sinh đều đạt yêu cầu!</p>
-                        </div>
-                        @else
-                        @foreach($weakStudents as $student)
-                        <div class="cd-list-item">
-                            <div class="cd-list-rank">⚠️</div>
-                            <div class="cd-list-info">
-                                <div class="cd-list-name">{{ $student->name }}</div>
-                                <div class="cd-list-sub">{{ $student->completed_count }} bài đã làm</div>
-                            </div>
-                            <span style="font-weight:800;font-size:var(--text-base);color:var(--destructive);">{{ $student->avg_pct }}%</span>
-                        </div>
-                        @endforeach
-                        @endif
-                    </div>
-                </div>
-
-                <!-- Class summary card -->
-                <div class="card" style="background:linear-gradient(135deg, color-mix(in srgb, var(--primary) 6%, transparent), color-mix(in srgb, #6366f1 6%, transparent));border-color:color-mix(in srgb, var(--primary) 20%, transparent);">
-                    <div style="padding:1.25rem;">
-                        <h3 style="font-size:var(--text-sm);font-weight:700;margin-bottom:1rem;">Tổng quan lớp</h3>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-                            <div>
-                                <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:.25rem;">Tổng HS</div>
-                                <div style="font-size:var(--text-xl);font-weight:800;">{{ $studentCount }}</div>
-                            </div>
-                            <div>
-                                <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:.25rem;">Điểm TB</div>
-                                <div style="font-size:var(--text-xl);font-weight:800;color:var(--success);">{{ $classAvg ? round($classAvg, 1) . '%' : '—' }}</div>
-                            </div>
-                            <div>
-                                <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:.25rem;">Bài thi</div>
-                                <div style="font-size:var(--text-xl);font-weight:800;color:#a855f7;">{{ $quizzes->count() }}</div>
-                            </div>
-                            <div>
-                                <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-bottom:.25rem;">Hoàn thành</div>
-                                <div style="font-size:var(--text-xl);font-weight:800;color:#06b6d4;">{{ $completionRate }}%</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
-         TAB: CÀI ĐẶT
-    ══════════════════════════════════════ -->
-    <div class="cd-panel" id="panel-settings">
-        <form method="POST" action="{{ route('teacher.classes.update', $class) }}">
-            @csrf @method('PUT')
-            <div class="card" style="margin-bottom:1.25rem;">
-                <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-                    <h3 style="font-size:var(--text-base);font-weight:700;">Thông tin lớp học</h3>
-                </div>
-                <div style="padding:1.25rem;display:flex;flex-direction:column;gap:1rem;">
-                    <div class="settings-grid">
-                        <div class="form-group">
-                            <label class="label label-required">Tên lớp</label>
-                            <input type="text" name="name" class="input @error('name') input-error @enderror" value="{{ old('name', $class->name) }}" required />
-                            @error('name') <span class="error-message">{{ $message }}</span> @enderror
-                        </div>
-                        <div class="form-group">
-                            <label class="label">Mã lớp</label>
-                            <input type="text" class="input" value="{{ $class->code }}" readonly style="background:var(--muted);cursor:not-allowed;" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Mô tả</label>
-                        <textarea name="description" class="input @error('description') input-error @enderror" style="min-height:4rem;resize:vertical;">{{ old('description', $class->description) }}</textarea>
-                        @error('description') <span class="error-message">{{ $message }}</span> @enderror
-                    </div>
-                    <div class="settings-grid">
-                        <div class="form-group">
-                            <label class="label">Môn học</label>
-                            <input type="text" name="subject" class="input" value="{{ old('subject', $class->subject) }}" placeholder="VD: Toán, Vật lý..." />
-                        </div>
-                        <div class="form-group">
-                            <label class="label">Khối lớp</label>
-                            <input type="text" name="grade_level" class="input" value="{{ old('grade_level', $class->grade_level) }}" placeholder="VD: 10, 11, 12..." />
-                        </div>
-                    </div>
-                    <div style="display:flex;justify-content:flex-end;">
-                        <button type="submit" class="btn btn-primary" style="gap:0.5rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 8 8"/></svg>
-                            Lưu thay đổi
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </form>
-
-        <!-- Archive / Restore -->
-        <div class="card" style="margin-bottom:1.25rem;">
-            <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-                <h3 style="font-size:var(--text-base);font-weight:700;">Trạng thái lớp học</h3>
-            </div>
-            <div style="padding:1.25rem;">
-                @if($class->status === 'archived')
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-                    <div style="display:flex;align-items:center;gap:0.625rem;">
-                        <span style="font-size:1.25rem;">📦</span>
-                        <div>
-                            <div style="font-weight:600;font-size:var(--text-sm);color:var(--muted-foreground);">Lớp đang được lưu trữ</div>
-                            <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Lớp không hiển thị với học sinh. Khôi phục để tiếp tục sử dụng.</div>
-                        </div>
-                    </div>
-                    <form method="POST" action="{{ route('teacher.classes.restore', $class) }}" style="flex-shrink:0;">
-                        @csrf
-                        <button type="submit" class="btn btn-outline btn-sm" style="gap:0.375rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.1"/></svg>
-                            Khôi phục lớp
-                        </button>
-                    </form>
-                </div>
-                @else
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-                    <div style="display:flex;align-items:center;gap:0.625rem;">
-                        <span style="font-size:1.25rem;">✅</span>
-                        <div>
-                            <div style="font-weight:600;font-size:var(--text-sm);">Lớp đang hoạt động</div>
-                            <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Lớp đang mở và học sinh có thể tham gia.</div>
-                        </div>
-                    </div>
-                    <form method="POST" action="{{ route('teacher.classes.archive', $class) }}" data-confirm="Lưu trữ lớp này? Lớp sẽ không hiển thị với học sinh nhưng dữ liệu được giữ nguyên." data-confirm-destructive="false" style="flex-shrink:0;">
-                        @csrf
-                        <button type="submit" class="btn btn-outline btn-sm" style="gap:0.375rem;color:var(--muted-foreground);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                            Lưu trữ lớp
-                        </button>
-                    </form>
-                </div>
-                @endif
-            </div>
-        </div>
-
-        <!-- Danger Zone -->
-        <div class="card">
-            <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-                <h3 style="font-size:var(--text-base);font-weight:700;color:var(--destructive);">Vùng nguy hiểm</h3>
-            </div>
-            <div style="padding:1.25rem;">
-                <div class="danger-card">
-                    <div>
-                        <div style="font-weight:600;font-size:var(--text-sm);color:var(--destructive);margin-bottom:.25rem;">Xóa lớp học</div>
-                        <div style="font-size:var(--text-xs);color:var(--muted-foreground);">Xóa lớp và toàn bộ dữ liệu liên quan. Hành động này không thể hoàn tác.</div>
-                    </div>
-                    <form method="POST" action="{{ route('teacher.classes.destroy', $class) }}" data-confirm="Bạn chắc chắn muốn xóa lớp này? Hành động không thể hoàn tác!" style="flex-shrink:0;">
-                        @csrf @method('DELETE')
-                        <button type="submit" class="btn btn-destructive btn-sm">Xóa lớp</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<!-- ── Modal: Thêm học sinh ── -->
-<div class="modal-overlay" id="add-student-modal">
-    <div class="modal" style="max-width:34rem;">
-        <div class="modal-header">
+      <div class="content-list" style="margin-bottom:1rem">
+        @forelse($quizzes as $quiz)
+          <div class="content-row">
             <div>
-                <h3 class="modal-title">Thêm học sinh</h3>
-                <p class="modal-desc">Thêm học sinh vào lớp "{{ $class->name }}" bằng email, link tham gia hoặc file.</p>
+              <div class="content-title">{{ $quiz->title }}</div>
+              <div class="row-meta">Bài kiểm tra · {{ $quiz->questions_count }} câu · {{ $quiz->submitted_count }} lượt nộp</div>
             </div>
-            <button class="modal-close" onclick="closeAddStudentModal()" type="button">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <span class="badge {{ $quiz->status === 'published' ? 'badge-success' : 'badge-outline' }}">{{ $quiz->status === 'published' ? 'Đã xuất bản' : 'Nháp' }}</span>
+            <div class="score-pill" style="color:{{ $gradeColor($quiz->avg_score) }}">{{ $quiz->avg_score !== null ? $quiz->avg_score.'%' : '—' }}</div>
+            <a class="btn btn-outline btn-sm" href="{{ route('teacher.quiz-detail', $quiz) }}">Xem</a>
+          </div>
+        @empty
+          <div class="empty-state" style="border:0;border-radius:0">Chưa có bài kiểm tra trong lớp này.</div>
+        @endforelse
+      </div>
+
+      <div class="content-list" style="margin-bottom:1rem">
+        @forelse($assignments as $assignment)
+          <div class="content-row">
+            <div>
+              <div class="content-title">{{ $assignment->title }}</div>
+              <div class="row-meta">Bài tập · {{ $assignment->total_points ?? 100 }} điểm · {{ $assignment->due_at ? 'Hạn '.$assignment->due_at->format('d/m/Y H:i') : 'Không hạn nộp' }}</div>
+            </div>
+            <span class="badge badge-outline">{{ $assignment->type ?? 'file' }}</span>
+            <div class="score-pill">{{ $assignment->submissions?->count() ?? 0 }} nộp</div>
+            <a class="btn btn-outline btn-sm" href="{{ route('teacher.assignments.show', $assignment) }}">Xem</a>
+          </div>
+        @empty
+          <div class="empty-state" style="border:0;border-radius:0">Chưa có bài tập trong lớp này.</div>
+        @endforelse
+      </div>
+
+      @if($courses->isNotEmpty())
+        <div class="content-list">
+          @foreach($courses as $course)
+            <div class="content-row">
+              <div>
+                <div class="content-title">{{ $course->name }}</div>
+                <div class="row-meta">Khóa học · {{ $course->status === 'published' ? 'Đã xuất bản' : 'Nháp' }}</div>
+              </div>
+              <span class="badge badge-default">Khóa học</span>
+              <span></span>
+              <a class="btn btn-outline btn-sm" href="{{ route('teacher.courses.show', $course) }}">Mở</a>
+            </div>
+          @endforeach
         </div>
-        <div class="modal-body" style="padding:1.25rem;">
-            <!-- Tab buttons -->
-            <div class="asm-tabs">
-                <button class="asm-tab active" data-tab="asm-email" type="button" title="Chỉ thêm những tài khoản học sinh đã tồn tại trong hệ thống.">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                    Nhập email
-                </button>
-                <button class="asm-tab" data-tab="asm-link" type="button">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    Link tham gia
-                </button>
-                <button class="asm-tab" data-tab="asm-file" type="button">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/><line x1="12" y1="8" x2="12" y2="16"/></svg>
-                    Import file
-                </button>
-            </div>
-
-            <!-- Tab: Nhập email -->
-            <div class="asm-panel active" id="panel-asm-email">
-                <form method="POST" action="{{ route('teacher.students.invite-email') }}">
-                    @csrf
-                    <input type="hidden" name="class_id" value="{{ $class->id }}" />
-                    <div class="form-group">
-                        <label class="label label-required">Email học sinh</label>
-                        <textarea name="emails_raw" class="input @error('emails') input-error @enderror @error('emails_raw') input-error @enderror" rows="7" placeholder="nguyenvana@example.com&#10;tranthib@example.com&#10;leminhc@example.com" required style="resize:vertical;font-family:var(--font-mono);font-size:var(--text-xs);">{{ old('emails_raw') }}</textarea>
-                        @error('emails') <span class="error-message">{{ $message }}</span> @enderror
-                        @error('emails_raw') <span class="error-message">{{ $message }}</span> @enderror
-                        <p style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.5rem;">
-                            Mỗi email một dòng. Hệ thống chỉ thêm các tài khoản đã đăng ký với vai trò học sinh.
-                        </p>
-                    </div>
-                    <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;">
-                        <button type="button" class="btn btn-ghost btn-sm" onclick="closeAddStudentModal()">Hủy</button>
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            Thêm vào lớp
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Tab: Link tham gia -->
-            <div class="asm-panel" id="panel-asm-link">
-                <div class="form-group">
-                    <label class="label">Link tham gia lớp</label>
-                    <div class="asm-link-box">
-                        <span id="asm-join-link">{{ url('/student/join/' . strtolower($class->code)) }}</span>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="copyJoinLink()">Sao chép</button>
-                    </div>
-                    <p style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:.5rem;">
-                        Học sinh đăng nhập tài khoản học sinh rồi mở link này để tự tham gia lớp. Nếu đang dùng tài khoản giáo viên, hệ thống sẽ hiện hướng dẫn thay vì chuyển về dashboard.
-                    </p>
-                </div>
-                <form method="POST" action="{{ route('teacher.students.invite-link', $class) }}" style="margin-top:1rem;">
-                    @csrf
-                    <button type="submit" class="btn btn-outline btn-sm">
-                        Tạo mã mời mới
-                    </button>
-                </form>
-            </div>
-
-            <!-- Tab: Thêm nhanh bằng file Excel -->
-            <div class="asm-panel" id="panel-asm-file">
-                <p class="asm-file-hint">
-                    Chỉ thêm những tài khoản <strong>học sinh đã tồn tại</strong> trong hệ thống.
-                    File Excel cần có cột <strong>Email</strong> (hoặc <strong>Họ tên</strong>).
-                </p>
-                <a href="{{ route('teacher.classes.template', $class) }}" class="btn btn-ghost btn-sm" style="margin-bottom:.875rem;gap:.375rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Tải file mẫu Excel
-                </a>
-                <form method="POST" action="{{ route('teacher.classes.import', $class) }}" enctype="multipart/form-data">
-                    @csrf
-                    <div class="form-group">
-                        <label class="label">Chọn file Excel (.xlsx)</label>
-                        <input type="file" name="students_file" accept=".xlsx,.csv,.txt" class="input @error('students_file') input-error @enderror" required style="font-size:var(--text-sm);" />
-                        @error('students_file') <span class="error-message">{{ $message }}</span> @enderror
-                    </div>
-                    <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;">
-                        <button type="button" class="btn btn-ghost btn-sm" onclick="closeAddStudentModal()">Hủy</button>
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            Thêm vào lớp
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+      @endif
     </div>
+
+    <div class="class-panel" id="panel-analytics">
+      <div class="analytics-grid">
+        <div class="mini-card">
+          <h2 class="panel-title" style="margin-bottom:.8rem">Phân phối điểm</h2>
+          @foreach($gradeBuckets as $bucket)
+            @php $width = round(($bucket['value'] / $bucketMax) * 100); @endphp
+            <div class="dist-row">
+              <div class="dist-label">{{ $bucket['label'] }}<div class="row-meta">{{ $bucket['range'] }}</div></div>
+              <div class="dist-bar"><div class="dist-fill" style="width:{{ $width }}%;background:{{ $bucket['color'] }}"></div></div>
+              <strong>{{ $bucket['value'] }}</strong>
+            </div>
+          @endforeach
+        </div>
+        <div class="mini-card">
+          <h2 class="panel-title" style="margin-bottom:.8rem">Học sinh nổi bật</h2>
+          @forelse($topStudents as $student)
+            <div class="rank-row"><span>{{ $student->name }}</span><strong style="color:{{ $gradeColor($student->avg_pct) }}">{{ $student->avg_pct }}%</strong></div>
+          @empty
+            <p class="panel-sub">Chưa có dữ liệu điểm.</p>
+          @endforelse
+        </div>
+        <div class="mini-card">
+          <h2 class="panel-title" style="margin-bottom:.8rem">Cần hỗ trợ</h2>
+          @forelse($weakStudents as $student)
+            <div class="rank-row"><span>{{ $student->name }}</span><strong style="color:var(--destructive)">{{ $student->avg_pct }}%</strong></div>
+          @empty
+            <p class="panel-sub">Không có học sinh dưới ngưỡng 60%.</p>
+          @endforelse
+        </div>
+      </div>
+    </div>
+
+    <div class="class-panel" id="panel-settings">
+      <div class="settings-grid">
+        <form class="mini-card settings-form" method="POST" action="{{ route('teacher.classes.update', $class) }}">
+          @csrf
+          @method('PUT')
+          <h2 class="panel-title">Thông tin lớp</h2>
+          <div class="form-group"><label class="label label-required">Tên lớp</label><input class="input" name="name" value="{{ old('name', $class->name) }}" required></div>
+          <div class="form-group"><label class="label">Mô tả</label><textarea class="input" name="description" style="min-height:5rem;resize:vertical;">{{ old('description', $class->description) }}</textarea></div>
+          <div class="form-grid-2">
+            <div class="form-group"><label class="label">Môn học</label><input class="input" name="subject" value="{{ old('subject', $class->subject) }}"></div>
+            <div class="form-group"><label class="label">Khối lớp</label><input class="input" name="grade_level" value="{{ old('grade_level', $class->grade_level) }}"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" type="submit">Lưu thay đổi</button></div>
+        </form>
+        <div class="mini-card">
+          <h2 class="panel-title" style="margin-bottom:.8rem">Trạng thái lớp</h2>
+          @if($status === 'archived')
+            <p class="panel-sub">Lớp đang được lưu trữ. Học sinh sẽ không thấy lớp như lớp đang hoạt động.</p>
+            <form method="POST" action="{{ route('teacher.classes.restore', $class) }}" style="margin-top:.9rem">@csrf<button class="btn btn-outline" type="submit">Khôi phục lớp</button></form>
+          @else
+            <p class="panel-sub">Lớp đang hoạt động và học sinh có thể tham gia bằng mã/link mời.</p>
+            <form method="POST" action="{{ route('teacher.classes.archive', $class) }}" data-confirm="Lưu trữ lớp này?" style="margin-top:.9rem">@csrf<button class="btn btn-outline" type="submit">Lưu trữ lớp</button></form>
+          @endif
+          <div class="danger-box" style="margin-top:1rem">
+            <div><strong style="color:var(--destructive)">Xóa lớp</strong><div class="row-meta">Đưa lớp vào thùng rác. Có thể khôi phục trong trang thùng rác nếu cần.</div></div>
+            <form method="POST" action="{{ route('teacher.classes.destroy', $class) }}" data-confirm="Xóa lớp {{ $class->name }}?">@csrf @method('DELETE')<button class="btn btn-destructive btn-sm" type="submit">Xóa</button></form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
-<div id="toast-container"></div>
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal" style="max-width:38rem">
+    <div class="modal-header">
+      <div><h3 class="modal-title">Thêm học sinh</h3><p class="modal-desc">Mời học sinh vào lớp {{ $class->name }}.</p></div>
+      <button class="modal-close" type="button" onclick="closeModal('invite-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-tabs">
+        <button class="modal-tab active" type="button" data-invite-tab="email">Email</button>
+        <button class="modal-tab" type="button" data-invite-tab="link">Link tham gia</button>
+        <button class="modal-tab" type="button" data-invite-tab="file">Import file</button>
+      </div>
+      <div class="modal-panel active" id="invite-email-panel">
+        <form method="POST" action="{{ route('teacher.students.invite-email') }}">
+          @csrf
+          <input type="hidden" name="class_id" value="{{ $class->id }}">
+          <div class="form-group"><label class="label label-required">Email học sinh</label><textarea class="input" name="emails_raw" rows="7" placeholder="mỗi email một dòng hoặc phân cách bằng dấu phẩy" required>{{ old('emails_raw') }}</textarea></div>
+          <div class="modal-footer" style="padding-left:0;padding-right:0"><button class="btn btn-outline" type="button" onclick="closeModal('invite-modal')">Hủy</button><button class="btn btn-primary" type="submit">Thêm vào lớp</button></div>
+        </form>
+      </div>
+      <div class="modal-panel" id="invite-link-panel">
+        <label class="label">Link tham gia lớp</label>
+        <div class="invite-link-box"><span id="join-link">{{ $joinLink }}</span><button class="btn btn-outline btn-sm" type="button" onclick="copyText(@js($joinLink), 'Đã sao chép link mời')">Sao chép</button></div>
+        <p class="panel-sub" style="margin-top:.65rem">Học sinh đăng nhập tài khoản học sinh rồi mở link này để gửi yêu cầu tham gia hoặc vào lớp.</p>
+        <form method="POST" action="{{ route('teacher.students.invite-link', $class) }}" style="margin-top:.9rem">@csrf<button class="btn btn-outline btn-sm" type="submit">Tạo mã mới</button></form>
+      </div>
+      <div class="modal-panel" id="invite-file-panel">
+        <a class="btn btn-ghost btn-sm" href="{{ route('teacher.classes.template', $class) }}" style="margin-bottom:.8rem">Tải file mẫu Excel</a>
+        <form method="POST" action="{{ route('teacher.classes.import', $class) }}" enctype="multipart/form-data">
+          @csrf
+          <div class="form-group"><label class="label label-required">File danh sách</label><input class="input" type="file" name="students_file" accept=".xlsx,.csv,.txt" required></div>
+          <div class="modal-footer" style="padding-left:0;padding-right:0"><button class="btn btn-outline" type="button" onclick="closeModal('invite-modal')">Hủy</button><button class="btn btn-primary" type="submit">Import</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="notify-modal">
+  <div class="modal" style="max-width:36rem">
+    <div class="modal-header">
+      <div><h3 class="modal-title">Gửi thông báo lớp</h3><p class="modal-desc">Thông báo sẽ gửi đến {{ $studentCount }} học sinh trong lớp.</p></div>
+      <button class="modal-close" type="button" onclick="closeModal('notify-modal')">×</button>
+    </div>
+    <form method="POST" action="{{ route('teacher.classes.notify', $class) }}">
+      @csrf
+      <div class="modal-body">
+        <div class="form-group"><label class="label label-required">Tiêu đề</label><input class="input" name="title" required maxlength="255"></div>
+        <div class="form-group"><label class="label label-required">Nội dung</label><textarea class="input" name="body" rows="5" required maxlength="500"></textarea></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline" type="button" onclick="closeModal('notify-modal')">Hủy</button><button class="btn btn-primary" type="submit">Gửi</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="assignment-modal">
+  <div class="modal" style="max-width:38rem">
+    <div class="modal-header">
+      <div><h3 class="modal-title">Tạo bài tập nhanh</h3><p class="modal-desc">Bài tập sẽ được gắn với lớp {{ $class->name }}.</p></div>
+      <button class="modal-close" type="button" onclick="closeModal('assignment-modal')">×</button>
+    </div>
+    <form method="POST" action="{{ route('teacher.assignments.store') }}" enctype="multipart/form-data">
+      @csrf
+      <input type="hidden" name="class_id" value="{{ $class->id }}">
+      <div class="modal-body">
+        <div class="form-group"><label class="label label-required">Tiêu đề</label><input class="input" name="title" required maxlength="255"></div>
+        <div class="form-group"><label class="label">Mô tả</label><textarea class="input" name="description" rows="4" maxlength="2000"></textarea></div>
+        <div class="form-grid-2">
+          <div class="form-group"><label class="label">Hình thức nộp</label><select class="input select" name="type"><option value="file">Nộp file</option><option value="text">Nhập văn bản</option><option value="essay">Tự luận</option><option value="project">Dự án</option><option value="practice">Thực hành</option></select></div>
+          <div class="form-group"><label class="label">Điểm tối đa</label><input class="input" type="number" name="total_points" min="1" max="10000" value="100"></div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group"><label class="label">Khóa học</label><select class="input select" name="course_id"><option value="">Không gắn khóa học</option>@foreach($courses as $course)<option value="{{ $course->id }}">{{ $course->name }}</option>@endforeach</select></div>
+          <div class="form-group"><label class="label">Hạn nộp</label><input class="input" type="datetime-local" name="due_at" min="{{ now()->format('Y-m-d\TH:i') }}"></div>
+        </div>
+        <div class="form-group"><label class="label">Tài liệu đính kèm</label><input class="input" type="file" name="attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.png,.jpg,.jpeg,.webp,.txt"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline" type="button" onclick="closeModal('assignment-modal')">Hủy</button><button class="btn btn-primary" type="submit">Tạo bài tập</button></div>
+    </form>
+  </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
 (function() {
-    'use strict';
+  'use strict';
 
-    // ── Tab switching (page tabs)
-    document.querySelectorAll('.cd-tab').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.cd-tab').forEach(function(b) { b.classList.remove('active'); });
-            document.querySelectorAll('.cd-panel').forEach(function(p) { p.classList.remove('active'); });
-            btn.classList.add('active');
-            var panel = document.getElementById('panel-' + btn.getAttribute('data-tab'));
-            if (panel) panel.classList.add('active');
-        });
+  function setActiveTab(tab) {
+    document.querySelectorAll('.class-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('.class-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'panel-' + tab));
+  }
+
+  document.querySelectorAll('.class-tab').forEach(btn => {
+    btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
+  });
+
+  window.openModal = function(id) {
+    document.getElementById(id)?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.closeModal = function(id) {
+    document.getElementById(id)?.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  window.openNotifyModal = function() { openModal('notify-modal'); };
+  window.openAssignmentModal = function() { openModal('assignment-modal'); };
+
+  function setInviteTab(tab) {
+    document.querySelectorAll('[data-invite-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.inviteTab === tab));
+    ['email', 'link', 'file'].forEach(name => document.getElementById('invite-' + name + '-panel')?.classList.toggle('active', name === tab));
+  }
+
+  window.openInviteModal = function(tab) {
+    setInviteTab(tab || 'email');
+    openModal('invite-modal');
+  };
+
+  document.querySelectorAll('[data-invite-tab]').forEach(btn => {
+    btn.addEventListener('click', () => setInviteTab(btn.dataset.inviteTab));
+  });
+
+  window.copyText = function(text, message) {
+    const done = () => {
+      if (typeof window.showAppAlert === 'function') {
+        window.showAppAlert(message || 'Đã sao chép');
+      }
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(done);
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    textarea.remove();
+    done();
+  };
+
+  document.getElementById('student-search')?.addEventListener('input', function() {
+    const query = (this.value || '').trim().toLowerCase();
+    document.querySelectorAll('.student-search-row').forEach(row => {
+      row.style.display = !query || (row.dataset.search || '').includes(query) ? '' : 'none';
     });
+  });
 
-    // ── Add Student Modal
-    function activateAsmTab(tabId) {
-        tabId = tabId || 'asm-email';
-        document.querySelectorAll('.asm-tab').forEach(function(t) { t.classList.remove('active'); });
-        document.querySelectorAll('.asm-panel').forEach(function(p) { p.classList.remove('active'); });
-        var tab = document.querySelector('.asm-tab[data-tab="' + tabId + '"]');
-        var panel = document.getElementById('panel-' + tabId);
-        if (tab) tab.classList.add('active');
-        if (panel) panel.classList.add('active');
-    }
-
-    window.openAddStudentModal = function(tabId) {
-        var modal = document.getElementById('add-student-modal');
-        if (modal) {
-            modal.classList.add('open');
-            activateAsmTab(tabId || 'asm-email');
-        }
-    };
-    window.closeAddStudentModal = function() {
-        var modal = document.getElementById('add-student-modal');
-        if (modal) modal.classList.remove('open');
-    };
-
-    // ASM tab switching
-    document.querySelectorAll('.asm-tab').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            activateAsmTab(btn.getAttribute('data-tab'));
-        });
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) closeModal(overlay.id);
     });
+  });
 
-    // Modal overlay close on click outside
-    var asmModal = document.getElementById('add-student-modal');
-    if (asmModal) {
-        asmModal.addEventListener('click', function(e) {
-            if (e.target === asmModal) closeAddStudentModal();
-        });
-    }
-
-    // ── Search filter
-    var searchInput = document.getElementById('stu-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            var q = (this.value || '').toLowerCase();
-            document.querySelectorAll('.stu-row').forEach(function(row) {
-                var name = row.getAttribute('data-name') || '';
-                row.style.display = !q || name.indexOf(q) !== -1 ? '' : 'none';
-            });
-        });
-    }
-
-    // ── Copy code
-    window.copyCode = function() {
-        var code = {{ Js::from($class->code) }};
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(code).then(function() {
-                showToast('Đã sao chép mã lớp: ' + code);
-            });
-        }
-    };
-
-    // ── Copy join link
-    window.copyJoinLink = function() {
-        var link = {{ Js::from(url('/student/join/' . strtolower($class->code))) }};
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(link).then(function() {
-                showToast('Đã sao chép link mời: ' + link);
-            });
-        } else {
-            var input = document.createElement('textarea');
-            input.value = link;
-            input.style.position = 'fixed';
-            input.style.opacity = '0';
-            document.body.appendChild(input);
-            input.select();
-            document.execCommand('copy');
-            document.body.removeChild(input);
-            showToast('Đã sao chép link mời: ' + link);
-        }
-    };
-
-    // ── Toggle / hide forms
-    window.toggleForm = function(id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.style.display = el.style.display === 'none' ? 'flex' : 'none';
-    };
-    window.hideForm = function(id) {
-        var el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    };
-
-    // ── Toast
-    function showToast(msg, type) {
-        type = type || 'success';
-        var tc = document.getElementById('toast-container');
-        if (!tc) return;
-        var e = document.createElement('div');
-        e.className = 'toast toast-' + type;
-        e.innerHTML = '<span>' + (type === 'warning' ? '⚠️' : '✅') + '</span><span>' + msg + '</span>';
-        tc.appendChild(e);
-        requestAnimationFrame(function() { e.classList.add('show'); });
-        setTimeout(function() {
-            e.classList.remove('show');
-            setTimeout(function() { e.remove(); }, 300);
-        }, 4000);
-    }
-
-    // Auto-show flash messages as toasts
-    @if(session('success'))
-    showToast({{ Js::from(session('success')) }}, 'success');
-    @endif
-    @if(session('warning'))
-    showToast({{ Js::from(session('warning')) }}, 'warning');
-    @endif
-    @if(session('error'))
-    showToast({{ Js::from(session('error')) }}, 'error');
-    @endif
-
-    // ── Escape to close
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            var asmModal = document.getElementById('add-student-modal');
-            if (asmModal) asmModal.classList.remove('open');
-            document.getElementById('add-notify-form') && (document.getElementById('add-notify-form').style.display = 'none');
-        }
-    });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.modal-overlay.open').forEach(overlay => overlay.classList.remove('open'));
+    document.body.style.overflow = '';
+  });
 })();
 </script>
 @endpush

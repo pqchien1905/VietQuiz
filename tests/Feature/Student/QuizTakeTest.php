@@ -417,6 +417,107 @@ class QuizTakeTest extends TestCase
         ]);
     }
 
+    public function test_screenshot_attempt_is_ignored_by_anti_cheat_counter(): void
+    {
+        config(['vietquiz.anti_cheat.max_violations' => 2]);
+
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Screenshot guarded exam',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+            'anti_cheat_enabled' => true,
+            'max_attempts' => 1,
+            'public_to_all_students' => true,
+        ]);
+
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Guarded question',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 2,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, ['started_at' => now()]);
+
+        $this->actingAs($student)
+            ->postJson(route('student.quiz-take.violations', $quiz), [
+                'event_type' => 'screenshot_attempt',
+                'metadata' => ['key' => 'PrintScreen'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('logged', false)
+            ->assertJsonPath('ignored', true)
+            ->assertJsonPath('violation_count', 0)
+            ->assertJsonPath('should_auto_submit', false);
+
+        $this->assertSame(0, QuizViolation::where('quiz_id', $quiz->id)->where('user_id', $student->id)->count());
+        $this->assertDatabaseHas('quiz_user', [
+            'quiz_id' => $quiz->id,
+            'user_id' => $student->id,
+            'submitted_at' => null,
+        ]);
+    }
+
+    public function test_copy_and_cut_are_ignored_by_anti_cheat_counter(): void
+    {
+        config(['vietquiz.anti_cheat.max_violations' => 2]);
+
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Clipboard guarded exam',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+            'anti_cheat_enabled' => true,
+            'max_attempts' => 1,
+            'public_to_all_students' => true,
+        ]);
+
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Guarded question',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 2,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, ['started_at' => now()]);
+
+        foreach (['copy', 'cut'] as $eventType) {
+            $this->actingAs($student)
+                ->postJson(route('student.quiz-take.violations', $quiz), [
+                    'event_type' => $eventType,
+                    'metadata' => ['target' => 'BODY'],
+                ])
+                ->assertOk()
+                ->assertJsonPath('logged', false)
+                ->assertJsonPath('ignored', true)
+                ->assertJsonPath('violation_count', 0)
+                ->assertJsonPath('should_auto_submit', false);
+        }
+
+        $this->actingAs($student)
+            ->postJson(route('student.quiz-take.violations', $quiz), [
+                'event_type' => 'paste',
+                'metadata' => ['target' => 'BODY'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('logged', true)
+            ->assertJsonPath('violation_count', 1)
+            ->assertJsonPath('should_auto_submit', false);
+
+        $this->assertSame(1, QuizViolation::where('quiz_id', $quiz->id)->where('user_id', $student->id)->count());
+    }
+
     public function test_student_cannot_submit_unpublished_quiz_directly(): void
     {
         $teacher = User::factory()->create(['role' => 'teacher']);

@@ -45,7 +45,7 @@
     <div class="card-header"><h3 class="card-title">Trạng thái</h3></div>
     <div class="card-content">
       <div class="activity-item"><span class="badge badge-outline">Mã #{{ $user->id }}</span><div><div class="admin-row-title">{{ \App\Support\AdminLabels::role($user->role) }}</div><div class="admin-row-meta">Tạo lúc {{ $user->created_at?->format('d/m/Y H:i') }}</div></div></div>
-      <div class="activity-item"><span class="badge {{ $user->trashed() ? 'badge-danger' : 'badge-success' }}">{{ $user->trashed() ? 'Đã khóa' : 'Hoạt động' }}</span><div class="admin-row-meta">{{ $user->trashed() ? 'Tài khoản đang ở thùng rác' : 'Có thể đăng nhập hệ thống thường' }}</div></div>
+      <div class="activity-item"><span class="badge {{ $user->trashed() ? 'badge-danger' : 'badge-success' }}">{{ $user->trashed() ? 'Đã khóa' : 'Hoạt động' }}</span><div class="admin-row-meta">{{ $user->trashed() ? 'Tài khoản đang bị khóa' : 'Có thể đăng nhập hệ thống thường' }}</div></div>
       <div class="activity-item"><span class="badge {{ $user->vipSubscription?->is_active ? 'badge-warning' : 'badge-outline' }}">VIP</span><div class="admin-row-meta">{{ $user->vipSubscription ? \App\Support\AdminLabels::vipPlan($user->vipSubscription->plan) : 'Chưa có gói VIP đang hoạt động' }}</div></div>
       <div class="admin-table-actions" style="justify-content:flex-start;margin-top:1rem;">
         @if($user->trashed())

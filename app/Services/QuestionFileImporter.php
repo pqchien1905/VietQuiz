@@ -29,7 +29,7 @@ class QuestionFileImporter
             'docx' => $this->importDocx($file->getRealPath()),
             'pdf' => $this->importText($this->textExtractor->extract($file)),
             'doc' => throw new RuntimeException('File .doc cũ không được hỗ trợ trực tiếp. Vui lòng lưu lại thành .docx hoặc PDF.'),
-            default => throw new RuntimeException('Dinh dang file khong duoc ho tro. Hay dung Excel, PDF hoac DOCX.'),
+            default => throw new RuntimeException('Định dạng file không được hỗ trợ. Hãy dùng Excel, PDF hoặc DOCX.'),
         };
 
         if ($limit !== null) {
@@ -37,7 +37,7 @@ class QuestionFileImporter
         }
 
         if ($questions === []) {
-            throw new RuntimeException('Chua nhan dien duoc cau hoi tu file. Hay dung mau: moi cau gom noi dung + A/B/C/D, dap an dung boi do hoac co bang dap an.');
+            throw new RuntimeException('Chưa nhận diện được câu hỏi từ file. Hãy dùng mẫu: mỗi câu gồm nội dung + A/B/C/D, đáp án đúng bôi đỏ hoặc có bảng đáp án.');
         }
 
         return $questions;
@@ -216,13 +216,13 @@ class QuestionFileImporter
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
         if (!$loaded) {
-            throw new RuntimeException('File Word khong hop le.');
+            throw new RuntimeException('File Word không hợp lệ.');
         }
 
         $xpath = new DOMXPath($dom);
         $body = $xpath->query('//*[local-name()="body"]')->item(0);
         if (!$body instanceof DOMElement) {
-            throw new RuntimeException('File Word khong co noi dung.');
+            throw new RuntimeException('File Word không có nội dung.');
         }
 
         $questionParagraphs = [];

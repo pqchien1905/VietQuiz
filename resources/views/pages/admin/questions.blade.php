@@ -170,7 +170,7 @@
               @if($question->trashed())
                 <form method="POST" action="{{ route('admin.questions.restore', $question->id) }}">@csrf<button class="btn btn-outline-primary btn-sm">Khôi phục</button></form>
               @else
-                <form method="POST" action="{{ route('admin.questions.delete', $question->id) }}" data-confirm="Đưa câu hỏi này vào thùng rác?" data-confirm-ok="Xóa câu hỏi">@csrf @method('DELETE')<button class="btn btn-destructive btn-sm">Xóa</button></form>
+                <form method="POST" action="{{ route('admin.questions.delete', $question->id) }}" data-confirm="Xóa câu hỏi này khỏi danh sách hoạt động?" data-confirm-ok="Xóa câu hỏi">@csrf @method('DELETE')<button class="btn btn-destructive btn-sm">Xóa</button></form>
               @endif
             </div>
           </td>

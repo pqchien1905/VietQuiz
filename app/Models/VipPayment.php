@@ -12,9 +12,14 @@ class VipPayment extends Model
 
     protected $fillable = [
         'user_id',
+        'audience',
+        'promotion_id',
+        'promotion_code',
         'vip_subscription_id',
         'txn_ref',
         'plan',
+        'original_amount',
+        'discount_amount',
         'amount',
         'bank_code',
         'status',
@@ -34,6 +39,17 @@ class VipPayment extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::creating(function (VipPayment $payment) {
+            if (! $payment->audience && $payment->user_id) {
+                $payment->audience = User::whereKey($payment->user_id)->value('role') === 'student'
+                    ? 'student'
+                    : 'teacher';
+            }
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -42,5 +58,10 @@ class VipPayment extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(VipSubscription::class, 'vip_subscription_id');
+    }
+
+    public function promotion(): BelongsTo
+    {
+        return $this->belongsTo(Promotion::class);
     }
 }

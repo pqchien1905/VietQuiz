@@ -100,7 +100,6 @@
         <a class="btn btn-primary btn-sm" href="{{ route('teacher.quiz-create', ['course_id' => $course->id, 'class_id' => $course->class_id]) }}">Tạo bài kiểm tra</a>
         @if($course->class_id)
           <button class="btn btn-outline btn-sm" type="button" onclick="openAssignmentModal()">Tạo bài tập</button>
-          <form method="POST" action="{{ route('teacher.courses.sync-students', $course) }}">@csrf<button class="btn btn-ghost btn-sm" type="submit">Đồng bộ học sinh</button></form>
         @endif
       </div>
     </div>
@@ -213,7 +212,6 @@
       <div class="detail-panel" id="panel-students">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
           <h2 style="font-size:var(--text-lg);font-weight:800;margin:0;">Học sinh trong khóa học</h2>
-          @if($course->class_id)<form method="POST" action="{{ route('teacher.courses.sync-students', $course) }}">@csrf<button class="btn btn-primary btn-sm" type="submit">Đồng bộ từ lớp</button></form>@endif
         </div>
         @forelse($students as $student)
           <div class="student-row">
@@ -224,7 +222,7 @@
             <form method="POST" action="{{ route('teacher.courses.remove-student', [$course, $student]) }}" data-confirm="Gỡ học sinh này khỏi khóa học?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm" style="color:var(--destructive);" type="submit">Gỡ</button></form>
           </div>
         @empty
-          <div class="empty-panel"><div class="empty-panel__icon">HS</div><h3>Chưa có học sinh</h3><p>{{ $course->class_id ? 'Đồng bộ học sinh từ lớp để bắt đầu.' : 'Gắn khóa học với một lớp trước khi đồng bộ học sinh.' }}</p></div>
+          <div class="empty-panel"><div class="empty-panel__icon">HS</div><h3>Chưa có học sinh</h3><p>{{ $course->class_id ? 'Hãy thêm học sinh trong lớp được gắn với khóa học để danh sách hiển thị tại đây.' : 'Gắn khóa học với một lớp để quản lý học sinh theo lớp.' }}</p></div>
         @endforelse
       </div>
 

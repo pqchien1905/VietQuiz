@@ -7,7 +7,7 @@
     : 'profile';
   $avatarUrl = $user->avatar ? asset('storage/' . $user->avatar) : null;
   $initials = collect(explode(' ', $user->name))->filter()->map(fn($word) => mb_substr($word, 0, 1))->take(2)->implode('') ?: 'HS';
-  $isVip = $user->vipSubscription?->is_active;
+  $isVip = $user->vipSubscriptionForAudience('student')->first()?->is_active;
 @endphp
 
 @push('styles')

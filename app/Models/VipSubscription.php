@@ -11,8 +11,19 @@ class VipSubscription extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'plan', 'started_at', 'expires_at', 'status',
+        'user_id', 'audience', 'plan', 'started_at', 'expires_at', 'status',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (VipSubscription $subscription) {
+            if (! $subscription->audience && $subscription->user_id) {
+                $subscription->audience = User::whereKey($subscription->user_id)->value('role') === 'student'
+                    ? 'student'
+                    : 'teacher';
+            }
+        });
+    }
 
     protected function casts(): array
     {

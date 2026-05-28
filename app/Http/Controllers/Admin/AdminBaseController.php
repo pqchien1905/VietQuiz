@@ -505,9 +505,15 @@ abstract class AdminBaseController extends Controller
     {
         DB::transaction(function () use ($payment) {
             $payment->refresh();
+            if ($payment->status === 'paid' && $payment->vip_subscription_id) {
+                return;
+            }
+
             $startedAt = $payment->paid_at ?? now();
+            $audience = $payment->audience
+                ?: ($payment->user?->role === 'student' ? 'student' : 'teacher');
             $subscription = VipSubscription::updateOrCreate(
-                ['user_id' => $payment->user_id],
+                ['user_id' => $payment->user_id, 'audience' => $audience],
                 [
                     'plan' => $payment->plan,
                     'status' => 'active',
@@ -517,10 +523,15 @@ abstract class AdminBaseController extends Controller
             );
 
             $payment->update([
+                'audience' => $audience,
                 'vip_subscription_id' => $subscription->id,
                 'status' => 'paid',
                 'paid_at' => $payment->paid_at ?? now(),
             ]);
+
+            if ($payment->promotion_id) {
+                Promotion::whereKey($payment->promotion_id)->increment('used_count');
+            }
         });
     }
 
@@ -553,6 +564,7 @@ abstract class AdminBaseController extends Controller
             'code' => ['required', 'string', 'max:50', Rule::unique('promotions', 'code')->ignore($id)],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
+            'audience' => ['nullable', Rule::in(['all', 'teacher', 'student'])],
             'vip_plan' => ['nullable', Rule::in(['all', 'monthly', 'yearly', 'lifetime'])],
             'discount_type' => ['required', 'in:percentage,fixed'],
             'discount_value' => ['required', 'numeric', 'min:0', 'max:100000000'],
@@ -564,129 +576,9 @@ abstract class AdminBaseController extends Controller
         ]);
 
         $validated['code'] = Str::upper($validated['code']);
+        $validated['audience'] = $validated['audience'] ?? 'all';
 
         return $validated;
-    }
-
-    protected function trashMap(): array
-    {
-        return [
-            'users' => ['label' => 'Người dùng', 'model' => User::class, 'title' => 'name'],
-            'classes' => ['label' => 'Lớp học', 'model' => ClassModel::class, 'title' => 'name'],
-            'courses' => ['label' => 'Khóa học', 'model' => Course::class, 'title' => 'name'],
-            'quizzes' => ['label' => 'Bài kiểm tra', 'model' => Quiz::class, 'title' => 'title'],
-            'questions' => ['label' => 'Câu hỏi', 'model' => Question::class, 'title' => 'content'],
-            'assignments' => ['label' => 'Bài tập', 'model' => Assignment::class, 'title' => 'title'],
-            'notifications' => ['label' => 'Thông báo', 'model' => Notification::class, 'title' => 'title'],
-            'promotions' => ['label' => 'Khuyến mãi', 'model' => Promotion::class, 'title' => 'code'],
-        ];
-    }
-
-    protected function adminTrashItems(array $map)
-    {
-        return collect($map)
-            ->flatMap(fn (array $config, string $type) => $config['model']::onlyTrashed()
-                ->with($config['with'] ?? [])
-                ->latest('deleted_at')
-                ->get()
-                ->map(fn ($item) => $this->toAdminTrashItem($item, $type, $config)))
-            ->sortByDesc('deleted_at')
-            ->values();
-    }
-
-    protected function toAdminTrashItem($item, string $type, array $config): object
-    {
-        $deletedAt = $item->deleted_at;
-        $ageDays = $deletedAt ? (int) floor($deletedAt->diffInDays(now())) : 0;
-        $daysLeft = max(0, 30 - $ageDays);
-        $title = (string) ($item->{$config['title']} ?? "#{$item->id}");
-        $description = $this->adminTrashDescription($item, $type);
-        $owner = $this->adminTrashOwner($item, $type);
-
-        return new \Illuminate\Support\Fluent([
-            'id' => $item->id,
-            'key' => "{$type}:{$item->id}",
-            'type' => $type,
-            'label' => $config['label'],
-            'type_label' => $config['label'],
-            'title' => $title,
-            'description' => $description,
-            'owner' => $owner,
-            'detail_route' => $this->adminTrashDetailRoute($type, $item->id),
-            'search_text' => "{$config['label']} {$title} {$description} {$owner} {$item->id}",
-            'deleted_at' => $deletedAt,
-            'age_days' => $ageDays,
-            'days_left' => $daysLeft,
-            'is_expiring' => $daysLeft <= 7,
-        ]);
-    }
-
-    protected function adminTrashDescription($item, string $type): ?string
-    {
-        return match ($type) {
-            'users' => trim(implode(' ', array_filter([$item->email, $item->role, $item->phone]))),
-            'classes' => trim(implode(' ', array_filter([$item->code, $item->teacher?->name]))),
-            'courses' => trim(implode(' ', array_filter([$item->teacher?->name, $item->classModel?->name]))),
-            'quizzes' => trim(implode(' ', array_filter([$item->teacher?->name, $item->status]))),
-            'questions' => trim(implode(' ', array_filter([$item->teacher?->name, $item->quiz?->title, $item->type]))),
-            'assignments' => trim(implode(' ', array_filter([$item->teacher?->name, $item->class?->name, $item->course?->name]))),
-            'notifications' => trim(implode(' ', array_filter([$item->user?->name, $item->type, Str::limit((string) ($item->body ?? ''), 120)]))),
-            'promotions' => trim(implode(' ', array_filter([$item->name, $item->status, $item->discount_type]))),
-            default => null,
-        };
-    }
-
-    protected function adminTrashOwner($item, string $type): ?string
-    {
-        return match ($type) {
-            'users' => $item->email,
-            'classes', 'courses', 'quizzes', 'questions', 'assignments' => $item->teacher?->name,
-            'notifications' => $item->user?->name,
-            'promotions' => $item->name,
-            default => null,
-        };
-    }
-
-    protected function adminTrashDetailRoute(string $type, int|string $id): ?string
-    {
-        return match ($type) {
-            'users' => route('admin.users.show', $id),
-            'classes' => route('admin.classes.show', $id),
-            'courses' => route('admin.courses.show', $id),
-            'quizzes' => route('admin.quizzes.show', $id),
-            'assignments' => route('admin.assignments.show', $id),
-            default => null,
-        };
-    }
-
-    protected function performSelectedTrashAction(Request $request, string $action): int
-    {
-        $validated = $request->validate([
-            'items' => ['required', 'array', 'min:1'],
-            'items.*' => ['string'],
-        ]);
-
-        $map = $this->trashMap();
-        $grouped = collect($validated['items'])
-            ->map(function (string $item) {
-                [$type, $id] = array_pad(explode(':', $item, 2), 2, null);
-
-                return [
-                    'type' => $type,
-                    'id' => is_string($id) && $id !== '' ? $id : null,
-                ];
-            })
-            ->filter(fn (array $item) => isset($map[(string) $item['type']]) && $item['id'])
-            ->groupBy('type');
-
-        $count = 0;
-        foreach ($grouped as $type => $items) {
-            $query = $map[$type]['model']::onlyTrashed()->whereIn('id', $items->pluck('id')->all());
-            $count += (clone $query)->count();
-            $query->{$action}();
-        }
-
-        return $count;
     }
 
     protected function isAdmin(Request $request): bool
@@ -705,4 +597,3 @@ abstract class AdminBaseController extends Controller
         return $this->isAdmin($request) ? null : redirect()->route('admin.dashboard');
     }
 }
-

@@ -9,6 +9,7 @@
   $paymentBadges = ['pending' => 'badge-warning', 'paid' => 'badge-success', 'failed' => 'badge-danger', 'cancelled' => 'badge-outline'];
   $plans = ['monthly' => 'Hàng tháng', 'yearly' => 'Hàng năm', 'lifetime' => 'Trọn đời'];
   $audienceLabels = ['teacher' => 'Giáo viên', 'student' => 'Học sinh'];
+  $promotionAudienceLabels = ['all' => 'Tất cả đối tượng VIP', 'teacher' => 'Giáo viên', 'student' => 'Học sinh'];
   $statuses = ['active' => 'Hoạt động', 'expired' => 'Hết hạn', 'cancelled' => 'Đã hủy'];
   $paymentStatuses = ['pending' => 'Chờ xử lý', 'paid' => 'Đã thanh toán', 'failed' => 'Thất bại', 'cancelled' => 'Đã hủy'];
   $summaryCards = [
@@ -141,6 +142,7 @@
       @csrf
       <div class="form-group"><label class="label">Mã</label><input class="input" name="code" placeholder="VIP20" required></div>
       <div class="form-group"><label class="label">Tên</label><input class="input" name="name" placeholder="Ưu đãi VIP" required></div>
+      <div class="form-group"><label class="label">Đối tượng</label><select class="input select" name="audience">@foreach($promotionAudienceLabels as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></div>
       <div class="form-group"><label class="label">Áp dụng</label><select class="input select" name="vip_plan"><option value="all">Tất cả gói VIP</option>@foreach($plans as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></div>
       <div class="form-group"><label class="label">Loại giảm</label><select class="input select" name="discount_type"><option value="percentage">Phần trăm</option><option value="fixed">Số tiền cố định</option></select></div>
       <div class="form-group"><label class="label">Giá trị</label><input class="input" name="discount_value" type="number" min="0" step="0.01" value="10" required></div>
@@ -160,7 +162,7 @@
       @forelse($vipPromotions as $promotion)
         <tr>
           <td><div class="admin-row-title">{{ $promotion->code }}</div><div class="admin-row-meta">{{ $promotion->name }}</div></td>
-          <td><span class="badge badge-warning">{{ $promotion->vip_plan === 'all' ? 'Tất cả VIP' : ($plans[$promotion->vip_plan] ?? $promotion->vip_plan) }}</span></td>
+          <td><span class="badge badge-warning">{{ $promotion->vip_plan === 'all' ? 'Tất cả VIP' : ($plans[$promotion->vip_plan] ?? $promotion->vip_plan) }}</span><div class="admin-row-meta">{{ $promotionAudienceLabels[$promotion->audience ?? 'all'] ?? $promotion->audience }}</div></td>
           <td>{{ $promotion->discount_type === 'percentage' ? rtrim(rtrim($promotion->discount_value, '0'), '.').'%' : number_format((float) $promotion->discount_value).'đ' }}</td>
           <td><span class="badge {{ $promotion->isActive() ? 'badge-success' : 'badge-outline' }}">{{ \App\Support\AdminLabels::status($promotion->status) }}</span><div class="admin-row-meta">{{ $promotion->ends_at?->format('d/m/Y H:i') ?? 'Không giới hạn' }}</div></td>
           <td><div class="vip-actions"><button class="btn btn-primary btn-sm" type="button" onclick="openAdminVipModal('edit-promotion-{{ $promotion->id }}')">Sửa</button></div></td>
@@ -307,6 +309,7 @@
           <div class="vip-modal-grid">
             <div class="form-group"><label class="label">Mã</label><input class="input" name="code" value="{{ $promotion->code }}" required></div>
             <div class="form-group"><label class="label">Tên</label><input class="input" name="name" value="{{ $promotion->name }}" required></div>
+            <div class="form-group"><label class="label">Đối tượng</label><select class="input select" name="audience">@foreach($promotionAudienceLabels as $value => $label)<option value="{{ $value }}" @selected(($promotion->audience ?? 'all') === $value)>{{ $label }}</option>@endforeach</select></div>
             <div class="form-group"><label class="label">Áp dụng</label><select class="input select" name="vip_plan"><option value="all" @selected($promotion->vip_plan === 'all')>Tất cả gói VIP</option>@foreach($plans as $value => $label)<option value="{{ $value }}" @selected($promotion->vip_plan === $value)>{{ $label }}</option>@endforeach</select></div>
             <div class="form-group"><label class="label">Loại giảm</label><select class="input select" name="discount_type"><option value="percentage" @selected($promotion->discount_type === 'percentage')>Phần trăm</option><option value="fixed" @selected($promotion->discount_type === 'fixed')>Số tiền cố định</option></select></div>
             <div class="form-group"><label class="label">Giá trị</label><input class="input" name="discount_value" type="number" min="0" step="0.01" value="{{ $promotion->discount_value }}" required></div>

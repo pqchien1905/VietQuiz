@@ -516,12 +516,12 @@
                         </div>
                         <input type="hidden" name="quiz_type" id="quiz_type_input" value="{{ $quizTypeValue }}" />
                         <div style="font-size:var(--text-xs);color:var(--muted-foreground);margin-top:0.25rem;" id="quiz-type-desc">
-                            <strong>Kiểm tra:</strong> Bật giám sát chống gian lận: chặn DevTools, click phải, sao chép/dán, yêu cầu toàn màn hình và cảnh báo khi học sinh rời màn hình làm bài.
+                            <strong>Kiểm tra:</strong> Bật giám sát chống gian lận: chặn DevTools, click phải, sao chép/dán, chụp màn hình, yêu cầu toàn màn hình và cảnh báo khi học sinh rời màn hình làm bài.
                         </div>
                         <div class="anti-cheat-toggle" id="anti-cheat-section">
                             <div>
                                 <div class="anti-cheat-toggle__title">Chống gian lận</div>
-                                <div class="anti-cheat-toggle__desc" id="anti-cheat-desc">Bật giám sát toàn màn hình, cảnh báo rời tab và chặn phím tắt DevTools cho bài kiểm tra.</div>
+                                <div class="anti-cheat-toggle__desc" id="anti-cheat-desc">Bật giám sát toàn màn hình, cảnh báo rời tab, chặn phím tắt DevTools và chụp màn hình cho bài kiểm tra.</div>
                             </div>
                             <input type="hidden" name="anti_cheat_enabled" id="anti_cheat_hidden" value="{{ $antiCheatValue }}">
                             <label class="switch" for="anti_cheat_enabled" aria-label="Bật tắt chống gian lận">
@@ -1095,7 +1095,7 @@
         const desc = $('#quiz-type-desc');
         if (desc) {
             if (type === 'exam') {
-                desc.innerHTML = '<strong>Kiểm tra:</strong> Bật giám sát chống gian lận: chặn DevTools, click phải, sao chép/dán, yêu cầu toàn màn hình và cảnh báo khi học sinh rời màn hình làm bài.';
+                desc.innerHTML = '<strong>Kiểm tra:</strong> Bật giám sát chống gian lận: chặn DevTools, click phải, sao chép/dán, chụp màn hình, yêu cầu toàn màn hình và cảnh báo khi học sinh rời màn hình làm bài.';
             } else {
                 desc.innerHTML = '<strong>Luyện tập:</strong> Không bật giám sát chống gian lận; học sinh có thể luyện bài linh hoạt và xem kết quả sau khi nộp.';
             }
@@ -1118,7 +1118,7 @@
             hidden.value = checkbox.checked ? '1' : '0';
             if (antiCheatDesc) {
                 antiCheatDesc.textContent = checkbox.checked
-                    ? 'Đang bật: học sinh sẽ bị giám sát toàn màn hình, cảnh báo rời tab và chặn phím tắt DevTools.'
+                    ? 'Đang bật: học sinh sẽ bị giám sát toàn màn hình, cảnh báo rời tab, chặn phím tắt DevTools và chụp màn hình.'
                     : 'Đang tắt: bài kiểm tra không áp dụng giám sát chống gian lận.';
             }
         } else {

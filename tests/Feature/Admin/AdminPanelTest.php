@@ -137,7 +137,6 @@ class AdminPanelTest extends TestCase
             'admin.tickets',
             'admin.vip',
             'admin.promotions',
-            'admin.trash',
         ] as $route) {
             $this->withSession(['vietquiz_admin_authenticated' => true])
                 ->get(route($route))
@@ -298,7 +297,6 @@ class AdminPanelTest extends TestCase
             route('admin.grades'),
             route('admin.notifications'),
             route('admin.promotions'),
-            route('admin.trash'),
         ] as $url) {
             $this->withSession(['vietquiz_admin_authenticated' => true])
                 ->get($url)

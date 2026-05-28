@@ -34,7 +34,7 @@ class AssignmentAiGrader
         $timeout = max((int) config('services.ai_questions.timeout', 45), 30);
 
         if (! is_string($apiUrl) || trim($apiUrl) === '') {
-            throw new RuntimeException('Chua cau hinh dia chi AI API.');
+            throw new RuntimeException('Chưa cấu hình địa chỉ AI API.');
         }
 
         if ($adapter === 'anthropic_messages') {
@@ -69,14 +69,14 @@ class AssignmentAiGrader
             ]);
 
             if ($response->failed()) {
-                throw new RuntimeException('AI API loi: HTTP '.$response->status());
+                throw new RuntimeException('AI API lỗi: HTTP '.$response->status());
             }
 
             $content = data_get($response->json(), 'choices.0.message.content');
         }
 
         if (! is_string($content) || trim($content) === '') {
-            throw new RuntimeException('AI khong tra ve noi dung hop le.');
+            throw new RuntimeException('AI không trả về nội dung hợp lệ.');
         }
 
         $decoded = json_decode($this->extractJson($content), true);
@@ -90,16 +90,16 @@ class AssignmentAiGrader
     private function systemPrompt(): string
     {
         return <<<'PROMPT'
-Ban la tro ly cham bai tap cho giao vien VietQuiz.
-Chi tra ve JSON hop le, khong dung markdown.
+Bạn là trợ lý chấm bài tập cho giáo viên VietQuiz.
+Chỉ trả về JSON hợp lệ, không dùng markdown.
 Không tự lưu điểm. Điểm chỉ là gợi ý để giáo viên duyệt.
-Cham cong bang dua tren de bai, noi dung hoc sinh nop va tieu chi bo sung neu co.
-Neu thong tin bai nop khong du de cham chinh xac, hay cho diem than trong va noi ro ly do trong feedback.
-Cau truc JSON bat buoc:
+Chấm công bằng dựa trên đề bài, nội dung học sinh nộp và tiêu chí bổ sung nếu có.
+Nếu thông tin bài nộp không đủ để chấm chính xác, hãy cho điểm thận trọng và nói rõ lý do trong feedback.
+Cấu trúc JSON bắt buộc:
 {
   "score": 0,
-  "feedback": "Nhan xet ngan gon bang tieng Viet, neu ro diem manh, loi can sua va goi y cai thien.",
-  "summary": "Tom tat ly do cham diem trong 1-2 cau."
+  "feedback": "Nhận xét ngắn gọn bằng tiếng Việt, nêu rõ điểm mạnh, lỗi cần sửa và gợi ý cải thiện.",
+  "summary": "Tóm tắt lý do chấm điểm trong 1-2 câu."
 }
 PROMPT;
     }
@@ -116,15 +116,15 @@ PROMPT;
         $rubric = trim((string) $rubric);
 
         return trim(sprintf(
-            "Hay goi y diem tu 0 den %d.\n\n".
-            "DE BAI\n".
-            "Tieu de: %s\n".
-            "Mo ta: %s\n".
-            "Loai bai: %s\n".
-            "Diem toi da: %d\n\n".
-            "TIEU CHI BO SUNG CUA GIAO VIEN\n%s\n\n".
-            "NOI DUNG HOC SINH NOP\n%s\n\n".
-            "NOI DUNG TRICH XUAT TU FILE DINH KEM\n%s",
+            "Hãy gợi ý điểm từ 0 đến %d.\n\n".
+            "ĐỀ BÀI\n".
+            "Tiêu đề: %s\n".
+            "Mô tả: %s\n".
+            "Loại bài: %s\n".
+            "Điểm tối đa: %d\n\n".
+            "TIÊU CHÍ BỔ SUNG CỦA GIÁO VIÊN\n%s\n\n".
+            "NỘI DUNG HỌC SINH NỘP\n%s\n\n".
+            "NỘI DUNG TRÍCH XUẤT TỪ FILE ĐÍNH KÈM\n%s",
             $maxScore,
             (string) $assignment->title,
             trim((string) $assignment->description) !== '' ? trim((string) $assignment->description) : '[Không có mô tả.]',
@@ -162,10 +162,10 @@ PROMPT;
 
         $text = trim((string) $text);
         if ($text === '') {
-            return [null, ['File dinh kem khong co noi dung van ban co the doc tu dong.']];
+            return [null, ['File đính kèm không có nội dung văn bản có thể đọc tự động.']];
         }
 
-        return [mb_substr("Ten file: {$filename}\n\n".$text, 0, 12000), []];
+        return [mb_substr("Tên file: {$filename}\n\n".$text, 0, 12000), []];
     }
 
     private function extractDocumentText(string $path, string $filename): string
@@ -240,7 +240,7 @@ PROMPT;
     {
         $rawScore = $decoded['score'] ?? null;
         if (! is_numeric($rawScore)) {
-            throw new RuntimeException('AI khong tra ve diem hop le.');
+            throw new RuntimeException('AI không trả về điểm hợp lệ.');
         }
 
         $score = (int) round((float) $rawScore);
@@ -248,7 +248,7 @@ PROMPT;
 
         $feedback = trim((string) ($decoded['feedback'] ?? ''));
         if ($feedback === '') {
-            $feedback = trim((string) ($decoded['summary'] ?? 'AI da tao goi y diem, giao vien can kiem tra lai truoc khi luu.'));
+            $feedback = trim((string) ($decoded['summary'] ?? 'AI đã tạo gợi ý điểm, giáo viên cần kiểm tra lại trước khi lưu.'));
         }
 
         $summary = trim((string) ($decoded['summary'] ?? ''));
@@ -308,7 +308,7 @@ PROMPT;
         }
 
         if (! preg_match('/\s2\d\d\s/', $statusLine)) {
-            throw new RuntimeException('AI API loi: '.($statusLine ?: 'khong ro trang thai'));
+            throw new RuntimeException('AI API lỗi: '.($statusLine ?: 'không rõ trạng thái'));
         }
 
         return $body;

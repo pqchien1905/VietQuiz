@@ -167,7 +167,7 @@ class QuizController extends AdminBaseController
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Quiz::findOrFail($id)->delete();
-        return back()->with('success', 'Đã đưa bài kiểm tra vào thùng rác.');
+        return back()->with('success', 'Đã xóa bài kiểm tra khỏi danh sách hoạt động.');
     }
 
     public function restoreQuiz(Request $request, int $id): RedirectResponse
@@ -283,7 +283,7 @@ class QuizController extends AdminBaseController
 
         Question::findOrFail($id)->delete();
 
-        return back()->with('success', 'Đã đưa câu hỏi vào thùng rác.');
+        return back()->with('success', 'Đã xóa câu hỏi khỏi danh sách hoạt động.');
     }
 
     public function restoreQuestion(Request $request, int $id): RedirectResponse
@@ -406,7 +406,7 @@ class QuizController extends AdminBaseController
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Assignment::findOrFail($id)->delete();
-        return back()->with('success', 'Đã đưa bài tập vào thùng rác.');
+        return back()->with('success', 'Đã xóa bài tập khỏi danh sách hoạt động.');
     }
 
     public function restoreAssignment(Request $request, int $id): RedirectResponse

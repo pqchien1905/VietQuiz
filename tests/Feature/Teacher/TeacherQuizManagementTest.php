@@ -283,6 +283,138 @@ class TeacherQuizManagementTest extends TestCase
         $this->assertSame(2, (int) $quiz->max_attempts);
     }
 
+    public function test_quiz_detail_highlights_course_and_class_scope(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $class = ClassModel::create([
+            'teacher_id' => $teacher->id,
+            'name' => 'Lop hien thi',
+            'code' => 'SHOW01',
+        ]);
+        $course = Course::create([
+            'teacher_id' => $teacher->id,
+            'class_id' => $class->id,
+            'name' => 'Khoa hoc hien thi',
+            'status' => 'draft',
+        ]);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'class_id' => $class->id,
+            'course_id' => $course->id,
+            'title' => 'Quiz co pham vi',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+        ]);
+
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Cau hoi pham vi',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'A',
+            'points' => 1,
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.quiz-detail', $quiz))
+            ->assertOk()
+            ->assertSee('Bài này đang giao cho')
+            ->assertSee('Khóa học: Khoa hoc hien thi')
+            ->assertSee('Thuộc lớp Lop hien thi')
+            ->assertSee('Lớp học: Lop hien thi');
+    }
+
+    public function test_quiz_detail_uses_best_score_instead_of_latest_attempt_score(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Best score detail',
+            'status' => 'published',
+            'quiz_type' => 'exam',
+            'passing_score' => 60,
+            'public_to_all_students' => true,
+        ]);
+
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Cau hoi diem cao nhat',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 4,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, [
+            'score' => 0,
+            'total_points' => 4,
+            'best_score' => 3,
+            'best_total_points' => 4,
+            'started_at' => now()->subMinutes(5),
+            'submitted_at' => now(),
+            'is_graded' => true,
+            'attempt_count' => 2,
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.quiz-detail', $quiz))
+            ->assertOk()
+            ->assertSee('Điểm TB cao nhất')
+            ->assertSee('75%');
+    }
+
+    public function test_quiz_detail_shows_recent_retake_history_for_multiple_attempt_quiz(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create([
+            'role' => 'student',
+            'name' => 'Hoc sinh lam lai',
+            'email' => 'retry@example.test',
+        ]);
+        $quiz = Quiz::create([
+            'teacher_id' => $teacher->id,
+            'title' => 'Retake history detail',
+            'status' => 'published',
+            'quiz_type' => 'practice',
+            'passing_score' => 60,
+            'max_attempts' => 3,
+            'public_to_all_students' => true,
+        ]);
+
+        Question::create([
+            'quiz_id' => $quiz->id,
+            'teacher_id' => $teacher->id,
+            'content' => 'Cau hoi lam lai',
+            'type' => 'short_answer',
+            'options' => [],
+            'correct_answer' => 'ok',
+            'points' => 4,
+        ]);
+
+        $student->quizAttempts()->attach($quiz->id, [
+            'score' => 2,
+            'total_points' => 4,
+            'best_score' => 3,
+            'best_total_points' => 4,
+            'started_at' => now()->subMinutes(8),
+            'submitted_at' => now()->subMinutes(2),
+            'is_graded' => true,
+            'attempt_count' => 2,
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.quiz-detail', $quiz))
+            ->assertOk()
+            ->assertSee('Lịch sử làm lại gần đây')
+            ->assertSee('Hoc sinh lam lai')
+            ->assertSee('2 lượt')
+            ->assertSee('Gần nhất 50%')
+            ->assertSee('Cao nhất 75%');
+    }
+
     private function validQuizPayload(array $overrides = []): array
     {
         return array_replace_recursive([

@@ -214,7 +214,7 @@
                   <button class="btn btn-outline-primary btn-sm">Khôi phục</button>
                 </form>
               @else
-                <form method="POST" action="{{ route('admin.courses.delete', $course->id) }}" data-confirm="Đưa khóa học {{ $course->name }} vào thùng rác? Dữ liệu liên quan vẫn được giữ để khôi phục." data-confirm-ok="Xóa khóa học">
+                <form method="POST" action="{{ route('admin.courses.delete', $course->id) }}" data-confirm="Xóa khóa học {{ $course->name }} khỏi danh sách hoạt động? Dữ liệu liên quan vẫn được giữ để khôi phục." data-confirm-ok="Xóa khóa học">
                   @csrf
                   @method('DELETE')
                   <button class="btn btn-destructive btn-sm">Xóa</button>

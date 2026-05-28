@@ -28,7 +28,7 @@
   .vip-features li{display:flex;align-items:flex-start;gap:.5rem;color:var(--muted-foreground);font-size:var(--text-sm)}
   .vip-check{color:var(--success);font-weight:900;line-height:1.35}
   .vip-form{display:flex;flex-direction:column;gap:.8rem;margin-top:1rem}
-  .vip-form select{width:100%;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--background);color:var(--foreground);padding:.65rem .75rem;font-size:var(--text-sm)}
+  .vip-form :is(select,input){width:100%;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--background);color:var(--foreground);padding:.65rem .75rem;font-size:var(--text-sm)}
   .vip-alert{padding:1rem;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--card)}
   .vip-alert-success{border-color:color-mix(in srgb,var(--success) 35%,var(--border));background:color-mix(in srgb,var(--success) 8%,var(--card));color:var(--success)}
   .vip-alert-error{border-color:color-mix(in srgb,var(--destructive) 35%,var(--border));background:color-mix(in srgb,var(--destructive) 8%,var(--card));color:var(--destructive)}
@@ -121,6 +121,10 @@
               <option value="NCB">NCB sandbox</option>
             </select>
           </label>
+          <label>
+            <span style="display:block;margin-bottom:.35rem;font-size:var(--text-sm);font-weight:700;">Mã khuyến mãi</span>
+            <input name="promotion_code" value="{{ old('promotion_code') }}" placeholder="Nhập mã nếu có">
+          </label>
           <button class="btn btn-primary w-full" type="submit">Thanh toán qua VNPay</button>
         </form>
       @endunless
@@ -132,6 +136,9 @@
         <ul class="vip-info-list">
           <li><span>Mã đơn</span><span class="vip-copy">{{ $latestPayment->txn_ref }}</span></li>
           <li><span>Số tiền</span><strong>{{ number_format($latestPayment->amount) }}đ</strong></li>
+          @if($latestPayment->promotion_code)
+            <li><span>Khuyến mãi</span><strong>{{ $latestPayment->promotion_code }} (-{{ number_format($latestPayment->discount_amount) }}đ)</strong></li>
+          @endif
           <li><span>Trạng thái</span><span class="vip-status {{ $statusClasses[$latestPayment->status] ?? '' }}">{{ $statusNames[$latestPayment->status] ?? $latestPayment->status }}</span></li>
           <li><span>Thời gian</span><span class="vip-copy">{{ $latestPayment->created_at?->format('d/m/Y H:i') }}</span></li>
         </ul>

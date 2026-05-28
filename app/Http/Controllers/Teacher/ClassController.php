@@ -105,7 +105,7 @@ class ClassController extends Controller
     {
         $this->authorizeTeacher($request, $class);
 
-        $class->load(['students', 'pendingStudents', 'assignments']);
+        $class->load(['students', 'pendingStudents', 'assignments.submissions', 'courses']);
 
         $studentCount = $class->students()->count();
         $pendingStudents = $class->pendingStudents()->orderByPivot('requested_at', 'desc')->get();

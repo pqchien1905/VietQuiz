@@ -12,7 +12,7 @@ class VipFeature
 
     public static function isVip(User $user): bool
     {
-        return (bool) $user->vipSubscription?->is_active;
+        return $user->isVip();
     }
 
     public static function canCreateClass(User $user): bool

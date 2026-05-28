@@ -30,7 +30,7 @@
   .vip-features { display:flex; flex-direction:column; gap:.55rem; margin:0; padding:0; list-style:none; color:var(--muted-foreground); font-size:var(--text-sm); }
   .vip-features li { display:flex; gap:.5rem; align-items:flex-start; }
   .vip-form { display:flex; flex-direction:column; gap:.75rem; margin-top:auto; }
-  .vip-form select { width:100%; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--background); color:var(--foreground); padding:.65rem .75rem; font-size:var(--text-sm); }
+  .vip-form :is(select,input) { width:100%; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--background); color:var(--foreground); padding:.65rem .75rem; font-size:var(--text-sm); }
   .vip-section-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,.45fr); gap:1rem; align-items:start; }
   .vip-alert { padding:1rem; border-radius:var(--radius-lg); border:1px solid var(--border); background:var(--card); }
   .vip-alert-success { border-color:color-mix(in srgb,var(--success) 35%,var(--border)); background:color-mix(in srgb,var(--success) 8%,var(--card)); color:var(--success); }
@@ -118,6 +118,10 @@
         @csrf
         <input type="hidden" name="plan" value="monthly">
         @include('pages.teacher.partials.vip-bank-select')
+        <label>
+          <span style="display:block;margin-bottom:.35rem;font-size:var(--text-sm);font-weight:700;">Mã khuyến mãi</span>
+          <input name="promotion_code" value="{{ old('promotion_code') }}" placeholder="Nhập mã nếu có">
+        </label>
         <button class="btn btn-primary w-full" type="submit">Thanh toán VNPay</button>
       </form>
     </article>
@@ -135,6 +139,10 @@
         @csrf
         <input type="hidden" name="plan" value="yearly">
         @include('pages.teacher.partials.vip-bank-select')
+        <label>
+          <span style="display:block;margin-bottom:.35rem;font-size:var(--text-sm);font-weight:700;">Mã khuyến mãi</span>
+          <input name="promotion_code" value="{{ old('promotion_code') }}" placeholder="Nhập mã nếu có">
+        </label>
         <button class="btn btn-primary w-full" type="submit">Thanh toán VNPay</button>
       </form>
     </article>
@@ -151,6 +159,10 @@
         @csrf
         <input type="hidden" name="plan" value="lifetime">
         @include('pages.teacher.partials.vip-bank-select')
+        <label>
+          <span style="display:block;margin-bottom:.35rem;font-size:var(--text-sm);font-weight:700;">Mã khuyến mãi</span>
+          <input name="promotion_code" value="{{ old('promotion_code') }}" placeholder="Nhập mã nếu có">
+        </label>
         <button class="btn btn-primary w-full" type="submit">Thanh toán VNPay</button>
       </form>
     </article>
@@ -167,6 +179,9 @@
             <li><span>Mã đơn</span><span class="vip-copy">{{ $latestPayment->txn_ref }}</span></li>
             <li><span>Gói</span><strong>{{ $planNames[$latestPayment->plan] ?? $latestPayment->plan }}</strong></li>
             <li><span>Số tiền</span><strong>{{ number_format($latestPayment->amount) }}đ</strong></li>
+            @if($latestPayment->promotion_code)
+              <li><span>Khuyến mãi</span><strong>{{ $latestPayment->promotion_code }} (-{{ number_format($latestPayment->discount_amount) }}đ)</strong></li>
+            @endif
             <li><span>Trạng thái</span><span class="vip-status {{ $statusClasses[$latestPayment->status] ?? '' }}">{{ $statusNames[$latestPayment->status] ?? $latestPayment->status }}</span></li>
             <li><span>Thời gian</span><strong>{{ $latestPayment->created_at->format('d/m/Y H:i') }}</strong></li>
           </ul>

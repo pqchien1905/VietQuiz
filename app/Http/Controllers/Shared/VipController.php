@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shared;
 
 use App\Http\Controllers\Controller;
+use App\Models\Promotion;
 use App\Models\VipPayment;
 use App\Models\VipPlan;
 use App\Models\VipSubscription;
@@ -16,27 +17,30 @@ class VipController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $subscription = $user->vipSubscription;
-        $latestPayment = $user->vipPayments()->latest()->first();
-        $viewPath = $user->isTeacher() ? 'pages.teacher.vip' : 'pages.student.vip';
+        $audience = $this->audienceForUser($user);
+        $subscription = $user->vipSubscriptionForAudience($audience)->first();
+        $latestPayment = $user->vipPaymentsForAudience($audience)->latest()->first();
+        $viewPath = $audience === 'teacher' ? 'pages.teacher.vip' : 'pages.student.vip';
 
         return view($viewPath, [
             'user' => $user,
             'subscription' => $subscription,
             'latestPayment' => $latestPayment,
-            'plans' => $this->plansForUser($user),
+            'plans' => $this->plansForAudience($audience),
             'ipnUrl' => route('vip.vnpay.ipn'),
         ]);
     }
 
     public function subscribe(Request $request)
     {
-        $plans = $this->plansForUser($request->user());
+        $audience = $this->audienceForUser($request->user());
+        $plans = $this->plansForAudience($audience);
         $planKeys = implode(',', array_keys($plans));
 
         $validated = $request->validate([
             'plan' => 'required|in:' . $planKeys,
             'bank_code' => 'nullable|in:VNPAYQR,VNBANK,INTCARD,NCB',
+            'promotion_code' => ['nullable', 'string', 'max:50'],
         ]);
 
         $config = config('services.vnpay');
@@ -45,14 +49,41 @@ class VipController extends Controller
         }
 
         $plan = $plans[$validated['plan']];
+        $promotion = $this->resolvePromotion($validated['promotion_code'] ?? null, $validated['plan'], $audience);
+        if (($validated['promotion_code'] ?? null) && ! $promotion) {
+            return back()
+                ->withInput()
+                ->withErrors(['promotion_code' => 'Mã khuyến mãi không hợp lệ, đã hết hạn hoặc không áp dụng cho gói này.']);
+        }
+
+        $originalAmount = $plan['amount'];
+        $discountAmount = $promotion ? $this->discountAmount($promotion, $originalAmount) : 0;
+        $amount = max(0, $originalAmount - $discountAmount);
         $payment = VipPayment::create([
             'user_id' => $request->user()->id,
+            'audience' => $audience,
+            'promotion_id' => $promotion?->id,
+            'promotion_code' => $promotion?->code,
             'txn_ref' => $this->makeTxnRef($request->user()->id),
             'plan' => $validated['plan'],
-            'amount' => $plan['amount'],
+            'original_amount' => $originalAmount,
+            'discount_amount' => $discountAmount,
+            'amount' => $amount,
             'bank_code' => $validated['bank_code'] ?? null,
             'status' => 'pending',
         ]);
+
+        if ($amount === 0) {
+            $this->markPaymentPaid($payment, [
+                'vnp_ResponseCode' => '00',
+                'vnp_TransactionStatus' => '00',
+                'promotion_free_checkout' => true,
+            ]);
+
+            return redirect()
+                ->route($audience === 'teacher' ? 'teacher.vip' : 'student.vip')
+                ->with('success', 'Mã khuyến mãi đã giảm 100%. Gói VIP đã được kích hoạt.');
+        }
 
         return redirect()->away($this->buildPaymentUrl($request, $payment, $plan['label']));
     }
@@ -61,7 +92,7 @@ class VipController extends Controller
     {
         $payment = VipPayment::with('user')->where('txn_ref', $request->query('vnp_TxnRef'))->first();
         $returnUser = $request->user() ?: $payment?->user;
-        $routeName = $returnUser?->isTeacher() ? 'teacher.vip' : 'student.vip';
+        $routeName = ($payment?->audience ?? $this->audienceForUser($returnUser)) === 'teacher' ? 'teacher.vip' : 'student.vip';
 
         if (!$this->hasValidSignature($request->query())) {
             return redirect()->route($routeName)->with('error', 'VNPay trả về checksum không hợp lệ. Giao dịch chưa được kích hoạt.');
@@ -120,10 +151,13 @@ class VipController extends Controller
 
     public function cancel(Request $request)
     {
+        $audience = $this->audienceForUser($request->user());
+
         VipSubscription::where('user_id', $request->user()->id)
+            ->where('audience', $audience)
             ->update(['status' => 'cancelled']);
 
-        $routeName = $request->user()->isTeacher() ? 'teacher.vip' : 'student.vip';
+        $routeName = $audience === 'teacher' ? 'teacher.vip' : 'student.vip';
 
         return redirect()
             ->route($routeName)
@@ -196,8 +230,12 @@ class VipController extends Controller
                 'lifetime' => null,
             };
 
+            $audience = $payment->audience ?? $this->audienceForUser($payment->user);
             $subscription = VipSubscription::updateOrCreate(
-                ['user_id' => $payment->user_id],
+                [
+                    'user_id' => $payment->user_id,
+                    'audience' => $audience,
+                ],
                 [
                     'plan' => $payment->plan,
                     'status' => 'active',
@@ -207,6 +245,7 @@ class VipController extends Controller
             );
 
             $payment->update([
+                'audience' => $audience,
                 'vip_subscription_id' => $subscription->id,
                 'status' => 'paid',
                 'vnp_transaction_no' => $payload['vnp_TransactionNo'] ?? null,
@@ -216,6 +255,10 @@ class VipController extends Controller
                 'paid_at' => now(),
                 'vnp_payload' => $payload,
             ]);
+
+            if ($payment->promotion_id) {
+                Promotion::whereKey($payment->promotion_id)->increment('used_count');
+            }
         });
     }
 
@@ -240,9 +283,8 @@ class VipController extends Controller
         return 'VQVIP' . $userId . now('Asia/Ho_Chi_Minh')->format('YmdHis') . Str::upper(Str::random(6));
     }
 
-    private function plansForUser($user): array
+    private function plansForAudience(string $audience): array
     {
-        $audience = $user->isTeacher() ? 'teacher' : 'student';
         $plans = VipPlan::where('audience', $audience)
             ->where('status', 'active')
             ->orderBy('sort_order')
@@ -269,5 +311,41 @@ class VipController extends Controller
                 ],
             ])
             ->all();
+    }
+
+    private function audienceForUser($user): string
+    {
+        return $user?->isStudent() ? 'student' : 'teacher';
+    }
+
+    private function resolvePromotion(?string $code, string $plan, string $audience): ?Promotion
+    {
+        $code = Str::upper(trim((string) $code));
+        if ($code === '') {
+            return null;
+        }
+
+        $promotion = Promotion::query()
+            ->where('code', $code)
+            ->where(function ($query) use ($plan) {
+                $query->where('vip_plan', 'all')
+                    ->orWhere('vip_plan', $plan);
+            })
+            ->where(function ($query) use ($audience) {
+                $query->where('audience', 'all')
+                    ->orWhere('audience', $audience);
+            })
+            ->first();
+
+        return $promotion?->isActive() ? $promotion : null;
+    }
+
+    private function discountAmount(Promotion $promotion, int $amount): int
+    {
+        $discount = $promotion->discount_type === 'percentage'
+            ? (int) floor($amount * ((float) $promotion->discount_value / 100))
+            : (int) $promotion->discount_value;
+
+        return min($amount, max(0, $discount));
     }
 }

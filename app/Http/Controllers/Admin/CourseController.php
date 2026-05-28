@@ -181,7 +181,7 @@ class CourseController extends AdminBaseController
     {
         if ($redirect = $this->requireAdmin($request)) return $redirect;
         Course::findOrFail($id)->delete();
-        return back()->with('success', 'Đã đưa khóa học vào thùng rác.');
+        return back()->with('success', 'Đã xóa khóa học khỏi danh sách hoạt động.');
     }
 
     public function restoreCourse(Request $request, int $id): RedirectResponse

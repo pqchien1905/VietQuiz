@@ -20,6 +20,8 @@
 @push('styles')
 <style>
   .class-card{border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--card);display:flex;flex-direction:column;overflow:visible;transition:box-shadow var(--transition-fast),transform var(--transition-fast),border-color var(--transition-fast)}
+  .class-card.is-clickable{cursor:pointer}
+  .class-card.is-clickable:focus{outline:2px solid var(--primary);outline-offset:3px}
   .class-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);border-color:color-mix(in srgb,var(--primary) 28%,var(--border))}
   .class-card__header{padding:1.25rem 1.25rem 1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:.875rem}
   .class-card__main{display:flex;align-items:flex-start;gap:.875rem;min-width:0}
@@ -137,7 +139,7 @@
         $color = $colors[$index % count($colors)];
         $status = $class->status ?? 'active';
       @endphp
-      <article class="class-card">
+      <article class="class-card is-clickable" role="link" tabindex="0" data-detail-url="{{ route('teacher.class-detail', $class) }}" onclick="openClassDetail(event, this)" onkeydown="openClassDetailFromKey(event, this)">
         <div class="class-card__header">
           <div class="class-card__main">
             <div class="class-icon" style="background:{{ $color }};">{{ mb_substr($class->name, 0, 1) }}</div>
@@ -155,7 +157,7 @@
             </div>
           </div>
 
-          <div class="dropdown" style="position:relative;z-index:20;">
+          <div class="dropdown" style="position:relative;z-index:20;" onclick="event.stopPropagation()">
             <button class="icon-btn" type="button" onclick="event.stopPropagation();toggleDropdown(this)" aria-label="Mở menu lớp" style="width:2rem;height:2rem;">
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
             </button>
@@ -198,7 +200,7 @@
           </div>
         </div>
 
-        <div class="class-card__footer">
+        <div class="class-card__footer" onclick="event.stopPropagation()">
           <a href="{{ route('teacher.class-detail', $class) }}" class="btn btn-outline btn-sm" style="flex:1;justify-content:center;">Xem lớp</a>
           <a href="{{ route('teacher.quiz-create', ['class_id' => $class->id]) }}" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">Giao bài</a>
           <button class="class-code" type="button" data-code="{{ $class->code }}" onclick="copyClassCode(this)" title="Sao chép mã lớp">{{ $class->code }}</button>
@@ -416,6 +418,20 @@
     document.getElementById('delete-form').action = item.delete_url;
     closeAllDropdowns();
     openModal('delete-modal');
+  };
+
+  window.openClassDetail = function(event, card) {
+    if (event.target.closest('a, button, form, input, select, textarea, .dropdown, .modal-overlay')) return;
+    const url = card.dataset.detailUrl;
+    if (url) window.location.href = url;
+  };
+
+  window.openClassDetailFromKey = function(event, card) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (event.target.closest('a, button, form, input, select, textarea, .dropdown, .modal-overlay')) return;
+    event.preventDefault();
+    const url = card.dataset.detailUrl;
+    if (url) window.location.href = url;
   };
 
   window.toggleDropdown = function(button) {
